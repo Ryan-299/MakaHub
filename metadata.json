@@ -1,0 +1,6 @@
+{
+  "name": "MakaoHub",
+  "description": "Kenyan rental property marketplace connecting property seekers with landlords, caretakers, and property managers.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
