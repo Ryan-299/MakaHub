@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSignUp } from '@clerk/react';
 import { Sun, Moon, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import darkLogo from '../assets/MAKAOHUB LOGO NO BACKGROUND (Dark Mode).png';
@@ -7,6 +8,11 @@ import lightLogo from '../assets/official no white background image.png';
 export const SignupView: React.FC = () => {
   const { signupNewUser, setCurrentView, resolvedTheme, setTheme } = useApp();
   const isDark = resolvedTheme === 'dark';
+  const { signUp, fetchStatus } = useSignUp();
+  const [code, setCode] = useState('');
+  const [pendingVerification, setPendingVerification] = useState(false);
+
+  const isSubmitting = fetchStatus === 'fetching';
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -18,9 +24,8 @@ export const SignupView: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [googleNotice, setGoogleNotice] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setGoogleNotice(false);
 
     const trimmedName = fullName.trim();
     const trimmedEmail = email.trim();
@@ -35,9 +40,115 @@ export const SignupView: React.FC = () => {
       return;
     }
 
+    if (password.length < 8) {
+      setErrorMessage('Password must be at least 8 characters.');
+      return;
+    }
+
     setErrorMessage('');
-    // Proceed to existing role-purpose selection screen ("What are you here to do?")
-    signupNewUser(trimmedName, trimmedEmail, '');
+
+    try {
+      const { error } = await signUp.password({
+        emailAddress: trimmedEmail,
+        password,
+        firstName: trimmedName.split(' ')[0],
+        lastName: trimmedName.split(' ').slice(1).join(' ') || undefined,
+      });
+
+      if (error) {
+        setErrorMessage(
+          error.message ||
+          'Could not create account. That email may already be in use.'
+        );
+        return;
+      }
+
+      const { error: sendError } =
+        await signUp.verifications.sendEmailCode();
+
+      if (sendError) {
+        setErrorMessage(
+          sendError.message ||
+          'Could not send the verification code. Please try again.'
+        );
+        return;
+      }
+
+      setPendingVerification(true);
+    } catch (err: any) {
+      setErrorMessage(
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        'Something went wrong while creating your account.'
+      );
+    }
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage('');
+
+    if (!code.trim()) {
+      setErrorMessage('Please enter the verification code.');
+      return;
+    }
+
+    try {
+      const { error } = await signUp.verifications.verifyEmailCode({
+        code: code.trim(),
+      });
+
+      if (error) {
+        setErrorMessage(
+          error.message ||
+          'The verification code is incorrect or has expired.'
+        );
+        return;
+      }
+
+      if (signUp.status === 'complete') {
+        await signUp.finalize({
+          navigate: () => {
+            setCurrentView('role-selection');
+          },
+        });
+      } else {
+        setErrorMessage(
+          'Your email was verified, but signup is not complete yet.'
+        );
+      }
+    } catch (err: any) {
+      setErrorMessage(
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        'The verification code is incorrect or has expired.'
+      );
+    }
+  };
+
+  const handleResendCode = async () => {
+    setErrorMessage('');
+
+    try {
+      const { error } =
+        await signUp.verifications.sendEmailCode();
+
+      if (error) {
+        setErrorMessage(
+          error.message ||
+          'Could not resend the verification code.'
+        );
+        return;
+      }
+
+      setErrorMessage('A new verification code has been sent.');
+    } catch (err: any) {
+      setErrorMessage(
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        'Could not resend the verification code.'
+      );
+    }
   };
 
   const handleGoogleClick = () => {
@@ -51,13 +162,82 @@ export const SignupView: React.FC = () => {
       setTheme('dark');
     }
   };
+  if (pendingVerification) {
+    return (
+      <main
+        className={`min-h-screen w-full flex flex-col justify-center items-center px-6 py-6 transition-colors duration-200 ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
+          }`}
+      >
+        <div className="w-full max-w-[400px] mx-auto flex flex-col items-center text-center">
 
+          <h1
+            className={`font-editorial text-3xl font-normal mb-2 ${isDark ? 'text-white' : 'text-neutral-950'
+              }`}
+            style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
+          >
+            Verify your email
+          </h1>
+
+          <p
+            className={`text-sm mb-6 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
+              }`}
+          >
+            We sent a verification code to {email.trim()}
+          </p>
+
+          {errorMessage && (
+            <div className="w-full mb-4 px-4 py-3 rounded-2xl text-xs font-semibold text-red-500 bg-red-500/10 border border-red-500/20 text-center">
+              {errorMessage}
+            </div>
+          )}
+
+          <form onSubmit={handleVerify} className="w-full space-y-4">
+
+            <input
+              type="text"
+              inputMode="numeric"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="Enter verification code"
+              required
+              className={`w-full h-12 px-4 rounded-2xl text-sm font-medium border text-center tracking-widest focus:outline-none ${isDark
+                ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
+                : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
+                }`}
+            />
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`w-full h-[52px] rounded-2xl text-sm font-semibold disabled:opacity-60 ${isDark
+                ? 'bg-white text-black'
+                : 'bg-black text-white'
+                }`}
+            >
+              {isSubmitting ? 'VERIFYING...' : 'VERIFY'}
+            </button>
+
+          </form>
+
+          <button
+            type="button"
+            onClick={handleResendCode}
+            disabled={isSubmitting}
+            className={`mt-4 text-xs font-semibold underline underline-offset-4 disabled:opacity-50 ${isDark ? 'text-neutral-300' : 'text-neutral-700'
+              }`}
+          >
+            Resend Code
+          </button>
+
+        </div>
+      </main>
+    );
+  }
   return (
     <main
       id="makaohub-signup-screen"
-      className={`min-h-screen w-full flex flex-col justify-between items-center px-6 py-6 sm:py-10 transition-colors duration-200 relative ${
-        isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
-      }`}
+      className={`min-h-screen w-full flex flex-col justify-between items-center px-6 py-6 sm:py-10 transition-colors duration-200 relative ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
+        }`}
       style={{
         backgroundColor: isDark ? '#000000' : '#FFFFFF'
       }}
@@ -70,11 +250,10 @@ export const SignupView: React.FC = () => {
           id="signup-back-btn"
           onClick={() => setCurrentView('welcome')}
           aria-label="Back to Welcome screen"
-          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-all cursor-pointer ${
-            isDark
-              ? 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-              : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
-          }`}
+          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-all cursor-pointer ${isDark
+            ? 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+            : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
+            }`}
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="font-body hidden sm:inline">Back</span>
@@ -87,11 +266,10 @@ export const SignupView: React.FC = () => {
           onClick={toggleThemeMode}
           title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          className={`p-2.5 rounded-full transition-all cursor-pointer border focus:outline-none focus:ring-2 ${
-            isDark
-              ? 'bg-neutral-900/90 hover:bg-neutral-800 border-neutral-800 text-neutral-200 hover:text-white focus:ring-white'
-              : 'bg-neutral-100 hover:bg-neutral-200 border-neutral-200 text-neutral-700 hover:text-black focus:ring-black'
-          }`}
+          className={`p-2.5 rounded-full transition-all cursor-pointer border focus:outline-none focus:ring-2 ${isDark
+            ? 'bg-neutral-900/90 hover:bg-neutral-800 border-neutral-800 text-neutral-200 hover:text-white focus:ring-white'
+            : 'bg-neutral-100 hover:bg-neutral-200 border-neutral-200 text-neutral-700 hover:text-black focus:ring-black'
+            }`}
         >
           {isDark ? (
             <Sun className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
@@ -115,9 +293,8 @@ export const SignupView: React.FC = () => {
 
         {/* 2. Page Title with Cormorant Garamond */}
         <h1
-          className={`font-editorial text-3xl sm:text-4xl font-normal leading-tight tracking-tight mb-2 ${
-            isDark ? 'text-white' : 'text-neutral-950'
-          }`}
+          className={`font-editorial text-3xl sm:text-4xl font-normal leading-tight tracking-tight mb-2 ${isDark ? 'text-white' : 'text-neutral-950'
+            }`}
           style={{
             fontFamily: "'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', Times, serif"
           }}
@@ -127,9 +304,8 @@ export const SignupView: React.FC = () => {
 
         {/* 3. Supporting Text */}
         <p
-          className={`font-body text-sm sm:text-base font-normal leading-relaxed max-w-[360px] mb-6 sm:mb-8 ${
-            isDark ? 'text-neutral-400' : 'text-neutral-600'
-          }`}
+          className={`font-body text-sm sm:text-base font-normal leading-relaxed max-w-[360px] mb-6 sm:mb-8 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
+            }`}
           style={{
             fontFamily: "'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif"
           }}
@@ -164,9 +340,8 @@ export const SignupView: React.FC = () => {
           <div>
             <label
               htmlFor="signup-full-name"
-              className={`block text-xs font-semibold mb-1.5 ${
-                isDark ? 'text-neutral-300' : 'text-neutral-700'
-              }`}
+              className={`block text-xs font-semibold mb-1.5 ${isDark ? 'text-neutral-300' : 'text-neutral-700'
+                }`}
             >
               Full Name
             </label>
@@ -180,11 +355,10 @@ export const SignupView: React.FC = () => {
               }}
               placeholder="e.g. Kevin Otieno"
               required
-              className={`w-full h-12 sm:h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${
-                isDark
-                  ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
-                  : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
-              }`}
+              className={`w-full h-12 sm:h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${isDark
+                ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
+                : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
+                }`}
             />
           </div>
 
@@ -192,9 +366,8 @@ export const SignupView: React.FC = () => {
           <div>
             <label
               htmlFor="signup-email"
-              className={`block text-xs font-semibold mb-1.5 ${
-                isDark ? 'text-neutral-300' : 'text-neutral-700'
-              }`}
+              className={`block text-xs font-semibold mb-1.5 ${isDark ? 'text-neutral-300' : 'text-neutral-700'
+                }`}
             >
               Email Address
             </label>
@@ -208,11 +381,10 @@ export const SignupView: React.FC = () => {
               }}
               placeholder="you@example.com"
               required
-              className={`w-full h-12 sm:h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${
-                isDark
-                  ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
-                  : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
-              }`}
+              className={`w-full h-12 sm:h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${isDark
+                ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
+                : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
+                }`}
             />
           </div>
 
@@ -220,9 +392,8 @@ export const SignupView: React.FC = () => {
           <div>
             <label
               htmlFor="signup-password"
-              className={`block text-xs font-semibold mb-1.5 ${
-                isDark ? 'text-neutral-300' : 'text-neutral-700'
-              }`}
+              className={`block text-xs font-semibold mb-1.5 ${isDark ? 'text-neutral-300' : 'text-neutral-700'
+                }`}
             >
               Password
             </label>
@@ -237,11 +408,10 @@ export const SignupView: React.FC = () => {
                 }}
                 placeholder="Enter password"
                 required
-                className={`w-full h-12 sm:h-[50px] pl-4 pr-11 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${
-                  isDark
-                    ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
-                    : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
-                }`}
+                className={`w-full h-12 sm:h-[50px] pl-4 pr-11 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${isDark
+                  ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
+                  : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
+                  }`}
               />
               <button
                 type="button"
@@ -262,9 +432,8 @@ export const SignupView: React.FC = () => {
           <div>
             <label
               htmlFor="signup-confirm-password"
-              className={`block text-xs font-semibold mb-1.5 ${
-                isDark ? 'text-neutral-300' : 'text-neutral-700'
-              }`}
+              className={`block text-xs font-semibold mb-1.5 ${isDark ? 'text-neutral-300' : 'text-neutral-700'
+                }`}
             >
               Confirm Password
             </label>
@@ -279,11 +448,10 @@ export const SignupView: React.FC = () => {
                 }}
                 placeholder="Confirm password"
                 required
-                className={`w-full h-12 sm:h-[50px] pl-4 pr-11 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${
-                  isDark
-                    ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
-                    : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
-                }`}
+                className={`w-full h-12 sm:h-[50px] pl-4 pr-11 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${isDark
+                  ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
+                  : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
+                  }`}
               />
               <button
                 type="button"
@@ -304,11 +472,10 @@ export const SignupView: React.FC = () => {
           <button
             type="submit"
             id="signup-continue-btn"
-            className={`w-full h-[52px] sm:h-14 mt-2 rounded-2xl text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-              isDark
-                ? 'bg-white hover:bg-neutral-100 active:bg-neutral-200 text-black focus:ring-white focus:ring-offset-black'
-                : 'bg-black hover:bg-neutral-800 active:bg-neutral-900 text-white focus:ring-black focus:ring-offset-white'
-            }`}
+            className={`w-full h-[52px] sm:h-14 mt-2 rounded-2xl text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 ${isDark
+              ? 'bg-white hover:bg-neutral-100 active:bg-neutral-200 text-black focus:ring-white focus:ring-offset-black'
+              : 'bg-black hover:bg-neutral-800 active:bg-neutral-900 text-white focus:ring-black focus:ring-offset-white'
+              }`}
           >
             <span>CONTINUE</span>
           </button>
@@ -317,14 +484,12 @@ export const SignupView: React.FC = () => {
         {/* OR Divider */}
         <div className="relative my-6 flex items-center justify-center w-full">
           <div
-            className={`border-t w-full ${
-              isDark ? 'border-neutral-800' : 'border-neutral-200'
-            }`}
+            className={`border-t w-full ${isDark ? 'border-neutral-800' : 'border-neutral-200'
+              }`}
           />
           <span
-            className={`absolute px-3 text-[11px] font-semibold tracking-wider uppercase font-body ${
-              isDark ? 'bg-black text-neutral-500' : 'bg-white text-neutral-400'
-            }`}
+            className={`absolute px-3 text-[11px] font-semibold tracking-wider uppercase font-body ${isDark ? 'bg-black text-neutral-500' : 'bg-white text-neutral-400'
+              }`}
           >
             OR
           </span>
@@ -335,11 +500,10 @@ export const SignupView: React.FC = () => {
           type="button"
           id="signup-google-btn"
           onClick={handleGoogleClick}
-          className={`w-full h-[52px] sm:h-14 rounded-2xl text-sm font-semibold tracking-wide flex items-center justify-center gap-3 transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer border focus:outline-none focus:ring-2 ${
-            isDark
-              ? 'bg-transparent hover:bg-white/5 active:bg-white/10 border-neutral-800 text-white focus:ring-white focus:ring-offset-black'
-              : 'bg-white hover:bg-neutral-50 active:bg-neutral-100 border-neutral-300 text-neutral-900 focus:ring-black focus:ring-offset-white'
-          }`}
+          className={`w-full h-[52px] sm:h-14 rounded-2xl text-sm font-semibold tracking-wide flex items-center justify-center gap-3 transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer border focus:outline-none focus:ring-2 ${isDark
+            ? 'bg-transparent hover:bg-white/5 active:bg-white/10 border-neutral-800 text-white focus:ring-white focus:ring-offset-black'
+            : 'bg-white hover:bg-neutral-50 active:bg-neutral-100 border-neutral-300 text-neutral-900 focus:ring-black focus:ring-offset-white'
+            }`}
         >
           {/* Official multicolor Google "G" icon */}
           <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
@@ -365,18 +529,16 @@ export const SignupView: React.FC = () => {
 
         {/* 5. Login Link */}
         <div
-          className={`mt-8 text-xs font-body ${
-            isDark ? 'text-neutral-400' : 'text-neutral-500'
-          }`}
+          className={`mt-8 text-xs font-body ${isDark ? 'text-neutral-400' : 'text-neutral-500'
+            }`}
         >
           <span>Already have an account? </span>
           <button
             type="button"
             id="signup-to-login-btn"
             onClick={() => setCurrentView('login')}
-            className={`font-semibold underline underline-offset-4 cursor-pointer transition-colors ${
-              isDark ? 'text-white hover:text-neutral-200' : 'text-black hover:text-neutral-700'
-            }`}
+            className={`font-semibold underline underline-offset-4 cursor-pointer transition-colors ${isDark ? 'text-white hover:text-neutral-200' : 'text-black hover:text-neutral-700'
+              }`}
           >
             Log in
           </button>
