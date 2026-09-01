@@ -129,6 +129,7 @@ export const SignupView: React.FC = () => {
   const handleResendCode = async () => {
     setErrorMessage('');
 
+
     try {
       const { error } =
         await signUp.verifications.sendEmailCode();
@@ -150,7 +151,12 @@ export const SignupView: React.FC = () => {
       );
     }
   };
-
+  const handleChangeEmail = () => {
+    setPendingVerification(false);
+    setCode('');
+    setErrorMessage('');
+    setEmail('');
+  };
   const handleGoogleClick = () => {
     setGoogleNotice(true);
   };
@@ -227,6 +233,15 @@ export const SignupView: React.FC = () => {
               }`}
           >
             Resend Code
+          </button>
+          <button
+            type="button"
+            onClick={handleChangeEmail}
+            disabled={isSubmitting}
+            className={`mt-3 text-xs font-semibold underline underline-offset-4 disabled:opacity-50 ${isDark ? 'text-neutral-300' : 'text-neutral-700'
+              }`}
+          >
+            Change Email
           </button>
 
         </div>
