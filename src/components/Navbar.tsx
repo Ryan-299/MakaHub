@@ -276,9 +276,8 @@ export const Navbar: React.FC = () => {
                             <div
                               key={notif.id}
                               onClick={() => handleNotificationClick(notif)}
-                              className={`p-3.5 text-xs hover:bg-neutral-50 dark:hover:bg-neutral-900 cursor-pointer transition-colors ${
-                                !notif.read ? 'bg-neutral-50/90 dark:bg-neutral-900/60 font-medium' : ''
-                              }`}
+                              className={`p-3.5 text-xs hover:bg-neutral-50 dark:hover:bg-neutral-900 cursor-pointer transition-colors ${!notif.read ? 'bg-neutral-50/90 dark:bg-neutral-900/60 font-medium' : ''
+                                }`}
                             >
                               <div className="flex items-center justify-between gap-2 mb-1">
                                 <span className="font-bold text-neutral-900 dark:text-white truncate">{notif.title}</span>
@@ -371,8 +370,8 @@ export const Navbar: React.FC = () => {
                           {currentUser.role === 'lister'
                             ? (currentUser.listerSubtype || 'Lister')
                             : currentUser.role === 'admin'
-                            ? 'Administrator'
-                            : 'Seeker'}
+                              ? 'Administrator'
+                              : 'Seeker'}
                         </div>
                       </div>
 
@@ -395,37 +394,43 @@ export const Navbar: React.FC = () => {
                         </button>
                       </div>
 
-                      {/* Role Switcher if applicable */}
-                      {(currentUser.role !== 'seeker' || isListerMode) && (
-                        <div className="px-2 pt-1 pb-1 border-t border-neutral-100 dark:border-neutral-800">
-                          {currentUser.role !== 'seeker' && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                switchUserMode('seeker');
-                                setProfileMenuOpen(false);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-900 text-left"
-                            >
-                              <Compass className="w-3.5 h-3.5" />
-                              <span>Switch to Seeker View</span>
-                            </button>
-                          )}
-                          {currentUser.role !== 'lister' && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                switchUserMode('lister');
-                                setProfileMenuOpen(false);
-                              }}
-                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-900 text-left"
-                            >
-                              <Building className="w-3.5 h-3.5" />
-                              <span>Switch to Lister View</span>
-                            </button>
-                          )}
-                        </div>
-                      )}
+                      {/* Role Switcher — listers can move between Seeker and Lister sides */}
+                      {currentUser.role === 'lister' && (() => {
+                        const isOnListerSide =
+                          currentView.startsWith('lister-') ||
+                          currentView === 'my-listings' ||
+                          currentView === 'add-property';
+
+                        return (
+                          <div className="px-2 pt-1 pb-1 border-t border-neutral-100 dark:border-neutral-800">
+                            {isOnListerSide ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  switchUserMode('seeker');
+                                  setProfileMenuOpen(false);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px]"
+                              >
+                                <Compass className="w-3.5 h-3.5" />
+                                <span>Switch to Seeker View</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  switchUserMode('lister');
+                                  setProfileMenuOpen(false);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px]"
+                              >
+                                <Building className="w-3.5 h-3.5" />
+                                <span>Switch to Lister View</span>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Sign Out */}
                       <div className="p-2 pt-1 border-t border-neutral-100 dark:border-neutral-800">

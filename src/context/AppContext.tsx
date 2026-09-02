@@ -267,6 +267,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, [isLoaded, isSignedIn, clerkUser, currentUser]);
   useEffect(() => {
+    if (!isLoaded || !isSignedIn || !clerkUser || !currentUser) return;
+
+    const googleAccount = clerkUser.externalAccounts?.find(
+      (account) => account.provider === 'google'
+    );
+
+    const clerkAvatar =
+      googleAccount?.imageUrl ||
+      (clerkUser.hasImage ? clerkUser.imageUrl : '');
+
+    if (!clerkAvatar || currentUser.avatar === clerkAvatar) return;
+
+    const updatedUser: UserAccount = {
+      ...currentUser,
+      avatar: clerkAvatar,
+    };
+
+    setCurrentUser(updatedUser);
+
+    setUsers((prev) =>
+      prev.map((user) =>
+        user.id === updatedUser.id ? updatedUser : user
+      )
+    );
+  }, [isLoaded, isSignedIn, clerkUser, currentUser]);
+  useEffect(() => {
     if (
       !isLoaded ||
       !isSignedIn ||
@@ -281,12 +307,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const syncUserToConvex = async () => {
       try {
+        const googleAccount = clerkUser.externalAccounts?.find(
+          (account) => account.provider === 'google'
+        );
+
+        const clerkName =
+          clerkUser.fullName ||
+          [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') ||
+          currentUser.name;
+
+        const clerkEmail =
+          clerkUser.primaryEmailAddress?.emailAddress ||
+          currentUser.email;
+
+        const clerkPhone =
+          clerkUser.primaryPhoneNumber?.phoneNumber ||
+          currentUser.phone;
+
+        const clerkAvatar =
+          googleAccount?.imageUrl ||
+          (clerkUser.hasImage ? clerkUser.imageUrl : currentUser.avatar);
+
+        const correctedUser: UserAccount = {
+          ...currentUser,
+          name: clerkName,
+          email: clerkEmail,
+          phone: clerkPhone,
+          avatar: clerkAvatar,
+        };
+
+        if (
+          currentUser.name !== correctedUser.name ||
+          currentUser.email !== correctedUser.email ||
+          currentUser.phone !== correctedUser.phone ||
+          currentUser.avatar !== correctedUser.avatar
+        ) {
+          setCurrentUser(correctedUser);
+
+          setUsers((prev) =>
+            prev.map((user) =>
+              user.id === correctedUser.id ? correctedUser : user
+            )
+          );
+        }
+
         await convexClient.mutation(api.users.upsertUser, {
           userId: clerkUser.id,
-          name: currentUser.name,
-          email: currentUser.email,
-          phone: currentUser.phone,
-          avatar: currentUser.avatar,
+          name: clerkName,
+          email: clerkEmail,
+          phone: clerkPhone,
+          role: currentUser.role,
+          listerSubtype: currentUser.listerSubtype,
+          joinedAt: currentUser.joinedAt,
+          avatar: clerkAvatar,
           savedPropertyIds: currentUser.savedPropertyIds,
         });
       } catch (error) {
@@ -342,12 +415,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const restoredUser: UserAccount = {
           id: savedUser.userId,
-          name: savedUser.name || clerkUser.fullName || 'MakaoHub User',
+          name: clerkUser.fullName || savedUser.name || 'MakaoHub User',
           email:
-            savedUser.email ||
             clerkUser.primaryEmailAddress?.emailAddress ||
+            savedUser.email ||
             '',
-          phone: savedUser.phone || '',
+          phone:
+            clerkUser.primaryPhoneNumber?.phoneNumber ||
+            savedUser.phone ||
+            '',
           role: savedRole,
           listerSubtype:
             savedUser.listerSubtype as ListerSubtype | undefined,
@@ -1132,30 +1208,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentView('welcome');
   };
 
-  // Mode switching (Rule #10) - Switch between the stable demo users
-  const switchUserMode = (targetMode: 'seeker' | 'lister' | 'admin') => {
-    const targetId =
-      targetMode === 'seeker'
-        ? 'demo-seeker-001'
-        : targetMode === 'lister'
-          ? 'demo-lister-001'
-          : 'demo-admin-001';
+  // Mode switching — keep the same signed-in user
+  const switchUserMode = (
+    targetMode: 'seeker' | 'lister' | 'admin'
+  ) => {
+    if (!currentUser) return;
 
-    const targetUser =
-      users.find((u) => u.id === targetId) ||
-      INITIAL_USERS.find((u) => u.id === targetId);
-
-    if (targetUser) {
-      setCurrentUser(targetUser);
-    } else {
-      loginUser(targetMode);
+    if (targetMode === 'seeker') {
+      setCurrentView('tenant-home');
+      return;
     }
 
-    if (targetMode === 'seeker') setCurrentView('tenant-home');
-    else if (targetMode === 'lister') setCurrentView('lister-dashboard');
-    else if (targetMode === 'admin') setCurrentView('admin-dashboard');
-  };
+    if (targetMode === 'lister') {
+      if (currentUser.role === 'lister') {
+        if (currentUser.listerSubtype) {
+          setCurrentView('lister-dashboard');
+        } else {
+          setCurrentView('lister-subtype');
+        }
+      }
+      return;
+    }
 
+    if (targetMode === 'admin' && currentUser.role === 'admin') {
+      setCurrentView('admin-dashboard');
+    }
+  };
   // Lister: Add property (Rule #44 -> Pending Approval)
   const addProperty = async (
     propertyData: Omit<PropertyListing, 'id' | 'createdAt' | 'status' | 'rating' | 'reviewCount' | 'timePosted'>
