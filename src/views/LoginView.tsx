@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSignIn } from '@clerk/react';
 import { Eye, EyeOff, ArrowLeft, Sun, Moon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import darkLogo from '../assets/MAKAOHUB LOGO NO BACKGROUND (Dark Mode).png';
@@ -6,6 +7,7 @@ import lightLogo from '../assets/official no white background image.png';
 
 export const LoginView: React.FC = () => {
   const { loginUser, setCurrentView, resolvedTheme, setTheme } = useApp();
+  const { signIn, fetchStatus } = useSignIn();
   const isDark = resolvedTheme === 'dark';
 
   const [email, setEmail] = useState('');
@@ -13,27 +15,232 @@ export const LoginView: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [googleNotice, setGoogleNotice] = useState(false);
+  const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
+  const [resetCodeSent, setResetCodeSent] = useState(false);
+  const [resetCode, setResetCode] = useState('');
+  const [resendCountdown, setResendCountdown] = useState(60);
+  const [resetCodeVerified, setResetCodeVerified] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  useEffect(() => {
+    if (!resetCodeSent || resetCodeVerified || resendCountdown <= 0) {
+      return;
+    }
 
-  const handleSubmit = (e: React.FormEvent) => {
+    const timer = window.setTimeout(() => {
+      setResendCountdown((current) => Math.max(current - 1, 0));
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [resetCodeSent, resetCodeVerified, resendCountdown]);
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setGoogleNotice(false);
 
     const trimmedEmail = email.trim();
+
     if (!trimmedEmail || !password) {
       setErrorMessage('Please enter both your email address and password.');
       return;
     }
 
     setErrorMessage('');
-    // Log user in and route to the role-selection page ("How would you like to use MakaoHub?")
-    loginUser(trimmedEmail, 'role-selection');
+
+    try {
+      const { error } = await signIn.password({
+        emailAddress: trimmedEmail,
+        password,
+      });
+
+      if (error) {
+        setErrorMessage(
+          error.message ||
+          'Incorrect email address or password.'
+        );
+        return;
+      }
+
+      if (signIn.status === 'complete') {
+        await signIn.finalize({
+          navigate: () => {
+            setCurrentView('tenant-home');
+          },
+        });
+        return;
+      }
+
+      if (signIn.status === 'needs_client_trust') {
+        setErrorMessage(
+          'This sign-in requires an extra verification step.'
+        );
+        return;
+      }
+
+      if (signIn.status === 'needs_second_factor') {
+        setErrorMessage(
+          'This account requires additional verification.'
+        );
+        return;
+      }
+
+      setErrorMessage('Sign-in could not be completed.');
+    } catch (err: any) {
+      setErrorMessage(
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        'Incorrect email address or password.'
+      );
+    }
   };
 
-  const handleGoogleClick = () => {
-    setGoogleNotice(true);
-  };
+  const handleGoogleClick = async () => {
+    setErrorMessage('');
 
+    try {
+      const { error } = await signIn.sso({
+        strategy: 'oauth_google',
+        redirectCallbackUrl: window.location.origin,
+        redirectUrl: window.location.origin,
+      });
+
+      if (error) {
+        setErrorMessage(
+          error.message ||
+          'Google sign-in could not be started. Please try again.'
+        );
+      }
+    } catch (err: any) {
+      setErrorMessage(
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        'Google sign-in could not be started. Please try again.'
+      );
+    }
+  };
+  const handleSendResetCode = async () => {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      setErrorMessage('Please enter your email address.');
+      return;
+    }
+
+    setErrorMessage('');
+
+    try {
+      const { error: createError } = await signIn.create({
+        identifier: trimmedEmail,
+      });
+
+      if (createError) {
+        setErrorMessage(
+          createError.message || 'Could not find that account.'
+        );
+        return;
+      }
+
+      const { error: sendCodeError } =
+        await signIn.resetPasswordEmailCode.sendCode();
+
+      if (sendCodeError) {
+        setErrorMessage(
+          sendCodeError.message ||
+          'Could not send the reset code. Please try again.'
+        );
+        return;
+      }
+
+      setResetCodeSent(true);
+    } catch (err: any) {
+      setErrorMessage(
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        'Could not send the reset code. Please try again.'
+      );
+    }
+  };
+  const handleVerifyResetCode = async () => {
+    if (!resetCode.trim()) {
+      setErrorMessage('Please enter the verification code.');
+      return;
+    }
+
+    setErrorMessage('');
+
+    try {
+      const { error } =
+        await signIn.resetPasswordEmailCode.verifyCode({
+          code: resetCode.trim(),
+        });
+
+      if (error) {
+        setErrorMessage(
+          error.message || 'The verification code is incorrect.'
+        );
+        return;
+      }
+
+      setResetCodeVerified(true);
+    } catch (err: any) {
+      setErrorMessage(
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        'The verification code is incorrect.'
+      );
+    }
+  };
+  const handleResetPassword = async () => {
+    if (!newPassword || !confirmNewPassword) {
+      setErrorMessage('Please enter and confirm your new password.');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setErrorMessage('The passwords do not match.');
+      return;
+    }
+
+    setErrorMessage('');
+
+    try {
+      const { error } =
+        await signIn.resetPasswordEmailCode.submitPassword({
+          password: newPassword,
+          signOutOfOtherSessions: true,
+        });
+
+      if (error) {
+        setErrorMessage(
+          error.message || 'Could not reset your password. Please try again.'
+        );
+        return;
+      }
+
+      if (signIn.status === 'complete') {
+        const { error: finalizeError } = await signIn.finalize({
+          navigate: async ({ decorateUrl }) => {
+            window.location.href = decorateUrl('/');
+          },
+        });
+
+        if (finalizeError) {
+          setErrorMessage(
+            finalizeError.message || 'Password changed, but sign-in could not be completed.'
+          );
+        }
+      }
+    } catch (err: any) {
+      setErrorMessage(
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        'Could not reset your password. Please try again.'
+      );
+    }
+  };
   const toggleThemeMode = () => {
+
     if (resolvedTheme === 'dark') {
       setTheme('light');
     } else {
@@ -41,12 +248,240 @@ export const LoginView: React.FC = () => {
     }
   };
 
+  if (forgotPasswordMode) {
+
+    if (resetCodeVerified) {
+      return (
+        <main
+          className={`min-h-screen w-full flex items-center justify-center px-6 ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
+            }`}
+        >
+          <div className="w-full max-w-[460px]">
+            <h1
+              className="text-4xl text-center mb-3"
+              style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
+            >
+              Create a new password
+            </h1>
+
+            <p
+              className={`text-center text-sm mb-8 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
+                }`}
+            >
+              Choose a new password for your MakaoHub account.
+            </p>
+
+            <label className="block text-xs font-semibold mb-2">
+              New Password
+            </label>
+
+            <div className="relative">
+              <input
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                className={`w-full h-[52px] px-4 pr-12 rounded-2xl border text-sm ${isDark
+                  ? 'bg-neutral-950 border-neutral-800 text-white'
+                  : 'bg-white border-neutral-300 text-neutral-900'
+                  }`}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100"
+                aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+              >
+                {showNewPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+            <label className="block text-xs font-semibold mt-5 mb-2">
+              Confirm Password
+            </label>
+
+            <div className="relative">
+              <input
+                type={showConfirmNewPassword ? 'text' : 'password'}
+                value={confirmNewPassword}
+                onChange={(e) => setConfirmNewPassword(e.target.value)}
+                placeholder="Confirm new password"
+                className={`w-full h-[52px] px-4 pr-12 rounded-2xl border text-sm ${isDark
+                  ? 'bg-neutral-950 border-neutral-800 text-white'
+                  : 'bg-white border-neutral-300 text-neutral-900'
+                  }`}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100"
+                aria-label={
+                  showConfirmNewPassword ? 'Hide password' : 'Show password'
+                }
+              >
+                {showConfirmNewPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleResetPassword}
+              className={`w-full h-[52px] mt-6 rounded-2xl text-sm font-semibold transition-all duration-100 active:scale-[0.98] ${isDark
+                ? 'bg-white text-black active:bg-neutral-300'
+                : 'bg-black text-white active:bg-neutral-700'
+                }`}
+            >
+              {errorMessage && (
+                <div className="mt-4 text-center text-sm text-red-500">
+                  {errorMessage}
+                </div>
+              )}
+              RESET PASSWORD
+            </button>
+          </div>
+        </main>
+      );
+    }
+    if (resetCodeSent) {
+      return (
+        <main
+          className={`min-h-screen w-full flex items-center justify-center px-6 ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
+            }`}
+        >
+          <div className="w-full max-w-[460px]">
+            <h1
+              className="text-4xl text-center mb-3"
+              style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
+            >
+              Enter verification code
+            </h1>
+
+            <p
+              className={`text-center text-sm mb-8 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
+                }`}
+            >
+              We sent a verification code to {email}.
+            </p>
+
+            <input
+              type="text"
+              value={resetCode}
+              onChange={(e) => {
+                setResetCode(e.target.value);
+                setErrorMessage('');
+              }}
+              placeholder="Enter verification code"
+              className={`w-full h-[52px] px-4 rounded-2xl border text-center text-sm ${isDark
+                ? 'bg-neutral-950 border-neutral-800 text-white'
+                : 'bg-white border-neutral-300 text-neutral-900'
+                }`}
+            />
+
+            <button
+              type="button"
+              onClick={handleVerifyResetCode}
+              className={`w-full h-[52px] mt-6 rounded-2xl text-sm font-semibold transition-all duration-100 active:scale-[0.98] ${isDark
+                ? 'bg-white text-black hover:bg-neutral-100 active:bg-neutral-300'
+                : 'bg-black text-white hover:bg-neutral-800 active:bg-neutral-700'
+                }`}
+            >
+              VERIFY CODE
+            </button>
+
+            <div className="text-center mt-5 text-sm">
+              Resend code in {resendCountdown}s
+            </div>
+          </div>
+        </main>
+      );
+    }
+
+
+    return (
+      <main
+        className={`min-h-screen w-full flex items-center justify-center px-6 ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
+          }`}
+      >
+        <div className="w-full max-w-[460px]">
+          <h1
+            className="text-4xl text-center mb-3"
+            style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
+          >
+            Reset your password
+          </h1>
+
+          <p
+            className={`text-center text-sm mb-8 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
+              }`}
+          >
+            Enter the email address linked to your MakaoHub account.
+          </p>
+
+          <label className="block text-xs font-semibold mb-2">
+            Email Address
+          </label>
+
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setErrorMessage('');
+            }}
+            placeholder="you@example.com"
+            className={`w-full h-[52px] px-4 rounded-2xl border text-sm ${isDark
+              ? 'bg-neutral-950 border-neutral-800 text-white'
+              : 'bg-white border-neutral-300 text-neutral-900'
+              }`}
+          />
+
+          {errorMessage && (
+            <div className="mt-4 text-center text-sm text-red-500">
+              {errorMessage}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleSendResetCode}
+            className={`w-full h-[52px] mt-6 rounded-2xl text-sm font-semibold ${isDark
+              ? 'bg-white text-black'
+              : 'bg-black text-white'
+              }`}
+          >
+            SEND RESET CODE
+          </button>
+
+          <button
+            type="button"
+
+            onClick={() => {
+              setForgotPasswordMode(false);
+              setErrorMessage('');
+            }}
+            className={`w-full mt-5 text-sm underline underline-offset-4 ${isDark ? 'text-neutral-300' : 'text-neutral-700'
+              }`}
+          >
+            Back to Log In
+          </button>
+        </div>
+      </main>
+    );
+  }
   return (
     <main
       id="makaohub-login-screen"
-      className={`min-h-screen w-full flex flex-col justify-between items-center px-6 py-6 sm:py-10 transition-colors duration-200 relative ${
-        isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
-      }`}
+      className={`min-h-screen w-full flex flex-col justify-between items-center px-6 py-6 sm:py-10 transition-colors duration-200 relative ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
+        }`}
       style={{
         backgroundColor: isDark ? '#000000' : '#FFFFFF'
       }}
@@ -59,11 +494,10 @@ export const LoginView: React.FC = () => {
           id="login-back-btn"
           onClick={() => setCurrentView('welcome')}
           aria-label="Back to Welcome screen"
-          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-all cursor-pointer ${
-            isDark
-              ? 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-              : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
-          }`}
+          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-all cursor-pointer ${isDark
+            ? 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+            : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
+            }`}
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="font-body hidden sm:inline">Back</span>
@@ -76,11 +510,10 @@ export const LoginView: React.FC = () => {
           onClick={toggleThemeMode}
           title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          className={`p-2.5 rounded-full transition-all cursor-pointer border focus:outline-none focus:ring-2 ${
-            isDark
-              ? 'bg-neutral-900/90 hover:bg-neutral-800 border-neutral-800 text-neutral-200 hover:text-white focus:ring-white'
-              : 'bg-neutral-100 hover:bg-neutral-200 border-neutral-200 text-neutral-700 hover:text-black focus:ring-black'
-          }`}
+          className={`p-2.5 rounded-full transition-all cursor-pointer border focus:outline-none focus:ring-2 ${isDark
+            ? 'bg-neutral-900/90 hover:bg-neutral-800 border-neutral-800 text-neutral-200 hover:text-white focus:ring-white'
+            : 'bg-neutral-100 hover:bg-neutral-200 border-neutral-200 text-neutral-700 hover:text-black focus:ring-black'
+            }`}
         >
           {isDark ? (
             <Sun className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
@@ -104,9 +537,8 @@ export const LoginView: React.FC = () => {
 
         {/* 2. Page Title with Cormorant Garamond */}
         <h1
-          className={`font-editorial text-3xl sm:text-4xl font-normal leading-tight tracking-tight mb-2 ${
-            isDark ? 'text-white' : 'text-neutral-950'
-          }`}
+          className={`font-editorial text-3xl sm:text-4xl font-normal leading-tight tracking-tight mb-2 ${isDark ? 'text-white' : 'text-neutral-950'
+            }`}
           style={{
             fontFamily: "'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', Times, serif"
           }}
@@ -116,9 +548,8 @@ export const LoginView: React.FC = () => {
 
         {/* 3. Supporting Text */}
         <p
-          className={`font-body text-sm sm:text-base font-normal leading-relaxed max-w-[360px] mb-6 sm:mb-8 ${
-            isDark ? 'text-neutral-400' : 'text-neutral-600'
-          }`}
+          className={`font-body text-sm sm:text-base font-normal leading-relaxed max-w-[360px] mb-6 sm:mb-8 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
+            }`}
           style={{
             fontFamily: "'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif"
           }}
@@ -153,9 +584,8 @@ export const LoginView: React.FC = () => {
           <div>
             <label
               htmlFor="login-email"
-              className={`block text-xs font-semibold mb-1.5 ${
-                isDark ? 'text-neutral-300' : 'text-neutral-700'
-              }`}
+              className={`block text-xs font-semibold mb-1.5 ${isDark ? 'text-neutral-300' : 'text-neutral-700'
+                }`}
             >
               Email Address
             </label>
@@ -169,11 +599,10 @@ export const LoginView: React.FC = () => {
               }}
               placeholder="you@example.com"
               required
-              className={`w-full h-12 sm:h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${
-                isDark
-                  ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
-                  : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
-              }`}
+              className={`w-full h-12 sm:h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${isDark
+                ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
+                : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
+                }`}
             />
           </div>
 
@@ -181,9 +610,8 @@ export const LoginView: React.FC = () => {
           <div>
             <label
               htmlFor="login-password"
-              className={`block text-xs font-semibold mb-1.5 ${
-                isDark ? 'text-neutral-300' : 'text-neutral-700'
-              }`}
+              className={`block text-xs font-semibold mb-1.5 ${isDark ? 'text-neutral-300' : 'text-neutral-700'
+                }`}
             >
               Password
             </label>
@@ -198,11 +626,10 @@ export const LoginView: React.FC = () => {
                 }}
                 placeholder="Enter password"
                 required
-                className={`w-full h-12 sm:h-[50px] pl-4 pr-11 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${
-                  isDark
-                    ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
-                    : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
-                }`}
+                className={`w-full h-12 sm:h-[50px] pl-4 pr-11 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${isDark
+                  ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
+                  : 'bg-neutral-50/60 border-neutral-300 text-neutral-900 placeholder:text-neutral-400 focus:border-black'
+                  }`}
               />
               <button
                 type="button"
@@ -218,16 +645,25 @@ export const LoginView: React.FC = () => {
               </button>
             </div>
           </div>
+          <div className="flex justify-end mt-2">
+            <button
+              type="button"
+              onClick={() => setForgotPasswordMode(true)}
+              className={`text-xs font-semibold underline underline-offset-4 ${isDark ? 'text-neutral-300' : 'text-neutral-700'
+                }`}
+            >
+              Forgot password?
+            </button>
+          </div>
 
           {/* Primary Action: LOG IN */}
           <button
             type="submit"
             id="login-submit-btn"
-            className={`w-full h-[52px] sm:h-14 mt-2 rounded-2xl text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-              isDark
-                ? 'bg-white hover:bg-neutral-100 active:bg-neutral-200 text-black focus:ring-white focus:ring-offset-black'
-                : 'bg-black hover:bg-neutral-800 active:bg-neutral-900 text-white focus:ring-black focus:ring-offset-white'
-            }`}
+            className={`w-full h-[52px] sm:h-14 mt-2 rounded-2xl text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 ${isDark
+              ? 'bg-white hover:bg-neutral-100 active:bg-neutral-200 text-black focus:ring-white focus:ring-offset-black'
+              : 'bg-black hover:bg-neutral-800 active:bg-neutral-900 text-white focus:ring-black focus:ring-offset-white'
+              }`}
           >
             <span>LOG IN</span>
           </button>
@@ -236,14 +672,12 @@ export const LoginView: React.FC = () => {
         {/* OR Divider */}
         <div className="relative my-6 flex items-center justify-center w-full">
           <div
-            className={`border-t w-full ${
-              isDark ? 'border-neutral-800' : 'border-neutral-200'
-            }`}
+            className={`border-t w-full ${isDark ? 'border-neutral-800' : 'border-neutral-200'
+              }`}
           />
           <span
-            className={`absolute px-3 text-[11px] font-semibold tracking-wider uppercase font-body ${
-              isDark ? 'bg-black text-neutral-500' : 'bg-white text-neutral-400'
-            }`}
+            className={`absolute px-3 text-[11px] font-semibold tracking-wider uppercase font-body ${isDark ? 'bg-black text-neutral-500' : 'bg-white text-neutral-400'
+              }`}
           >
             OR
           </span>
@@ -254,11 +688,10 @@ export const LoginView: React.FC = () => {
           type="button"
           id="login-google-btn"
           onClick={handleGoogleClick}
-          className={`w-full h-[52px] sm:h-14 rounded-2xl text-sm font-semibold tracking-wide flex items-center justify-center gap-3 transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer border focus:outline-none focus:ring-2 ${
-            isDark
-              ? 'bg-transparent hover:bg-white/5 active:bg-white/10 border-neutral-800 text-white focus:ring-white focus:ring-offset-black'
-              : 'bg-white hover:bg-neutral-50 active:bg-neutral-100 border-neutral-300 text-neutral-900 focus:ring-black focus:ring-offset-white'
-          }`}
+          className={`w-full h-[52px] sm:h-14 rounded-2xl text-sm font-semibold tracking-wide flex items-center justify-center gap-3 transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer border focus:outline-none focus:ring-2 ${isDark
+            ? 'bg-transparent hover:bg-white/5 active:bg-white/10 border-neutral-800 text-white focus:ring-white focus:ring-offset-black'
+            : 'bg-white hover:bg-neutral-50 active:bg-neutral-100 border-neutral-300 text-neutral-900 focus:ring-black focus:ring-offset-white'
+            }`}
         >
           {/* Official multicolor Google "G" icon */}
           <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
@@ -284,18 +717,16 @@ export const LoginView: React.FC = () => {
 
         {/* 5. Create Account Link */}
         <div
-          className={`mt-8 text-xs font-body ${
-            isDark ? 'text-neutral-400' : 'text-neutral-500'
-          }`}
+          className={`mt-8 text-xs font-body ${isDark ? 'text-neutral-400' : 'text-neutral-500'
+            }`}
         >
           <span>New to MakaoHub? </span>
           <button
             type="button"
             id="login-to-signup-btn"
             onClick={() => setCurrentView('signup')}
-            className={`font-semibold underline underline-offset-4 cursor-pointer transition-colors ${
-              isDark ? 'text-white hover:text-neutral-200' : 'text-black hover:text-neutral-700'
-            }`}
+            className={`font-semibold underline underline-offset-4 cursor-pointer transition-colors ${isDark ? 'text-white hover:text-neutral-200' : 'text-black hover:text-neutral-700'
+              }`}
           >
             Create an Account
           </button>

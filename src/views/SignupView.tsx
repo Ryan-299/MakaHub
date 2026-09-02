@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSignUp } from '@clerk/react';
+import { useSignUp, useSignIn } from '@clerk/react';
 import { Sun, Moon, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import darkLogo from '../assets/MAKAOHUB LOGO NO BACKGROUND (Dark Mode).png';
@@ -9,6 +9,7 @@ export const SignupView: React.FC = () => {
   const { signupNewUser, setCurrentView, resolvedTheme, setTheme } = useApp();
   const isDark = resolvedTheme === 'dark';
   const { signUp, fetchStatus } = useSignUp();
+  const { signIn } = useSignIn();
   const [code, setCode] = useState('');
   const [pendingVerification, setPendingVerification] = useState(false);
 
@@ -157,9 +158,32 @@ export const SignupView: React.FC = () => {
     setErrorMessage('');
     setEmail('');
   };
-  const handleGoogleClick = () => {
-    setGoogleNotice(true);
+  const handleGoogleClick = async () => {
+    setErrorMessage('');
+
+    try {
+      const { error } = await signIn.sso({
+        strategy: 'oauth_google',
+        redirectCallbackUrl: window.location.origin,
+        redirectUrl: window.location.origin,
+      });
+
+      if (error) {
+        setErrorMessage(
+          error.message ||
+          'Google sign-in could not be started. Please try again.'
+        );
+      }
+    } catch (err: any) {
+      setErrorMessage(
+        err?.errors?.[0]?.message ||
+        err?.message ||
+        'Google sign-in could not be started. Please try again.'
+      );
+    }
   };
+
+
 
   const toggleThemeMode = () => {
     if (resolvedTheme === 'dark') {

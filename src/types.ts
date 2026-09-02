@@ -255,14 +255,14 @@ export type AdminTab =
 export interface AdminActivityItem {
   id: string;
   action:
-    | 'approved'
-    | 'rejected'
-    | 'suspended'
-    | 'reinstated'
-    | 'investigated'
-    | 'user_suspended'
-    | 'user_reinstated'
-    | 'review_deleted';
+  | 'approved'
+  | 'rejected'
+  | 'suspended'
+  | 'reinstated'
+  | 'investigated'
+  | 'user_suspended'
+  | 'user_reinstated'
+  | 'review_deleted';
   title: string;
   details: string;
   targetId?: string;

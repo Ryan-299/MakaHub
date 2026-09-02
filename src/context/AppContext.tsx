@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { useUser, useClerk } from '@clerk/react';
+import { useConvexAuth } from 'convex/react';
 import {
+
   UserRole,
   ListerSubtype,
   PropertyListing,
@@ -75,20 +78,20 @@ interface AppContextType {
   setTargetEnquiryId: (id: string | null) => void;
   targetMessageId: string | null;
   setTargetMessageId: (id: string | null) => void;
-  
+
   // Role & Mode switching
   isSeekerMode: boolean;
   isListerMode: boolean;
   isAdmin: boolean;
   switchUserMode: (targetMode: 'seeker' | 'lister' | 'admin') => void;
-  
+
   // Auth simulation
   signupNewUser: (name: string, email: string, phone: string) => void;
   assignRole: (role: UserRole) => void;
   assignListerSubtype: (subtype: ListerSubtype) => void;
   loginUser: (role: UserRole) => void;
   logoutUser: () => void;
-  
+
   // Property management
   properties: PropertyListing[];
   availableProperties: PropertyListing[]; // Vacancies > 0 & Status === 'Approved'
@@ -96,7 +99,7 @@ interface AppContextType {
   savedProperties: PropertyListing[];
   toggleSaveProperty: (id: string) => void;
   isPropertySaved: (id: string) => boolean;
-  
+
   // Lister operations
   listerListings: PropertyListing[];
   listerTotalVacancies: number;
@@ -112,10 +115,10 @@ interface AppContextType {
   deletePropertyListing: (propertyId: string) => void;
   deleteAllMyListings: () => void;
   updatePropertyVacancies: (propertyId: string, vacant: number, occupied: number, underRepair: number) => Promise<void> | void;
-  
+
   // Users
   users: UserAccount[];
-  
+
   // Admin operations
   adminActiveTab: AdminTab;
   setAdminActiveTab: (tab: AdminTab) => void;
@@ -130,13 +133,13 @@ interface AppContextType {
   reinstateProperty: (propertyId: string) => void;
   suspendUserAccount: (userId: string) => void;
   reinstateUserAccount: (userId: string) => void;
-  
+
   // Reports & moderation
   reports: PlatformReport[];
   dismissReport: (reportId: string) => void;
   hideListingReport: (reportId: string, propertyId: string) => void;
   suspendUserReport: (reportId: string, userId: string) => void;
-  
+
   // Reviews
   reviews: PropertyReview[];
   listerReviews: PropertyReview[];
@@ -147,19 +150,19 @@ interface AppContextType {
   deleteReviewReply: (reviewId: string) => void;
   deleteReview: (reviewId: string) => void;
   reportReview: (reviewId: string, reason?: string) => void;
-  
+
   // Enquiries
   enquiries: ListerEnquiry[];
   sendEnquiry: (propertyId: string, seekerName: string, seekerPhone: string, seekerEmail: string, message: string) => void;
   sendEnquiryReply: (enquiryId: string, replyText: string) => void;
   markEnquiryAsRead: (enquiryId: string) => void;
-  
+
   // Notifications
   notifications: UserNotification[];
   unreadNotificationCount: number;
   markNotificationRead: (id: string) => void;
   markAllNotificationsRead: () => void;
-  
+
   // Search & Filter state
   filters: FilterCriteria;
   setFilters: React.Dispatch<React.SetStateAction<FilterCriteria>>;
@@ -179,7 +182,7 @@ interface AppContextType {
     locationName?: string,
     propertyId?: string
   ) => void;
-  
+
   // Quick Demo Jumpers
   runSeekerDemo: () => void;
   runListerDemo: () => void;
@@ -209,6 +212,9 @@ const DEFAULT_FILTERS: FilterCriteria = {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user: clerkUser, isLoaded, isSignedIn } = useUser();
+  const { signOut } = useClerk();
+  const { isAuthenticated: isConvexAuthenticated } = useConvexAuth();
   // Start on Welcome screen as mandated
   const [currentView, setCurrentViewState] = useState<AppView>('welcome');
   const [previousView, setPreviousView] = useState<AppView | null>(null);
@@ -231,8 +237,168 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return INITIAL_ADMIN_ACTIVITY;
   });
-
   useEffect(() => {
+    if (!isLoaded || !isSignedIn || !clerkUser || currentUser) return;
+
+    const clerkAccount: UserAccount = {
+      id: clerkUser.id,
+      name:
+        clerkUser.fullName ||
+        clerkUser.firstName ||
+        'MakaoHub User',
+      email:
+        clerkUser.primaryEmailAddress?.emailAddress || '',
+      phone:
+        clerkUser.primaryPhoneNumber?.phoneNumber || '',
+      role: 'seeker',
+      joinedAt: 'Just now',
+      avatar: clerkUser.imageUrl || '',
+      savedPropertyIds: [],
+    };
+
+    setCurrentUser(clerkAccount);
+
+    setUsers((prev) => {
+      const alreadyExists = prev.some((user) => user.id === clerkAccount.id);
+
+      if (alreadyExists) return prev;
+
+      return [...prev, clerkAccount];
+    });
+  }, [isLoaded, isSignedIn, clerkUser, currentUser]);
+  useEffect(() => {
+    if (
+      !isLoaded ||
+      !isSignedIn ||
+      !isConvexAuthenticated ||
+      !clerkUser ||
+      !currentUser ||
+      !isConvexConfigured ||
+      !convexClient
+    ) {
+      return;
+    }
+
+    const syncUserToConvex = async () => {
+      try {
+        await convexClient.mutation(api.users.upsertUser, {
+          userId: clerkUser.id,
+          name: currentUser.name,
+          email: currentUser.email,
+          phone: currentUser.phone,
+          avatar: currentUser.avatar,
+          savedPropertyIds: currentUser.savedPropertyIds,
+        });
+      } catch (error) {
+        console.error('Failed to sync Clerk user to Convex:', error);
+      }
+    };
+
+    void syncUserToConvex();
+  }, [
+    isLoaded,
+    isSignedIn,
+    isConvexAuthenticated,
+    clerkUser,
+    currentUser,
+  ]);
+  useEffect(() => {
+    if (
+      !isLoaded ||
+      !isSignedIn ||
+      !isConvexAuthenticated ||
+      !clerkUser ||
+      !isConvexConfigured ||
+      !convexClient
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const restoreUserFromConvex = async () => {
+      try {
+        const savedUser = await convexClient.query(api.users.getByUserId, {
+          userId: clerkUser.id,
+        });
+
+        if (cancelled) return;
+
+        if (!savedUser || savedUser.role === 'unassigned') {
+          setCurrentViewState('role-selection');
+          return;
+        }
+
+        const savedRole = savedUser.role;
+
+        if (
+          savedRole !== 'seeker' &&
+          savedRole !== 'lister' &&
+          savedRole !== 'admin'
+        ) {
+          setCurrentViewState('role-selection');
+          return;
+        }
+
+        const restoredUser: UserAccount = {
+          id: savedUser.userId,
+          name: savedUser.name || clerkUser.fullName || 'MakaoHub User',
+          email:
+            savedUser.email ||
+            clerkUser.primaryEmailAddress?.emailAddress ||
+            '',
+          phone: savedUser.phone || '',
+          role: savedRole,
+          listerSubtype:
+            savedUser.listerSubtype as ListerSubtype | undefined,
+          joinedAt: savedUser.joinedAt || 'Just now',
+          avatar: savedUser.avatar || clerkUser.imageUrl || '',
+          savedPropertyIds: savedUser.savedPropertyIds || [],
+        };
+
+        setCurrentUser(restoredUser);
+
+        setUsers((prev) => {
+          const exists = prev.some((u) => u.id === restoredUser.id);
+
+          if (exists) {
+            return prev.map((u) =>
+              u.id === restoredUser.id ? restoredUser : u
+            );
+          }
+
+          return [...prev, restoredUser];
+        });
+
+        if (savedRole === 'seeker') {
+          setCurrentViewState('tenant-home');
+        } else if (savedRole === 'lister') {
+          setCurrentViewState(
+            savedUser.listerSubtype
+              ? 'lister-dashboard'
+              : 'lister-subtype'
+          );
+        } else if (savedRole === 'admin') {
+          setCurrentViewState('admin-dashboard');
+        }
+      } catch (error) {
+        console.error('Failed to restore MakaoHub user:', error);
+      }
+    };
+
+    void restoreUserFromConvex();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isLoaded,
+    isSignedIn,
+    isConvexAuthenticated,
+    clerkUser?.id,
+  ]);
+  useEffect(() => {
+
     localStorage.setItem('makaohub_admin_activity', JSON.stringify(adminActivity));
   }, [adminActivity]);
 
@@ -313,7 +479,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return newView;
     });
   };
-  
+
   // Main Data States
   const [properties, setProperties] = useState<PropertyListing[]>(() => {
     const FAKE_PROPERTY_IDS = new Set([
@@ -829,11 +995,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCurrentView('role-selection');
   };
 
-  const assignRole = (role: UserRole) => {
+  const assignRole = async (role: UserRole) => {
     if (!currentUser) return;
-    const updated = { ...currentUser, role };
+
+    const updated: UserAccount = {
+      ...currentUser,
+      role,
+    };
+
     setCurrentUser(updated);
-    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+
+    setUsers((prev) => {
+      const exists = prev.some((u) => u.id === updated.id);
+
+      if (exists) {
+        return prev.map((u) => (u.id === updated.id ? updated : u));
+      }
+
+      return [...prev, updated];
+    });
+
+    try {
+      if (isConvexConfigured && convexClient) {
+        await convexClient.mutation(api.users.upsertUser, {
+          userId: updated.id,
+          name: updated.name,
+          email: updated.email,
+          phone: updated.phone,
+          role: role,
+          joinedAt: new Date().toISOString(),
+          avatar: updated.avatar,
+          savedPropertyIds: updated.savedPropertyIds,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to save MakaoHub user to Convex:', error);
+    }
 
     if (role === 'seeker') {
       setCurrentView('tenant-home');
@@ -843,16 +1040,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentView('admin-dashboard');
     }
   };
-
-  const assignListerSubtype = (subtype: ListerSubtype) => {
+  const assignListerSubtype = async (subtype: ListerSubtype) => {
     if (!currentUser) return;
+
     const updated: UserAccount = {
       ...currentUser,
       role: 'lister',
-      listerSubtype: subtype
+      listerSubtype: subtype,
     };
+
     setCurrentUser(updated);
-    setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
+
+    setUsers((prev) => {
+      const exists = prev.some((u) => u.id === updated.id);
+
+      if (exists) {
+        return prev.map((u) => (u.id === updated.id ? updated : u));
+      }
+
+      return [...prev, updated];
+    });
+
+    try {
+      if (isConvexConfigured && convexClient) {
+        await convexClient.mutation(api.users.upsertUser, {
+          userId: updated.id,
+          name: updated.name,
+          email: updated.email,
+          phone: updated.phone,
+          role: 'lister',
+          listerSubtype: subtype,
+          joinedAt: updated.joinedAt,
+          avatar: updated.avatar,
+          savedPropertyIds: updated.savedPropertyIds,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to save lister subtype to Convex:', error);
+    }
+
     setCurrentView('lister-dashboard');
   };
 
@@ -899,7 +1125,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const logoutUser = () => {
+  const logoutUser = async () => {
+    await signOut();
+
     setCurrentUser(null);
     setCurrentView('welcome');
   };
@@ -910,8 +1138,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       targetMode === 'seeker'
         ? 'demo-seeker-001'
         : targetMode === 'lister'
-        ? 'demo-lister-001'
-        : 'demo-admin-001';
+          ? 'demo-lister-001'
+          : 'demo-admin-001';
 
     const targetUser =
       users.find((u) => u.id === targetId) ||
@@ -1103,11 +1331,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((p) =>
         p.id === propertyId
           ? {
-              ...p,
-              vacancies: validVacant,
-              occupied: validOccupied,
-              underRepair: validUnderRepair
-            }
+            ...p,
+            vacancies: validVacant,
+            occupied: validOccupied,
+            underRepair: validUnderRepair
+          }
           : p
       )
     );
@@ -1132,11 +1360,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           prev.map((p) =>
             p.id === propertyId
               ? {
-                  ...p,
-                  vacancies: prevVacancies,
-                  occupied: prevOccupied,
-                  underRepair: prevUnderRepair
-                }
+                ...p,
+                vacancies: prevVacancies,
+                occupied: prevOccupied,
+                underRepair: prevUnderRepair
+              }
               : p
           )
         );
@@ -1905,17 +2133,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const existingMsgs = (enq.messages && enq.messages.length > 0)
       ? enq.messages
       : [
-          {
-            id: `msg-orig-${enq.id}`,
-            enquiryId: enq.id,
-            senderId: enq.seekerId,
-            senderName: enq.seekerName,
-            senderRole: 'seeker' as const,
-            senderAvatar: enq.seekerAvatar,
-            message: enq.message,
-            createdAt: enq.date || 'Recently'
-          }
-        ];
+        {
+          id: `msg-orig-${enq.id}`,
+          enquiryId: enq.id,
+          senderId: enq.seekerId,
+          senderName: enq.seekerName,
+          senderRole: 'seeker' as const,
+          senderAvatar: enq.seekerAvatar,
+          message: enq.message,
+          createdAt: enq.date || 'Recently'
+        }
+      ];
 
     const updatedMessages = [...existingMsgs, newMsg];
 
@@ -2005,7 +2233,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     if (isConvexConfigured && convexClient && id) {
       try {
-        convexClient.mutation(api.notifications.markAsRead, { id: id as any }).catch(() => {});
+        convexClient.mutation(api.notifications.markAsRead, { id: id as any }).catch(() => { });
       } catch {
         // Safe catch
       }
@@ -2022,7 +2250,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
     if (isConvexConfigured && convexClient && currentUser.id) {
       try {
-        convexClient.mutation(api.notifications.markAllAsRead, { recipientUserId: currentUser.id }).catch(() => {});
+        convexClient.mutation(api.notifications.markAllAsRead, { recipientUserId: currentUser.id }).catch(() => { });
       } catch {
         // Safe catch
       }

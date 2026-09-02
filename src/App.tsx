@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
+import { useUser } from '@clerk/react';
 import { useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
@@ -25,6 +26,7 @@ import { ListerReviewsView } from './views/ListerReviewsView';
 import { AdminDashboardView } from './views/AdminDashboardView';
 
 export default function App() {
+  const { isLoaded, isSignedIn } = useUser();
   const {
     currentView,
     filterDrawerOpen,
@@ -165,12 +167,22 @@ export default function App() {
   const handleSplashComplete = useCallback(() => {
     setShowSplashScreen(false);
   }, [setShowSplashScreen]);
-
+  if (!isLoaded || (isSignedIn && currentView === 'welcome')) {
+    return (
+      <div
+        className="min-h-screen w-full"
+        style={{
+          backgroundColor: resolvedTheme === 'dark' ? '#000000' : '#FFFFFF',
+        }}
+      />
+    );
+  }
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-black font-sans antialiased text-neutral-900 dark:text-neutral-100 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900 transition-colors duration-200">
       {/* Theme-Aware Opening Splash Screen */}
       <SplashScreen
-        isOpen={showSplashScreen}
+
+        isOpen={showSplashScreen && isLoaded && !isSignedIn}
         theme={resolvedTheme}
         onComplete={handleSplashComplete}
       />
