@@ -1,6 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
-
+import { internal } from "./_generated/api";
 // Generate an upload URL for uploading files (images, videos) to Convex File Storage
 export const generateUploadUrl = mutation({
   args: {},
@@ -159,7 +159,7 @@ export const add = mutation({
     enquiriesCount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("properties", {
+    const propertyId = await ctx.db.insert("properties", {
       ...args,
       agentFee: args.agentFee ?? 0,
       viewingFee: args.viewingFee ?? 0,
@@ -171,6 +171,22 @@ export const add = mutation({
       otherFees: args.otherFees ?? 0,
       status: args.status || "Pending",
     });
+    if ((args.status || "Pending") === "Pending") {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.emails.notifyAdminNewProperty,
+        {
+          propertyName: args.name,
+          propertyType: args.type,
+          monthlyRent: args.monthlyRent,
+          county: args.location.county,
+          subCounty: args.location.subCounty,
+          estate: args.location.estate,
+        }
+      );
+    }
+
+    return propertyId;
   },
 });
 
@@ -240,10 +256,10 @@ export const updateVacancies = mutation({
 });
 
 export const remove = mutation({
-  args: { id: v.string() },
+  args: { id: v.id("properties") },
   handler: async (ctx, args) => {
     try {
-      const doc = await ctx.db.get(args.id as any);
+      const doc = await ctx.db.get(args.id);
       if (doc) {
         // Clean up storage items if present
         if (doc.imageStorageIds && Array.isArray(doc.imageStorageIds)) {

@@ -39,6 +39,9 @@ export type AppView =
   | 'signup'
   | 'role-selection'
   | 'lister-subtype'
+  | 'lister-subtype'
+  | 'lister-phone'
+  | 'tenant-home'
   | 'tenant-home'
   | 'search-results'
   | 'map-explore'
@@ -88,7 +91,10 @@ interface AppContextType {
   // Auth simulation
   signupNewUser: (name: string, email: string, phone: string) => void;
   assignRole: (role: UserRole) => void;
-  assignListerSubtype: (subtype: ListerSubtype) => void;
+  assignListerSubtype: (
+    subtype: ListerSubtype,
+    phone: string
+  ) => Promise<void>;
   loginUser: (role: UserRole) => void;
   logoutUser: () => void;
 
@@ -251,7 +257,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       phone:
         clerkUser.primaryPhoneNumber?.phoneNumber || '',
       role: 'seeker',
-      joinedAt: 'Just now',
+      joinedAt: new Date().toISOString(),
       avatar: clerkUser.imageUrl || '',
       savedPropertyIds: [],
     };
@@ -356,8 +362,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           name: clerkName,
           email: clerkEmail,
           phone: clerkPhone,
-          role: currentUser.role,
-          listerSubtype: currentUser.listerSubtype,
+
           joinedAt: currentUser.joinedAt,
           avatar: clerkAvatar,
           savedPropertyIds: currentUser.savedPropertyIds,
@@ -427,7 +432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           role: savedRole,
           listerSubtype:
             savedUser.listerSubtype as ListerSubtype | undefined,
-          joinedAt: savedUser.joinedAt || 'Just now',
+          joinedAt: savedUser.joinedAt || new Date().toISOString(),
           avatar: savedUser.avatar || clerkUser.imageUrl || '',
           savedPropertyIds: savedUser.savedPropertyIds || [],
         };
@@ -449,12 +454,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (savedRole === 'seeker') {
           setCurrentViewState('tenant-home');
         } else if (savedRole === 'lister') {
-          setCurrentViewState(
-            savedUser.listerSubtype
-              ? 'lister-dashboard'
-              : 'lister-subtype'
-          );
+          const restoredPhone = (restoredUser.phone || '').replace(/[\s-]/g, '');
+
+          const hasValidPhone =
+            /^\+254[71]\d{8}$/.test(restoredPhone) &&
+            restoredPhone !== '+254700000000';
+
+          if (!restoredUser.listerSubtype) {
+            setCurrentViewState('lister-subtype');
+          } else if (!hasValidPhone) {
+            setCurrentViewState('lister-phone');
+          } else {
+            setCurrentViewState('lister-dashboard');
+          }
         } else if (savedRole === 'admin') {
+          window.history.replaceState({}, '', '/admin');
           setCurrentViewState('admin-dashboard');
         }
       } catch (error) {
@@ -675,45 +689,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   // Users Directory - Ensure stable demo accounts are always maintained without duplication or fake seed accounts
-  const [users, setUsers] = useState<UserAccount[]>(() => {
-    const FAKE_SEED_USER_IDS = new Set([
-      'demo-lister-john',
-      'demo-lister-samuel',
-      'demo-lister-prime',
-      'user-seeker-grace',
-      'user-seeker-brian',
-      'user-seeker-faith',
-      'user-seeker-david',
-      'krvon',
-      'user-flagged-09',
-      'user-mary-wanjiku',
-      'user-seeker-kevin',
-      'user-admin-main'
-    ]);
-
-    const local = localStorage.getItem('makaohub_users');
-    if (local) {
-      try {
-        const parsed: UserAccount[] = JSON.parse(local);
-        const filtered = parsed.filter((u) => !FAKE_SEED_USER_IDS.has(u.id));
-        const merged = [...filtered];
-
-        INITIAL_USERS.forEach((demoUser) => {
-          const idx = merged.findIndex((u) => u.id === demoUser.id || u.email === demoUser.email);
-          if (idx === -1) {
-            merged.push(demoUser);
-          } else {
-            merged[idx] = { ...demoUser, ...merged[idx], id: demoUser.id, role: demoUser.role };
-          }
-        });
-        return merged;
-      } catch {
-        return INITIAL_USERS;
-      }
+  const [users, setUsers] = useState<UserAccount[]>([]);
+  useEffect(() => {
+    if (
+      !isConvexConfigured ||
+      !convexClient ||
+      !isConvexAuthenticated ||
+      currentUser?.role !== 'admin'
+    ) {
+      return;
     }
-    return INITIAL_USERS;
-  });
 
+    const loadUsersFromConvex = async () => {
+      try {
+        const convexUsers = await convexClient.query(
+          api.users.listUsersForAdmin,
+          {}
+        );
+
+        const realUsers: UserAccount[] = convexUsers.map((user) => ({
+          id: user.userId,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          role: user.role as UserAccount['role'],
+          listerSubtype:
+            user.listerSubtype as UserAccount['listerSubtype'],
+          joinedAt: user.joinedAt,
+          avatar: user.avatar,
+          savedPropertyIds: user.savedPropertyIds,
+        }));
+
+        setUsers(realUsers);
+      } catch (error) {
+        console.error('Failed to load users from Convex:', error);
+      }
+    };
+
+    void loadUsersFromConvex();
+  }, [isConvexAuthenticated, currentUser?.role]);
   const [filters, setFilters] = useState<FilterCriteria>(DEFAULT_FILTERS);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [seekerLocation, setSeekerLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -1062,7 +1076,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       email: email || 'user@makaohub.test',
       phone: phone || '+254 700 000 000',
       role: 'seeker', // default until assigned
-      joinedAt: 'Just now',
+      joinedAt: new Date().toISOString(),
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
       savedPropertyIds: []
     };
@@ -1116,26 +1130,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentView('admin-dashboard');
     }
   };
-  const assignListerSubtype = async (subtype: ListerSubtype) => {
+  const assignListerSubtype = async (
+    subtype: ListerSubtype,
+    phone: string
+  ) => {
     if (!currentUser) return;
 
     const updated: UserAccount = {
       ...currentUser,
+      phone,
       role: 'lister',
       listerSubtype: subtype,
     };
 
-    setCurrentUser(updated);
-
-    setUsers((prev) => {
-      const exists = prev.some((u) => u.id === updated.id);
-
-      if (exists) {
-        return prev.map((u) => (u.id === updated.id ? updated : u));
-      }
-
-      return [...prev, updated];
-    });
 
     try {
       if (isConvexConfigured && convexClient) {
@@ -1151,11 +1158,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           savedPropertyIds: updated.savedPropertyIds,
         });
       }
+
+      // Only update the app after Convex accepts the phone number
+      setCurrentUser(updated);
+
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.id === updated.id);
+
+        if (exists) {
+          return prev.map((u) => (u.id === updated.id ? updated : u));
+        }
+
+        return [...prev, updated];
+      });
+
+      setCurrentView('lister-dashboard');
     } catch (error) {
       console.error('Failed to save lister subtype to Convex:', error);
-    }
 
-    setCurrentView('lister-dashboard');
+      const rawMessage =
+        error instanceof Error ? error.message : '';
+
+      if (rawMessage.includes('already linked to another MakaoHub account')) {
+        throw new Error(
+          'This phone number is already linked to another MakaoHub account.'
+        );
+      }
+
+      if (rawMessage.includes('valid Kenyan phone number')) {
+        throw new Error('Please enter a valid Kenyan phone number.');
+      }
+
+      throw new Error(
+        'Unable to save this phone number. Please try again.'
+      );
+    }
   };
 
   const loginUser = (roleOrEmailOrId: UserRole | string, targetView: AppView = 'role-selection') => {
@@ -1175,9 +1212,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
 
     if (found) {
-      setCurrentUser(found);
       if (found.role === 'admin') {
         setCurrentView('admin-dashboard');
+      } else if (found.role === 'lister') {
+        const savedPhone = (found.phone || '').replace(/[\s-]/g, '');
+
+        const hasValidPhone =
+          /^\+254[71]\d{8}$/.test(savedPhone) &&
+          savedPhone !== '+254700000000';
+
+        if (!found.listerSubtype) {
+          setCurrentView('lister-subtype');
+        } else if (!hasValidPhone) {
+          setCurrentView('lister-phone');
+        } else {
+          setCurrentView('lister-dashboard');
+        }
       } else {
         setCurrentView(targetView);
       }
@@ -1192,7 +1242,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         phone: '+254 700 000 000',
         role: 'seeker',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-        joinedAt: 'Just now',
+        joinedAt: new Date().toISOString(),
         savedPropertyIds: []
       };
       setUsers((prev) => [...prev, newUser]);
@@ -1221,18 +1271,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (targetMode === 'lister') {
       if (currentUser.role === 'lister') {
-        if (currentUser.listerSubtype) {
-          setCurrentView('lister-dashboard');
-        } else {
+        const savedPhone = (currentUser.phone || '').replace(/[\s-]/g, '');
+
+        const hasValidPhone =
+          /^\+254[71]\d{8}$/.test(savedPhone) &&
+          savedPhone !== '+254700000000';
+
+        if (!currentUser.listerSubtype) {
           setCurrentView('lister-subtype');
+        } else if (!hasValidPhone) {
+          setCurrentView('lister-phone');
+        } else {
+          setCurrentView('lister-dashboard');
         }
       }
+
       return;
     }
 
     if (targetMode === 'admin' && currentUser.role === 'admin') {
       setCurrentView('admin-dashboard');
     }
+
   };
   // Lister: Add property (Rule #44 -> Pending Approval)
   const addProperty = async (
@@ -2371,7 +2431,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const runAdminDemo = () => {
-    loginUser('admin');
     setAdminActiveTab('overview');
     setCurrentView('admin-dashboard');
   };

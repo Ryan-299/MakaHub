@@ -16,11 +16,23 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
   onClose,
   selectedPlan,
   currentActiveListings,
-  userPhone = '+254 712 345 678',
+  userPhone = '',
   userName = 'Mary Wanjiku'
 }) => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodOption>('mpesa');
-  const [phoneNumber, setPhoneNumber] = useState(userPhone.replace('+254', '0').replace(/\s+/g, ''));
+  const [phoneNumber, setPhoneNumber] = useState(() => {
+    const cleaned = userPhone.replace(/\s+/g, '');
+
+    if (cleaned.startsWith('+254')) {
+      return `0${cleaned.slice(4)}`;
+    }
+
+    if (cleaned.startsWith('254')) {
+      return `0${cleaned.slice(3)}`;
+    }
+
+    return cleaned;
+  });
   const [cardHolder, setCardHolder] = useState(userName);
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
@@ -140,17 +152,15 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
                 setPaymentMethod('mpesa');
                 setPromptSentNotice(null);
               }}
-              className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
-                paymentMethod === 'mpesa'
+              className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${paymentMethod === 'mpesa'
                   ? 'bg-neutral-950 dark:bg-[#1E1E1E] text-white border-neutral-950 dark:border-white ring-2 ring-neutral-950/20 dark:ring-white/20 shadow-xs'
                   : 'bg-white dark:bg-[#141414] text-neutral-700 dark:text-[#D5D5D5] border-neutral-200 dark:border-[#2A2A2A] hover:border-neutral-400 dark:hover:border-neutral-500 hover:bg-neutral-50 dark:hover:bg-[#1A1A1A]'
-              }`}
+                }`}
             >
               <Smartphone className="w-4 h-4" />
               <span className="text-xs font-bold">M-PESA</span>
-              <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${
-                paymentMethod === 'mpesa' ? 'bg-emerald-500 text-white' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-400'
-              }`}>
+              <span className={`text-[9px] px-1.5 py-0.2 rounded font-semibold ${paymentMethod === 'mpesa' ? 'bg-emerald-500 text-white' : 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-400'
+                }`}>
                 Recommended
               </span>
             </button>
@@ -163,11 +173,10 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
                 setPaymentMethod('card');
                 setPromptSentNotice(null);
               }}
-              className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
-                paymentMethod === 'card'
+              className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${paymentMethod === 'card'
                   ? 'bg-neutral-950 dark:bg-[#1E1E1E] text-white border-neutral-950 dark:border-white ring-2 ring-neutral-950/20 dark:ring-white/20 shadow-xs'
                   : 'bg-white dark:bg-[#141414] text-neutral-700 dark:text-[#D5D5D5] border-neutral-200 dark:border-[#2A2A2A] hover:border-neutral-400 dark:hover:border-neutral-500 hover:bg-neutral-50 dark:hover:bg-[#1A1A1A]'
-              }`}
+                }`}
             >
               <CreditCard className="w-4 h-4" />
               <span className="text-xs font-bold">Card</span>
@@ -182,11 +191,10 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
                 setPaymentMethod('google_pay');
                 setPromptSentNotice(null);
               }}
-              className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${
-                paymentMethod === 'google_pay'
+              className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1.5 ${paymentMethod === 'google_pay'
                   ? 'bg-neutral-950 dark:bg-[#1E1E1E] text-white border-neutral-950 dark:border-white ring-2 ring-neutral-950/20 dark:ring-white/20 shadow-xs'
                   : 'bg-white dark:bg-[#141414] text-neutral-700 dark:text-[#D5D5D5] border-neutral-200 dark:border-[#2A2A2A] hover:border-neutral-400 dark:hover:border-neutral-500 hover:bg-neutral-50 dark:hover:bg-[#1A1A1A]'
-              }`}
+                }`}
             >
               <Sparkles className="w-4 h-4" />
               <span className="text-xs font-bold">Google Pay</span>
@@ -226,11 +234,10 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
                 type="submit"
                 id="btn-send-mpesa-prompt"
                 disabled={isDowngradeExcess}
-                className={`w-full py-3 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  isDowngradeExcess
+                className={`w-full py-3 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${isDowngradeExcess
                     ? 'bg-neutral-200 dark:bg-[#252525] text-neutral-400 dark:text-[#666666] cursor-not-allowed'
                     : 'bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black shadow-sm'
-                }`}
+                  }`}
               >
                 <Smartphone className="w-4 h-4" />
                 <span>Send M-PESA Payment Prompt (KSh {selectedPlan.monthlyPrice.toLocaleString()})</span>
@@ -305,11 +312,10 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
                 type="submit"
                 id="btn-pay-card"
                 disabled={isDowngradeExcess}
-                className={`w-full py-3 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  isDowngradeExcess
+                className={`w-full py-3 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${isDowngradeExcess
                     ? 'bg-neutral-200 dark:bg-[#252525] text-neutral-400 dark:text-[#666666] cursor-not-allowed'
                     : 'bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black shadow-sm'
-                }`}
+                  }`}
               >
                 <CreditCard className="w-4 h-4" />
                 <span>Pay KSh {selectedPlan.monthlyPrice.toLocaleString()} with Card</span>
@@ -342,11 +348,10 @@ export const SubscriptionCheckoutModal: React.FC<SubscriptionCheckoutModalProps>
                     'Payment integration will be connected during backend development.'
                   )
                 }
-                className={`w-full py-3 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${
-                  isDowngradeExcess
+                className={`w-full py-3 px-4 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer ${isDowngradeExcess
                     ? 'bg-neutral-200 dark:bg-[#252525] text-neutral-400 dark:text-[#666666] cursor-not-allowed'
                     : 'bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black shadow-sm'
-                }`}
+                  }`}
               >
                 <span>Continue with Google Pay</span>
               </button>

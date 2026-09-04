@@ -12,6 +12,7 @@ import { SignupView } from './views/SignupView';
 import { LoginView } from './views/LoginView';
 import { RoleSelectionView } from './views/RoleSelectionView';
 import { ListerSubtypeView } from './views/ListerSubtypeView';
+import { ListerPhoneView } from './views/ListerPhoneView';
 import { TenantHomeView } from './views/TenantHomeView';
 import { MapExploreView } from './views/MapExploreView';
 import { PropertyDetailView } from './views/PropertyDetailView';
@@ -29,6 +30,8 @@ export default function App() {
   const { isLoaded, isSignedIn } = useUser();
   const {
     currentView,
+    currentUser,
+    setCurrentView,
     filterDrawerOpen,
     setFilterDrawerOpen,
     showSplashScreen,
@@ -57,6 +60,22 @@ export default function App() {
         search.includes('role=admin');
 
       if (isAdminTrigger) {
+        if (!isSignedIn) {
+          setShowSplashScreen(false);
+          setCurrentView('login');
+          return;
+        }
+
+        if (!currentUser) return;
+
+        if (currentUser.role !== 'admin') {
+          window.history.replaceState({}, '', '/');
+          setCurrentView(
+            currentUser.role === 'lister' ? 'lister-dashboard' : 'tenant-home'
+          );
+          return;
+        }
+
         setShowSplashScreen(false);
         runAdminDemo();
 
@@ -77,6 +96,9 @@ export default function App() {
           setAdminActiveTab?.('all-properties');
         }
       }
+      else if (pathname === '/' && currentView.startsWith('admin-')) {
+        setCurrentView('tenant-home');
+      }
     };
 
     handleUrlRoute();
@@ -86,7 +108,16 @@ export default function App() {
       window.removeEventListener('hashchange', handleUrlRoute);
       window.removeEventListener('popstate', handleUrlRoute);
     };
-  }, [runAdminDemo, setAdminActiveTab, setShowSplashScreen]);
+  }, [
+    runAdminDemo,
+    setAdminActiveTab,
+    setShowSplashScreen,
+    currentView,
+    setCurrentView,
+    isSignedIn,
+    currentUser,
+  ]);
+
 
   // Scroll to top on view changes
   useEffect(() => {
@@ -126,6 +157,8 @@ export default function App() {
         return <RoleSelectionView />;
       case 'lister-subtype':
         return <ListerSubtypeView />;
+      case 'lister-phone':
+        return <ListerPhoneView />;
       case 'tenant-home':
         return <TenantHomeView />;
       case 'map-explore':

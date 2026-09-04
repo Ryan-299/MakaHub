@@ -45,12 +45,40 @@ export const ListerSubtypeView: React.FC = () => {
   const { assignListerSubtype, setCurrentView, resolvedTheme, setTheme } = useApp();
   const isDark = resolvedTheme === 'dark';
   const [selectedSubtype, setSelectedSubtype] = useState<ListerSubtype>('Landlord / Property Owner');
+  const [phone, setPhone] = useState('');
+  const [error, setError] = useState('');
+  const handleContinue = async () => {
+    setError('');
 
-  const handleContinue = (subtype: ListerSubtype) => {
-    setSelectedSubtype(subtype);
-    assignListerSubtype(subtype);
+    const cleaned = phone.replace(/[\s-]/g, '');
+
+    let normalizedPhone = cleaned;
+
+    if (cleaned.startsWith('+254')) {
+      normalizedPhone = cleaned;
+    } else if (cleaned.startsWith('254')) {
+      normalizedPhone = `+${cleaned}`;
+    } else if (cleaned.startsWith('0')) {
+      normalizedPhone = `+254${cleaned.slice(1)}`;
+    } else if (/^[71]\d{8}$/.test(cleaned)) {
+      normalizedPhone = `+254${cleaned}`;
+    }
+
+    if (!/^\+254[71]\d{8}$/.test(normalizedPhone)) {
+      setError('Please enter a valid Kenyan phone number.');
+      return;
+    }
+
+    try {
+      await assignListerSubtype(selectedSubtype, normalizedPhone);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to save this phone number. Please try again.'
+      );
+    }
   };
-
   const toggleThemeMode = () => {
     if (resolvedTheme === 'dark') {
       setTheme('light');
@@ -62,9 +90,8 @@ export const ListerSubtypeView: React.FC = () => {
   return (
     <main
       id="makaohub-lister-subtype-screen"
-      className={`min-h-screen w-full flex flex-col justify-between items-center px-6 py-6 sm:py-10 transition-colors duration-200 relative ${
-        isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
-      }`}
+      className={`min-h-screen w-full flex flex-col justify-between items-center px-6 py-6 sm:py-10 transition-colors duration-200 relative ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
+        }`}
       style={{
         backgroundColor: isDark ? '#000000' : '#FFFFFF'
       }}
@@ -76,11 +103,10 @@ export const ListerSubtypeView: React.FC = () => {
           id="lister-subtype-back-btn"
           onClick={() => setCurrentView('role-selection')}
           aria-label="Back to Role Selection"
-          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-all cursor-pointer ${
-            isDark
-              ? 'text-neutral-400 hover:text-white hover:bg-neutral-900'
-              : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
-          }`}
+          className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-all cursor-pointer ${isDark
+            ? 'text-neutral-400 hover:text-white hover:bg-neutral-900'
+            : 'text-neutral-600 hover:text-black hover:bg-neutral-100'
+            }`}
         >
           <ArrowLeft className="w-4 h-4" />
           <span className="font-body hidden sm:inline">Back</span>
@@ -92,11 +118,10 @@ export const ListerSubtypeView: React.FC = () => {
           onClick={toggleThemeMode}
           title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          className={`p-2.5 rounded-full transition-all cursor-pointer border focus:outline-none focus:ring-2 ${
-            isDark
-              ? 'bg-neutral-900/90 hover:bg-neutral-800 border-neutral-800 text-neutral-200 hover:text-white focus:ring-white'
-              : 'bg-neutral-100 hover:bg-neutral-200 border-neutral-200 text-neutral-700 hover:text-black focus:ring-black'
-          }`}
+          className={`p-2.5 rounded-full transition-all cursor-pointer border focus:outline-none focus:ring-2 ${isDark
+            ? 'bg-neutral-900/90 hover:bg-neutral-800 border-neutral-800 text-neutral-200 hover:text-white focus:ring-white'
+            : 'bg-neutral-100 hover:bg-neutral-200 border-neutral-200 text-neutral-700 hover:text-black focus:ring-black'
+            }`}
         >
           {isDark ? (
             <Sun className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
@@ -110,16 +135,14 @@ export const ListerSubtypeView: React.FC = () => {
       <div className="max-w-2xl w-full text-center space-y-6 animate-in fade-in duration-300 my-auto py-6">
         <div>
           <div
-            className={`inline-block text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-3 ${
-              isDark ? 'bg-white text-black' : 'bg-black text-white'
-            }`}
+            className={`inline-block text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-3 ${isDark ? 'bg-white text-black' : 'bg-black text-white'
+              }`}
           >
             Lister Profile Setup
           </div>
           <h1
-            className={`font-editorial text-3xl sm:text-4xl font-normal tracking-tight mb-2 ${
-              isDark ? 'text-white' : 'text-neutral-950'
-            }`}
+            className={`font-editorial text-3xl sm:text-4xl font-normal tracking-tight mb-2 ${isDark ? 'text-white' : 'text-neutral-950'
+              }`}
             style={{
               fontFamily: "'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', Times, serif"
             }}
@@ -127,9 +150,8 @@ export const ListerSubtypeView: React.FC = () => {
             What best describes you?
           </h1>
           <p
-            className={`font-body text-sm sm:text-base max-w-md mx-auto leading-relaxed ${
-              isDark ? 'text-neutral-400' : 'text-neutral-600'
-            }`}
+            className={`font-body text-sm sm:text-base max-w-md mx-auto leading-relaxed ${isDark ? 'text-neutral-400' : 'text-neutral-600'
+              }`}
             style={{
               fontFamily: "'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif"
             }}
@@ -146,54 +168,50 @@ export const ListerSubtypeView: React.FC = () => {
               <button
                 key={item.title}
                 type="button"
-                onClick={() => handleContinue(item.title)}
-                className={`p-4 rounded-2xl border text-left transition-all duration-150 cursor-pointer flex items-start gap-3.5 select-none ${
-                  isSelected
-                    ? isDark
-                      ? 'bg-neutral-900 text-white border-white shadow-md scale-[1.01]'
-                      : 'bg-white text-black border-black shadow-md scale-[1.01]'
-                    : isDark
-                      ? 'bg-neutral-950/80 hover:bg-neutral-900 text-neutral-300 border-neutral-800 hover:border-neutral-700'
-                      : 'bg-neutral-50/70 hover:bg-neutral-100 text-neutral-800 border-neutral-200 hover:border-neutral-300'
-                }`}
+                onClick={() => setSelectedSubtype(item.title)}
+                className={`p-4 rounded-2xl border text-left transition-all duration-150 cursor-pointer flex items-start gap-3.5 select-none ${isSelected
+                  ? isDark
+                    ? 'bg-neutral-900 text-white border-white shadow-md scale-[1.01]'
+                    : 'bg-white text-black border-black shadow-md scale-[1.01]'
+                  : isDark
+                    ? 'bg-neutral-950/80 hover:bg-neutral-900 text-neutral-300 border-neutral-800 hover:border-neutral-700'
+                    : 'bg-neutral-50/70 hover:bg-neutral-100 text-neutral-800 border-neutral-200 hover:border-neutral-300'
+                  }`}
               >
                 <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                    isSelected
-                      ? isDark
-                        ? 'bg-white text-black'
-                        : 'bg-black text-white'
-                      : isDark
-                        ? 'bg-neutral-900 text-neutral-300'
-                        : 'bg-neutral-200/80 text-neutral-800'
-                  }`}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isSelected
+                    ? isDark
+                      ? 'bg-white text-black'
+                      : 'bg-black text-white'
+                    : isDark
+                      ? 'bg-neutral-900 text-neutral-300'
+                      : 'bg-neutral-200/80 text-neutral-800'
+                    }`}
                 >
                   <Icon className="w-5 h-5" />
                 </div>
                 <div>
                   <h4
-                    className={`text-sm font-bold leading-snug ${
-                      isSelected
-                        ? isDark
-                          ? 'text-white'
-                          : 'text-black'
-                        : isDark
-                          ? 'text-neutral-100'
-                          : 'text-neutral-900'
-                    }`}
+                    className={`text-sm font-bold leading-snug ${isSelected
+                      ? isDark
+                        ? 'text-white'
+                        : 'text-black'
+                      : isDark
+                        ? 'text-neutral-100'
+                        : 'text-neutral-900'
+                      }`}
                   >
                     {item.title}
                   </h4>
                   <p
-                    className={`text-xs mt-0.5 leading-relaxed ${
-                      isSelected
-                        ? isDark
-                          ? 'text-neutral-300'
-                          : 'text-neutral-700'
-                        : isDark
-                          ? 'text-neutral-400'
-                          : 'text-neutral-500'
-                    }`}
+                    className={`text-xs mt-0.5 leading-relaxed ${isSelected
+                      ? isDark
+                        ? 'text-neutral-300'
+                        : 'text-neutral-700'
+                      : isDark
+                        ? 'text-neutral-400'
+                        : 'text-neutral-500'
+                      }`}
                   >
                     {item.description}
                   </p>
@@ -201,6 +219,36 @@ export const ListerSubtypeView: React.FC = () => {
               </button>
             );
           })}
+        </div>
+        <div className="mt-8 w-full max-w-md mx-auto">
+          <label className="block text-sm font-semibold mb-2">
+            Phone Number
+          </label>
+
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+254XXXXXXXXX"
+            className="w-full px-4 py-3 rounded-xl border border-neutral-300 bg-transparent"
+          />
+
+          {error && (
+            <p className="mt-2 text-sm text-red-500">
+              {error}
+            </p>
+          )}
+
+          <p className="text-xs text-neutral-500 mt-2">
+            Used for your MakaoHub account and future payment services.
+          </p>
+          <button
+            type="button"
+            onClick={handleContinue}
+            className="w-full mt-5 py-3 rounded-xl bg-black text-white font-semibold"
+          >
+            Continue
+          </button>
         </div>
       </div>
 

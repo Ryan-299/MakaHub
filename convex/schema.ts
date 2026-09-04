@@ -71,7 +71,9 @@ export default defineSchema({
     avatar: v.string(),
     savedPropertyIds: v.array(v.string()),
     isSuspended: v.optional(v.boolean()),
-  }).index("by_userId", ["userId"]),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_phone", ["phone"]),
 
   enquiries: defineTable({
     propertyId: v.string(),

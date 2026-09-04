@@ -10,7 +10,30 @@ export const getByUserId = query({
       .first();
   },
 });
+export const listUsersForAdmin = query({
+  args: {},
 
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("User must be signed in.");
+    }
+
+    const requester = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!requester || requester.role !== "admin") {
+      throw new Error("Admin access required.");
+    }
+
+    return await ctx.db.query("users").collect();
+  },
+});
 export const upsertUser = mutation({
   args: {
     userId: v.optional(v.string()),
@@ -37,12 +60,49 @@ export const upsertUser = mutation({
       .query("users")
       .withIndex("by_userId", (q) => q.eq("userId", effectiveUserId))
       .first();
+    const requestedPhone = args.phone?.replace(/[\s-]/g, '');
+    const existingPhone = existing?.phone?.replace(/[\s-]/g, '') || '';
 
+    const existingHasRealPhone =
+      /^\+254[71]\d{8}$/.test(existingPhone) &&
+      existingPhone !== '+254700000000';
+
+    if (
+      existingHasRealPhone &&
+      requestedPhone &&
+      requestedPhone !== existingPhone
+    ) {
+      throw new Error(
+        "Your MakaoHub account phone number cannot be changed here."
+      );
+    }
+    if (
+      requestedPhone &&
+      requestedPhone !== '+254700000000' &&
+      !/^\+254[71]\d{8}$/.test(requestedPhone)
+    ) {
+      throw new Error("Please enter a valid Kenyan phone number.");
+    }
+    if (
+      requestedPhone &&
+      requestedPhone !== '+254700000000'
+    ) {
+      const phoneOwner = await ctx.db
+        .query("users")
+        .withIndex("by_phone", (q) => q.eq("phone", requestedPhone))
+        .first();
+
+      if (phoneOwner && phoneOwner.userId !== effectiveUserId) {
+        throw new Error(
+          "This phone number is already linked to another MakaoHub account."
+        );
+      }
+    }
     const userData = {
       userId: effectiveUserId,
       name: args.name ?? existing?.name ?? "MakaoHub User",
       email: args.email ?? existing?.email ?? "",
-      phone: args.phone ?? existing?.phone ?? "",
+      phone: requestedPhone ?? existing?.phone ?? "",
       role: args.role ?? existing?.role ?? "unassigned",
       listerSubtype:
         args.listerSubtype !== undefined
@@ -50,7 +110,6 @@ export const upsertUser = mutation({
           : existing?.listerSubtype,
       joinedAt:
         existing?.joinedAt ??
-        args.joinedAt ??
         new Date().toISOString(),
       avatar: args.avatar ?? existing?.avatar ?? "",
       savedPropertyIds:
@@ -87,5 +146,26 @@ export const toggleSaveProperty = mutation({
       : [...currentSaved, args.propertyId];
 
     await ctx.db.patch(existing._id, { savedPropertyIds: updated });
+  },
+});
+export const repairJoinedAt = mutation({
+  args: {},
+
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+
+    let repaired = 0;
+
+    for (const user of users) {
+      if (user.joinedAt === "Just now") {
+        await ctx.db.patch(user._id, {
+          joinedAt: new Date(user._creationTime).toISOString(),
+        });
+
+        repaired++;
+      }
+    }
+
+    return { repaired };
   },
 });
