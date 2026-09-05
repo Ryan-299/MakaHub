@@ -54,11 +54,10 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
     <div
       id={`property-card-${property.id}`}
       onClick={handleClick}
-      className={`group bg-white dark:bg-[#111111] rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer flex flex-col justify-between font-sans ${
-        highlighted
+      className={`group bg-white dark:bg-[#111111] rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer flex flex-col justify-between font-sans ${highlighted
           ? 'border-black dark:border-white ring-2 ring-black dark:ring-white shadow-lg scale-[1.01]'
           : 'border-neutral-200 dark:border-[#2A2A2A] hover:border-neutral-400 dark:hover:border-[#444444] hover:shadow-xl'
-      }`}
+        }`}
     >
       {/* Top Image Section */}
       <div className="relative aspect-4/3 sm:aspect-16/10 w-full overflow-hidden bg-neutral-100 dark:bg-[#181818]">
@@ -94,11 +93,10 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         <button
           type="button"
           onClick={handleHeartClick}
-          className={`absolute top-2 right-2 sm:top-3 sm:right-3 w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all z-10 cursor-pointer ${
-            isSaved
+          className={`absolute top-2 right-2 sm:top-3 sm:right-3 w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all z-10 cursor-pointer ${isSaved
               ? 'bg-black dark:bg-[#F5F5F5] text-white dark:text-[#111111] shadow-md scale-105 sm:scale-110'
               : 'bg-white/90 dark:bg-[#181818]/90 text-neutral-700 dark:text-[#F5F5F5] hover:bg-white dark:hover:bg-[#222222] hover:text-black dark:hover:text-white border border-neutral-200/60 dark:border-[#303030] shadow-xs'
-          }`}
+            }`}
           aria-label={isSaved ? 'Remove from saved' : 'Save property'}
         >
           <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isSaved ? 'fill-current text-white dark:text-[#111111]' : ''}`} />
@@ -107,11 +105,10 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         {/* Bottom Banner: Vacancy status */}
         <div className="absolute bottom-2 left-2 right-2 sm:bottom-3 sm:left-3 sm:right-3 flex items-center justify-between pointer-events-none">
           <div
-            className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md shadow-xs flex items-center gap-1 sm:gap-1.5 font-sans ${
-              isAvailable
+            className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md shadow-xs flex items-center gap-1 sm:gap-1.5 font-sans ${isAvailable
                 ? 'bg-white/95 dark:bg-[#111111]/90 text-black dark:text-[#F5F5F5] border border-neutral-200 dark:border-[#303030]'
                 : 'bg-neutral-900/90 text-white'
-            }`}
+              }`}
           >
             {isAvailable ? (
               <>
@@ -189,7 +186,13 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           </div>
 
           <div className="flex items-center gap-1 text-[9px] sm:text-[11px] text-neutral-400 dark:text-[#7D7D7D] font-sans">
-            <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+
+            <span className="flex items-center gap-1 mr-2">
+              <Heart className="w-2.5 h-2.5" />
+              <span>
+                {(property as any).saveCount ?? 0} {((property as any).saveCount ?? 0) === 1 ? 'save' : 'saves'}
+              </span>
+            </span> <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
             <span>{property.timePosted}</span>
           </div>
         </div>

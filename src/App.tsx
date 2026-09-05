@@ -25,7 +25,7 @@ import { ListerEnquiriesView } from './views/ListerEnquiriesView';
 import { SeekerEnquiriesView } from './views/SeekerEnquiriesView';
 import { ListerReviewsView } from './views/ListerReviewsView';
 import { AdminDashboardView } from './views/AdminDashboardView';
-
+import { NotificationsView } from './views/NotificationsView';
 export default function App() {
   const { isLoaded, isSignedIn } = useUser();
   const {
@@ -77,7 +77,7 @@ export default function App() {
         }
 
         setShowSplashScreen(false);
-        runAdminDemo();
+        setCurrentView('admin-dashboard');
 
         // Optional subtab routing if specified in hash or search query
         if (hash.includes('pending') || search.includes('tab=pending') || pathname.includes('pending')) {
@@ -175,6 +175,8 @@ export default function App() {
         return <MyListingsView />;
       case 'add-property':
         return <AddPropertyView />;
+      case 'notifications':
+        return <NotificationsView />;
       case 'lister-enquiries':
         return <ListerEnquiriesView />;
       case 'seeker-enquiries':

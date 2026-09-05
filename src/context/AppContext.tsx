@@ -64,6 +64,7 @@ export type AppView =
   | 'admin-reviews'
   | 'admin-locations'
   | 'admin-settings'
+  | 'notifications'
   | 'admin-activity';
 
 interface AppContextType {
@@ -216,6 +217,26 @@ const DEFAULT_FILTERS: FilterCriteria = {
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const formatTimeAgo = (timestamp?: number | string) => {
+  if (!timestamp) return 'Recently';
+
+  const created = new Date(timestamp).getTime();
+  const now = Date.now();
+  const diffMs = now - created;
+
+  const minutes = Math.floor(diffMs / 60000);
+  const hours = Math.floor(diffMs / 3600000);
+  const days = Math.floor(diffMs / 86400000);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  if (hours < 24) return `${hours} hr${hours === 1 ? '' : 's'} ago`;
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} days ago`;
+
+  return new Date(created).toLocaleDateString();
+};
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user: clerkUser, isLoaded, isSignedIn } = useUser();
@@ -613,12 +634,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (filtered.length > 0) {
           return filtered;
         }
-        return INITIAL_PROPERTIES;
+        return [];
       } catch {
-        return INITIAL_PROPERTIES;
+        return [];
       }
     }
-    return INITIAL_PROPERTIES;
+    return [];
   });
 
   const [reviews, setReviews] = useState<PropertyReview[]>(() => {
@@ -781,6 +802,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     if (!isConvexConfigured || !convexClient) return;
 
+    let latestSaveCounts: Record<string, number> = {};
     const processDocs = (convexDocs: any) => {
       if (Array.isArray(convexDocs) && convexDocs.length > 0) {
         setProperties((prev) => {
@@ -804,6 +826,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             amenities: doc.amenities || [],
             rating: doc.rating ?? 0,
             reviewCount: doc.reviewCount ?? 0,
+            saveCount: latestSaveCounts[doc._id || doc.id] ?? 0,
             timePosted: doc.timePosted || 'Recently',
             images: doc.images || [],
             coverPhoto: doc.coverPhoto || (doc.images && doc.images[0]) || '',
@@ -845,10 +868,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           processDocs(result);
         }
       });
+      const applySaveCounts = (counts: Record<string, number>) => {
+        latestSaveCounts = counts || {};
+
+        setProperties((prev) =>
+          prev.map((property) => ({
+            ...property,
+            saveCount: latestSaveCounts[property.id] ?? 0,
+          }))
+        );
+      };
+
+      convexClient
+        .query(api.users.getPropertySaveCounts, {})
+        .then((counts) => applySaveCounts(counts))
+        .catch((err) =>
+          console.warn('Convex save counts fetch notice:', err)
+        );
+
+      const saveCountWatch = (convexClient as any).watchQuery(
+        api.users.getPropertySaveCounts,
+        {}
+      );
+
+      const unsubscribeSaveCounts = saveCountWatch.onUpdate(() => {
+        const result = saveCountWatch.localQueryResult();
+
+        if (result) {
+          applySaveCounts(result);
+        }
+      });
+
 
       return () => {
         if (typeof unsubscribe === 'function') {
           unsubscribe();
+        }
+
+        if (typeof unsubscribeSaveCounts === 'function') {
+          unsubscribeSaveCounts();
         }
       };
     } catch (e) {
@@ -861,29 +919,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!isConvexConfigured || !convexClient || !currentUser?.id) return;
 
     const processConvexNotifs = (convexDocs: any) => {
-      if (Array.isArray(convexDocs) && convexDocs.length > 0) {
-        setNotifications((prev) => {
-          const formatted: UserNotification[] = convexDocs.map((doc: any) => ({
-            id: doc._id || doc.id,
-            recipientUserId: doc.recipientUserId,
-            userId: doc.userId || doc.recipientUserId,
-            title: doc.title,
-            message: doc.message,
-            time: doc.time || new Date().toISOString(),
-            createdAt: doc.time || new Date().toISOString(),
-            read: Boolean(doc.read),
-            type: doc.type,
-            targetPropertyId: doc.targetPropertyId,
-            targetReviewId: doc.targetReviewId,
-            targetEnquiryId: doc.targetEnquiryId,
-            targetMessageId: doc.targetMessageId
-          }));
+      const docs = Array.isArray(convexDocs) ? convexDocs : [];
 
-          const convexIds = new Set(formatted.map((n) => n.id));
-          const remaining = prev.filter((n) => !convexIds.has(n.id));
-          return [...formatted, ...remaining];
-        });
-      }
+      const formatted: UserNotification[] = docs.map((doc: any) => ({
+        id: doc._id || doc.id,
+        recipientUserId: doc.recipientUserId,
+        userId: doc.userId || doc.recipientUserId,
+        title: doc.title,
+        message: doc.message,
+        time: doc.time || new Date().toISOString(),
+        createdAt: doc.time || new Date().toISOString(),
+        read: Boolean(doc.read),
+        type: doc.type,
+        targetPropertyId: doc.targetPropertyId,
+        targetReviewId: doc.targetReviewId,
+        targetEnquiryId: doc.targetEnquiryId,
+        targetMessageId: doc.targetMessageId,
+      }));
+
+      setNotifications(formatted);
     };
 
     try {
@@ -1040,7 +1094,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return !!currentUser?.savedPropertyIds?.includes(id);
   };
 
-  const toggleSaveProperty = (id: string) => {
+  const toggleSaveProperty = async (id: string) => {
     if (!currentUser) {
       // Default to demo seeker Kevin Otieno when not logged in
       const seeker = users.find((u) => u.id === 'demo-seeker-001') || INITIAL_USERS[0];
@@ -1066,6 +1120,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setCurrentUser(updatedUser);
     setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+    if (isConvexConfigured && convexClient) {
+      try {
+        await convexClient.mutation(api.users.toggleSaveProperty, {
+          userId: currentUser.id,
+          propertyId: id,
+        });
+      } catch (error) {
+        console.error('Failed to sync saved property to Convex:', error);
+      }
+    }
   };
 
   // Auth helper flows
@@ -1512,7 +1576,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Lister: Update Property Listing (Save edited listing)
-  const updatePropertyListing = (
+  const updatePropertyListing = async (
     propertyId: string,
     updatedData: Partial<PropertyListing>
   ) => {
@@ -1521,6 +1585,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Register updated media in session registry
     registerSubmittedMedia([...imagesArray, coverPhoto, updatedData.video]);
+    if (isConvexConfigured && convexClient) {
+      const convexUpdate = Object.fromEntries(
+        Object.entries({
+          id: propertyId,
+          name: updatedData.name,
+          type: updatedData.type,
+          monthlyRent: updatedData.monthlyRent,
+          deposit: updatedData.deposit,
+          serviceCharge: updatedData.serviceCharge,
+          agentFee: updatedData.agentFee,
+          viewingFee: updatedData.viewingFee,
+          waterDeposit: updatedData.waterDeposit,
+          electricityDeposit: updatedData.electricityDeposit,
+          otherFees: updatedData.otherFees,
+          location: updatedData.location,
+          vacancies: updatedData.vacancies,
+          occupied: updatedData.occupied,
+          underRepair: updatedData.underRepair,
+          amenities: updatedData.amenities,
+          images: imagesArray.length > 0 ? imagesArray : undefined,
+          coverPhoto: coverPhoto || undefined,
+          video: updatedData.video,
+          videoName: updatedData.videoName,
+          videoSize: updatedData.videoSize,
+          imageStorageIds: updatedData.imageStorageIds,
+          coverPhotoStorageId: updatedData.coverPhotoStorageId,
+          videoStorageId: updatedData.videoStorageId,
+          description: updatedData.description,
+          timePosted: 'Updated just now',
+        }).filter(([, value]) => value !== undefined)
+      ) as any;
+
+      await convexClient.mutation(
+        api.properties.updateProperty,
+        convexUpdate
+      );
+    }
 
     setProperties((prev) =>
       prev.map((p) => {
@@ -1530,8 +1631,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ...updatedData,
           images: imagesArray.length > 0 ? imagesArray : p.images,
           coverPhoto: coverPhoto || p.coverPhoto,
-          // If substantially edited, set status back to Pending for review (Req #11)
-          status: 'Pending',
+          // Preserve existing status when property is updated
+          status: p.status,
           timePosted: 'Updated just now'
         };
       })
@@ -1546,7 +1647,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       recipientUserId: recipientId,
       userId: recipientId,
       title: 'Listing Updated',
-      message: `Changes to "${updatedData.name || existing?.name || 'your property'}" have been saved and submitted for review.`,
+      message: `Changes to "${updatedData.name || existing?.name || 'your property'}" have been saved successfully and are now live.`,
       time: nowIso,
       createdAt: nowIso,
       read: false,

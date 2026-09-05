@@ -109,9 +109,6 @@ export const AddPropertyView: React.FC = () => {
   const [electricityDeposit, setElectricityDeposit] = useState<string>(() =>
     editingProperty?.electricityDeposit ? String(editingProperty.electricityDeposit) : ''
   );
-  const [garbageFee, setGarbageFee] = useState<string>(() =>
-    editingProperty?.garbageFee ? String(editingProperty.garbageFee) : ''
-  );
   const [agentFee, setAgentFee] = useState<string>(() =>
     editingProperty?.agentFee ? String(editingProperty.agentFee) : ''
   );
@@ -141,12 +138,12 @@ export const AddPropertyView: React.FC = () => {
     editingProperty?.amenities && editingProperty.amenities.length > 0
       ? editingProperty.amenities
       : [
-          'Borehole Water / 24/7 Supply',
-          'Token Electricity (Prepaid KPLC)',
-          'Fibre Internet Ready',
-          'CCTV Surveillance & Guard Security',
-          'Private Balcony'
-        ]
+        'Borehole Water / 24/7 Supply',
+        'Token Electricity (Prepaid KPLC)',
+        'Fibre Internet Ready',
+        'CCTV Surveillance & Guard Security',
+        'Private Balcony'
+      ]
   );
 
   // Media Uploader State (Photos)
@@ -175,22 +172,22 @@ export const AddPropertyView: React.FC = () => {
   // Helper for numeric inputs: allows empty strings and prevents leading zeros (e.g. 08000 -> 8000)
   const handleNumericChange =
     (setter: React.Dispatch<React.SetStateAction<string>>) =>
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const val = e.target.value;
-      if (val === '') {
-        setter('');
-        return;
-      }
-      // Strip any non-digit characters
-      const digitsOnly = val.replace(/[^0-9]/g, '');
-      if (digitsOnly === '') {
-        setter('');
-        return;
-      }
-      // Strip leading zeroes unless the value is strictly "0"
-      const sanitized = digitsOnly.replace(/^0+(?=\d)/, '');
-      setter(sanitized);
-    };
+      (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        if (val === '') {
+          setter('');
+          return;
+        }
+        // Strip any non-digit characters
+        const digitsOnly = val.replace(/[^0-9]/g, '');
+        if (digitsOnly === '') {
+          setter('');
+          return;
+        }
+        // Strip leading zeroes unless the value is strictly "0"
+        const sanitized = digitsOnly.replace(/^0+(?=\d)/, '');
+        setter(sanitized);
+      };
 
   // Populate state whenever editingProperty changes
   useEffect(() => {
@@ -213,7 +210,7 @@ export const AddPropertyView: React.FC = () => {
       setElectricityDeposit(
         editingProperty.electricityDeposit ? String(editingProperty.electricityDeposit) : ''
       );
-      setGarbageFee(editingProperty.garbageFee ? String(editingProperty.garbageFee) : '');
+
       setAgentFee(editingProperty.agentFee ? String(editingProperty.agentFee) : '');
       setViewingFee(editingProperty.viewingFee ? String(editingProperty.viewingFee) : '');
 
@@ -541,7 +538,6 @@ export const AddPropertyView: React.FC = () => {
       const parsedServiceCharge = serviceCharge.trim() !== '' ? Number(serviceCharge) : 0;
       const parsedWaterDeposit = waterDeposit.trim() !== '' ? Number(waterDeposit) : 0;
       const parsedElectricityDeposit = electricityDeposit.trim() !== '' ? Number(electricityDeposit) : 0;
-      const parsedGarbageFee = garbageFee.trim() !== '' ? Number(garbageFee) : 0;
       const parsedAgentFee = agentFee.trim() !== '' ? Number(agentFee) : 0;
       const parsedViewingFee = viewingFee.trim() !== '' ? Number(viewingFee) : 0;
 
@@ -571,7 +567,6 @@ export const AddPropertyView: React.FC = () => {
           serviceCharge: parsedServiceCharge,
           waterDeposit: parsedWaterDeposit,
           electricityDeposit: parsedElectricityDeposit,
-          garbageFee: parsedGarbageFee,
           agentFee: parsedAgentFee,
           viewingFee: parsedViewingFee,
           vacancies: parsedVacant,
@@ -608,7 +603,6 @@ export const AddPropertyView: React.FC = () => {
           serviceCharge: parsedServiceCharge,
           waterDeposit: parsedWaterDeposit,
           electricityDeposit: parsedElectricityDeposit,
-          garbageFee: parsedGarbageFee,
           agentFee: parsedAgentFee,
           viewingFee: parsedViewingFee,
           vacancies: parsedVacant,
@@ -689,7 +683,7 @@ export const AddPropertyView: React.FC = () => {
             </h2>
             <p className="text-xs sm:text-sm text-neutral-500 dark:text-[#8A8A8A] max-w-md mx-auto leading-relaxed">
               {isEditMode
-                ? 'Your property changes have been saved and submitted for review. Redirecting to My Listings...'
+                ? 'Your property changes have been saved successfully and are now live. Redirecting to My Listings...'
                 : 'Your property has been submitted to MakaoHub administration with status Pending Review. You will receive an instant notification once approved.'}
             </p>
           </div>
@@ -867,10 +861,10 @@ export const AddPropertyView: React.FC = () => {
                       estate
                         ? `${estate}, ${ward || subCounty}`
                         : ward
-                        ? `${ward}, ${subCounty}`
-                        : subCounty
-                        ? `${subCounty}, ${county}`
-                        : county
+                          ? `${ward}, ${subCounty}`
+                          : subCounty
+                            ? `${subCounty}, ${county}`
+                            : county
                     }
                     lat={lat}
                     lng={lng}
@@ -938,8 +932,8 @@ export const AddPropertyView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Row 2: Water Deposit, Electricity Deposit, Garbage Fee */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-neutral-100 dark:border-[#262626]">
+              {/* Row 2: Water Deposit, Electricity Deposit */}
+              <div className="grid grid-cols-1 sm:grid-cols-2gap-4 pt-2 border-t border-neutral-100 dark:border-[#262626]">
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
                     Water Deposit (KSh)
@@ -968,21 +962,9 @@ export const AddPropertyView: React.FC = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Garbage Fee (KSh/mo)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={garbageFee}
-                    onChange={handleNumericChange(setGarbageFee)}
-                    placeholder="e.g. 300"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                  />
-                </div>
-              </div>
 
+
+              </div>
               {/* Row 3: Agency Fee, Viewing Fee */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-neutral-100 dark:border-[#262626]">
                 <div>
@@ -1084,18 +1066,16 @@ export const AddPropertyView: React.FC = () => {
                       key={item}
                       type="button"
                       onClick={() => toggleAmenity(item)}
-                      className={`p-3 rounded-xl border text-left text-xs font-semibold transition-all cursor-pointer flex items-center gap-2.5 ${
-                        isChecked
-                          ? 'bg-neutral-900 dark:bg-white text-white dark:text-black border-neutral-900 dark:border-white shadow-2xs'
-                          : 'bg-neutral-50 dark:bg-[#151515] hover:bg-neutral-100 dark:hover:bg-[#1E1E1E] text-neutral-700 dark:text-[#CCCCCC] border-neutral-200 dark:border-[#292929]'
-                      }`}
+                      className={`p-3 rounded-xl border text-left text-xs font-semibold transition-all cursor-pointer flex items-center gap-2.5 ${isChecked
+                        ? 'bg-neutral-900 dark:bg-white text-white dark:text-black border-neutral-900 dark:border-white shadow-2xs'
+                        : 'bg-neutral-50 dark:bg-[#151515] hover:bg-neutral-100 dark:hover:bg-[#1E1E1E] text-neutral-700 dark:text-[#CCCCCC] border-neutral-200 dark:border-[#292929]'
+                        }`}
                     >
                       <div
-                        className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${
-                          isChecked
-                            ? 'bg-white dark:bg-black text-black dark:text-white'
-                            : 'border border-neutral-400 dark:border-[#555555] bg-white dark:bg-[#181818]'
-                        }`}
+                        className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${isChecked
+                          ? 'bg-white dark:bg-black text-black dark:text-white'
+                          : 'border border-neutral-400 dark:border-[#555555] bg-white dark:bg-[#181818]'
+                          }`}
                       >
                         {isChecked && '✓'}
                       </div>
@@ -1120,11 +1100,10 @@ export const AddPropertyView: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span
-                    className={`px-3 py-1 text-xs font-bold rounded-full ${
-                      images.length > 0
-                        ? 'bg-neutral-900 dark:bg-white text-white dark:text-black'
-                        : 'bg-neutral-100 dark:bg-[#181818] text-neutral-600 dark:text-[#A3A3A3]'
-                    }`}
+                    className={`px-3 py-1 text-xs font-bold rounded-full ${images.length > 0
+                      ? 'bg-neutral-900 dark:bg-white text-white dark:text-black'
+                      : 'bg-neutral-100 dark:bg-[#181818] text-neutral-600 dark:text-[#A3A3A3]'
+                      }`}
                   >
                     Property Photos ({images.length}/10)
                   </span>
@@ -1172,11 +1151,10 @@ export const AddPropertyView: React.FC = () => {
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all ${
-                    isDragging
-                      ? 'border-black dark:border-white bg-neutral-100/90 dark:bg-[#1E1E1E] scale-[0.99]'
-                      : 'border-neutral-300 dark:border-[#333333] hover:border-neutral-800 dark:hover:border-neutral-400 bg-neutral-50/60 dark:bg-[#151515]/60 hover:bg-neutral-50 dark:hover:bg-[#181818]'
-                  }`}
+                  className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all ${isDragging
+                    ? 'border-black dark:border-white bg-neutral-100/90 dark:bg-[#1E1E1E] scale-[0.99]'
+                    : 'border-neutral-300 dark:border-[#333333] hover:border-neutral-800 dark:hover:border-neutral-400 bg-neutral-50/60 dark:bg-[#151515]/60 hover:bg-neutral-50 dark:hover:bg-[#181818]'
+                    }`}
                 >
                   <div className="flex flex-col items-center justify-center space-y-3">
                     <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#181818] border border-neutral-200 dark:border-[#292929] flex items-center justify-center shadow-xs text-neutral-800 dark:text-[#F5F5F5]">
@@ -1232,11 +1210,10 @@ export const AddPropertyView: React.FC = () => {
                       return (
                         <div
                           key={img}
-                          className={`relative aspect-4/3 rounded-2xl overflow-hidden border group bg-neutral-100 dark:bg-[#181818] shadow-xs transition-all ${
-                            isCover
-                              ? 'border-2 border-black dark:border-white ring-2 ring-black/10 dark:ring-white/10'
-                              : 'border-neutral-200 dark:border-[#292929] hover:border-neutral-400 dark:hover:border-neutral-500'
-                          }`}
+                          className={`relative aspect-4/3 rounded-2xl overflow-hidden border group bg-neutral-100 dark:bg-[#181818] shadow-xs transition-all ${isCover
+                            ? 'border-2 border-black dark:border-white ring-2 ring-black/10 dark:ring-white/10'
+                            : 'border-neutral-200 dark:border-[#292929] hover:border-neutral-400 dark:hover:border-neutral-500'
+                            }`}
                         >
                           <img
                             src={img}
@@ -1368,11 +1345,10 @@ export const AddPropertyView: React.FC = () => {
                   onDragLeave={handleVideoDragLeave}
                   onDrop={handleVideoDrop}
                   onClick={() => videoInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all ${
-                    isVideoDragging
-                      ? 'border-black dark:border-white bg-neutral-100/90 dark:bg-[#1E1E1E] scale-[0.99]'
-                      : 'border-neutral-300 dark:border-[#333333] hover:border-neutral-800 dark:hover:border-neutral-400 bg-neutral-50/60 dark:bg-[#151515]/60 hover:bg-neutral-50 dark:hover:bg-[#181818]'
-                  }`}
+                  className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all ${isVideoDragging
+                    ? 'border-black dark:border-white bg-neutral-100/90 dark:bg-[#1E1E1E] scale-[0.99]'
+                    : 'border-neutral-300 dark:border-[#333333] hover:border-neutral-800 dark:hover:border-neutral-400 bg-neutral-50/60 dark:bg-[#151515]/60 hover:bg-neutral-50 dark:hover:bg-[#181818]'
+                    }`}
                 >
                   <div className="flex flex-col items-center justify-center space-y-3">
                     <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#181818] border border-neutral-200 dark:border-[#292929] flex items-center justify-center shadow-xs text-neutral-800 dark:text-[#F5F5F5]">
@@ -1467,9 +1443,8 @@ export const AddPropertyView: React.FC = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`px-8 py-3.5 bg-black hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-white font-bold rounded-2xl text-sm transition-all shadow-lg hover:shadow-xl flex items-center gap-2 cursor-pointer ${
-                  isSubmitting ? 'opacity-80 cursor-wait' : ''
-                }`}
+                className={`px-8 py-3.5 bg-black hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-white font-bold rounded-2xl text-sm transition-all shadow-lg hover:shadow-xl flex items-center gap-2 cursor-pointer ${isSubmitting ? 'opacity-80 cursor-wait' : ''
+                  }`}
               >
                 {isSubmitting ? (
                   <>

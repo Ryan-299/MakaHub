@@ -184,9 +184,93 @@ export const add = mutation({
           estate: args.location.estate,
         }
       );
+      const users = await ctx.db.query("users").collect();
+      const admins = users.filter((user) => user.role === "admin");
+
+      for (const admin of admins) {
+        await ctx.db.insert("notifications", {
+          recipientUserId: admin.userId,
+          userId: args.lister.id,
+          title: "New Property Awaiting Approval",
+          message: `"${args.name}" has been submitted and is waiting for your review.`,
+          time: new Date().toISOString(),
+          type: "approval",
+          targetPropertyId: propertyId.toString(),
+          read: false,
+        });
+      }
+    }
+    return propertyId;
+  },
+});
+export const updateProperty = mutation({
+  args: {
+    id: v.id("properties"),
+
+    name: v.optional(v.string()),
+    type: v.optional(v.string()),
+    monthlyRent: v.optional(v.number()),
+    deposit: v.optional(v.number()),
+    serviceCharge: v.optional(v.number()),
+    agentFee: v.optional(v.number()),
+    viewingFee: v.optional(v.number()),
+    waterDeposit: v.optional(v.number()),
+    electricityDeposit: v.optional(v.number()),
+    otherFees: v.optional(v.number()),
+
+    location: v.optional(
+      v.object({
+        county: v.string(),
+        subCounty: v.string(),
+        ward: v.string(),
+        estate: v.string(),
+        address: v.optional(v.string()),
+        lat: v.number(),
+        lng: v.number(),
+        distanceMock: v.optional(v.number()),
+      })
+    ),
+
+    vacancies: v.optional(v.number()),
+    occupied: v.optional(v.number()),
+    underRepair: v.optional(v.number()),
+    amenities: v.optional(v.array(v.string())),
+
+    images: v.optional(v.array(v.string())),
+    coverPhoto: v.optional(v.string()),
+    video: v.optional(v.string()),
+    videoName: v.optional(v.string()),
+    videoSize: v.optional(v.number()),
+
+    imageStorageIds: v.optional(v.array(v.id("_storage"))),
+    coverPhotoStorageId: v.optional(v.id("_storage")),
+    videoStorageId: v.optional(v.id("_storage")),
+
+    description: v.optional(v.string()),
+    timePosted: v.optional(v.string()),
+  },
+
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in.");
+    }
+    const doc = await ctx.db.get(args.id);
+
+    if (!doc) {
+      throw new Error("Property not found.");
     }
 
-    return propertyId;
+    if (doc.lister?.id !== identity.subject) {
+      throw new Error("You can only edit your own property.");
+    }
+
+    const { id, ...updates } = args;
+
+    await ctx.db.patch(doc._id, updates);
+
+    return doc._id;
   },
 });
 

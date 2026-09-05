@@ -272,22 +272,25 @@ export const Navbar: React.FC = () => {
                             No notifications yet.
                           </div>
                         ) : (
-                          notifications.slice(0, 3).map((notif) => (
-                            <div
-                              key={notif.id}
-                              onClick={() => handleNotificationClick(notif)}
-                              className={`p-3.5 text-xs hover:bg-neutral-50 dark:hover:bg-neutral-900 cursor-pointer transition-colors ${!notif.read ? 'bg-neutral-50/90 dark:bg-neutral-900/60 font-medium' : ''
-                                }`}
-                            >
-                              <div className="flex items-center justify-between gap-2 mb-1">
-                                <span className="font-bold text-neutral-900 dark:text-white truncate">{notif.title}</span>
-                                <span className="text-[10px] text-neutral-400 shrink-0">{formatRelativeTime(notif.createdAt || notif.time)}</span>
+                          [...notifications]
+                            .sort((a, b) => new Date(b.createdAt || b.time).getTime() - new Date(a.createdAt || a.time).getTime())
+                            .slice(0, 3)
+                            .map((notif) => (
+                              <div
+                                key={notif.id}
+                                onClick={() => handleNotificationClick(notif)}
+                                className={`p-3.5 text-xs hover:bg-neutral-50 dark:hover:bg-neutral-900 cursor-pointer transition-colors ${!notif.read ? 'bg-neutral-50/90 dark:bg-neutral-900/60 font-medium' : ''
+                                  }`}
+                              >
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                  <span className="font-bold text-neutral-900 dark:text-white truncate">{notif.title}</span>
+                                  <span className="text-[10px] text-neutral-400 shrink-0">{formatRelativeTime(notif.createdAt || notif.time)}</span>
+                                </div>
+                                <p className="text-neutral-600 dark:text-neutral-300 leading-relaxed text-[11px] whitespace-pre-line break-words line-clamp-2">
+                                  {notif.message}
+                                </p>
                               </div>
-                              <p className="text-neutral-600 dark:text-neutral-300 leading-relaxed text-[11px] whitespace-pre-line break-words line-clamp-2">
-                                {notif.message}
-                              </p>
-                            </div>
-                          ))
+                            ))
                         )}
                       </div>
 
@@ -298,13 +301,7 @@ export const Navbar: React.FC = () => {
                           id="btn-see-all-notifications"
                           onClick={() => {
                             setNotifOpen(false);
-                            if (currentUser?.role === 'lister') {
-                              setCurrentView('lister-enquiries');
-                            } else if (currentUser?.role === 'admin') {
-                              setCurrentView('admin-reports');
-                            } else {
-                              setCurrentView('seeker-enquiries');
-                            }
+                            setCurrentView('notifications');
                           }}
                           className="w-full px-4 py-3 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-900 text-xs font-bold text-neutral-900 dark:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                         >

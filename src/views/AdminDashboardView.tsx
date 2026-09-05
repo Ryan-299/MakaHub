@@ -63,7 +63,7 @@ export const AdminDashboardView: React.FC = () => {
   // Smooth navigation handler to switch tab and scroll to section top
   const handleNavigateTab = (
     tab: AdminTab,
-    statusFilter?: 'All' | 'Approved' | 'Pending' | 'Rejected',
+    statusFilter?: 'All' | 'Approved' | 'Pending' | 'Rejected' | 'Vacant',
     smoothScroll = true
   ) => {
     if (tab === 'all-properties') {
@@ -78,29 +78,19 @@ export const AdminDashboardView: React.FC = () => {
     if (smoothScroll) {
       requestAnimationFrame(() => {
         setTimeout(() => {
-          const targetEl =
-            sectionContentRef.current ||
-            document.getElementById('admin-section-content') ||
-            document.getElementById(`admin-section-${tab}`);
-
-          if (targetEl) {
-            const headerOffset = 110; // Account for sticky navbar & demo toolbar
-            const elementPosition = targetEl.getBoundingClientRect().top;
-            const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
-
-            window.scrollTo({
-              top: offsetPosition,
-              behavior: 'smooth'
-            });
-          }
-        }, 50);
+          window.scrollTo({
+            top: 0,
+            behavior: 'smooth',
+          });
+        }, 100);
       });
     }
   };
 
   // Properties tab search and filter
   const [propertySearchQuery, setPropertySearchQuery] = useState('');
-  const [propertyStatusFilter, setPropertyStatusFilter] = useState<'All' | 'Approved' | 'Pending' | 'Rejected'>('All');
+  const [propertyStatusFilter, setPropertyStatusFilter] =
+    useState<'All' | 'Approved' | 'Pending' | 'Rejected' | 'Vacant'>('All');
 
   // Stats calculation
   const pendingProperties = (properties || []).filter((p) => p.status === 'Pending');
@@ -123,7 +113,12 @@ export const AdminDashboardView: React.FC = () => {
       p.location.county.toLowerCase().includes(propertySearchQuery.toLowerCase()) ||
       (p.lister?.name || '').toLowerCase().includes(propertySearchQuery.toLowerCase());
 
-    const matchesStatus = propertyStatusFilter === 'All' || p.status === propertyStatusFilter;
+    const matchesStatus =
+      propertyStatusFilter === 'All'
+        ? true
+        : propertyStatusFilter === 'Vacant'
+          ? (p.vacancies ?? 0) > 0
+          : p.status === propertyStatusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -168,11 +163,10 @@ export const AdminDashboardView: React.FC = () => {
             type="button"
             id="admin-card-all-properties"
             onClick={() => handleNavigateTab('all-properties', 'All')}
-            className={`p-5 rounded-2xl border text-left transition-all cursor-pointer group shadow-2xs ${
-              activeTab === 'all-properties' && propertyStatusFilter === 'All'
-                ? 'bg-white dark:bg-[#181818] border-black dark:border-white ring-2 ring-black/10 dark:ring-white/10'
-                : 'bg-white dark:bg-[#111111] border-neutral-200 dark:border-[#292929] hover:border-black dark:hover:border-white hover:shadow-md'
-            }`}
+            className={`p-5 rounded-2xl border text-left transition-all cursor-pointer group shadow-2xs ${activeTab === 'all-properties' && propertyStatusFilter === 'All'
+              ? 'bg-white dark:bg-[#181818] border-black dark:border-white ring-2 ring-black/10 dark:ring-white/10'
+              : 'bg-white dark:bg-[#111111] border-neutral-200 dark:border-[#292929] hover:border-black dark:hover:border-white hover:shadow-md'
+              }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-neutral-500 dark:text-[#A3A3A3] uppercase tracking-wider group-hover:text-black dark:group-hover:text-white transition-colors">
@@ -202,11 +196,10 @@ export const AdminDashboardView: React.FC = () => {
             type="button"
             id="admin-card-pending-properties"
             onClick={() => handleNavigateTab('all-properties', 'Pending')}
-            className={`p-5 rounded-2xl border text-left transition-all cursor-pointer group shadow-2xs ${
-              activeTab === 'all-properties' && propertyStatusFilter === 'Pending'
-                ? 'bg-neutral-100 dark:bg-[#181818] border-black dark:border-white ring-2 ring-black/10 dark:ring-white/10'
-                : 'bg-white dark:bg-[#111111] border-neutral-200 dark:border-[#292929] hover:border-black dark:hover:border-white hover:shadow-md'
-            }`}
+            className={`p-5 rounded-2xl border text-left transition-all cursor-pointer group shadow-2xs ${activeTab === 'all-properties' && propertyStatusFilter === 'Pending'
+              ? 'bg-neutral-100 dark:bg-[#181818] border-black dark:border-white ring-2 ring-black/10 dark:ring-white/10'
+              : 'bg-white dark:bg-[#111111] border-neutral-200 dark:border-[#292929] hover:border-black dark:hover:border-white hover:shadow-md'
+              }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">
@@ -228,11 +221,10 @@ export const AdminDashboardView: React.FC = () => {
             type="button"
             id="admin-card-users"
             onClick={() => handleNavigateTab('users')}
-            className={`p-5 rounded-2xl border text-left transition-all cursor-pointer group shadow-2xs ${
-              activeTab === 'users'
-                ? 'bg-white dark:bg-[#181818] border-black dark:border-white ring-2 ring-black/10 dark:ring-white/10'
-                : 'bg-white dark:bg-[#111111] border-neutral-200 dark:border-[#292929] hover:border-black dark:hover:border-white hover:shadow-md'
-            }`}
+            className={`p-5 rounded-2xl border text-left transition-all cursor-pointer group shadow-2xs ${activeTab === 'users'
+              ? 'bg-white dark:bg-[#181818] border-black dark:border-white ring-2 ring-black/10 dark:ring-white/10'
+              : 'bg-white dark:bg-[#111111] border-neutral-200 dark:border-[#292929] hover:border-black dark:hover:border-white hover:shadow-md'
+              }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-neutral-500 dark:text-[#A3A3A3] uppercase tracking-wider group-hover:text-black dark:group-hover:text-white transition-colors">
@@ -254,11 +246,10 @@ export const AdminDashboardView: React.FC = () => {
             type="button"
             id="admin-card-reports"
             onClick={() => handleNavigateTab('reports')}
-            className={`p-5 rounded-2xl border text-left transition-all cursor-pointer group shadow-2xs ${
-              activeTab === 'reports'
-                ? 'bg-rose-50/90 dark:bg-rose-950/30 border-rose-500 ring-2 ring-rose-500/20'
-                : 'bg-white dark:bg-[#111111] border-neutral-200 dark:border-[#292929] hover:border-rose-500 hover:shadow-md'
-            }`}
+            className={`p-5 rounded-2xl border text-left transition-all cursor-pointer group shadow-2xs ${activeTab === 'reports'
+              ? 'bg-rose-50/90 dark:bg-rose-950/30 border-rose-500 ring-2 ring-rose-500/20'
+              : 'bg-white dark:bg-[#111111] border-neutral-200 dark:border-[#292929] hover:border-rose-500 hover:shadow-md'
+              }`}
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-rose-800 dark:text-rose-400 uppercase tracking-wider">
@@ -277,16 +268,15 @@ export const AdminDashboardView: React.FC = () => {
         </div>
 
         {/* Admin Navigation Tabs */}
-        <div className="bg-neutral-100 dark:bg-[#111111] border border-neutral-200/80 dark:border-[#292929] p-1.5 rounded-2xl flex flex-wrap items-center gap-1">
+        <div className="bg-neutral-100 dark:bg-[#111111] border border-neutral-200/80 dark:border-[#292929] p-1.5 rounded-2xl flex flex-wrap items-center gap-1 sticky top-20 z-30 overflow-x-auto">
           <button
             type="button"
             id="admin-tab-overview"
             onClick={() => handleNavigateTab('overview')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'overview'
-                ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
-                : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'overview'
+              ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
+              : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+              }`}
           >
             Dashboard Overview
           </button>
@@ -295,24 +285,44 @@ export const AdminDashboardView: React.FC = () => {
             type="button"
             id="admin-tab-all-properties"
             onClick={() => handleNavigateTab('all-properties')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'all-properties'
-                ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
-                : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'all-properties'
+              ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
+              : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+              }`}
           >
             All Properties ({properties.length})
+          </button>
+
+
+          <button
+            type="button"
+            onClick={() => handleNavigateTab('all-properties', 'Approved')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'all-properties' && propertyStatusFilter === 'Approved'
+              ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
+              : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+              }`}
+          >
+            Approved Listings ({activeProperties.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => handleNavigateTab('all-properties', 'Vacant')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'all-properties' && propertyStatusFilter === 'Vacant'
+                ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
+                : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+              }`}
+          >
+            Vacant Units ({totalVacancies})
           </button>
 
           <button
             type="button"
             id="admin-tab-pending-properties"
             onClick={() => handleNavigateTab('pending-properties')}
-            className={`relative px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'pending-properties'
-                ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
-                : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
-            }`}
+            className={`relative px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'pending-properties'
+              ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
+              : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+              }`}
           >
             Pending Listings ({pendingProperties.length})
             {pendingProperties.length > 0 && (
@@ -326,11 +336,10 @@ export const AdminDashboardView: React.FC = () => {
             type="button"
             id="admin-tab-reports"
             onClick={() => handleNavigateTab('reports')}
-            className={`relative px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'reports'
-                ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
-                : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
-            }`}
+            className={`relative px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'reports'
+              ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
+              : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+              }`}
           >
             Dispute Reports ({openReports.length})
             {openReports.length > 0 && (
@@ -344,11 +353,10 @@ export const AdminDashboardView: React.FC = () => {
             type="button"
             id="admin-tab-users"
             onClick={() => handleNavigateTab('users')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'users'
-                ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
-                : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'users'
+              ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
+              : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+              }`}
           >
             Registered Users ({users.length})
           </button>
@@ -357,11 +365,10 @@ export const AdminDashboardView: React.FC = () => {
             type="button"
             id="admin-tab-locations"
             onClick={() => handleNavigateTab('locations')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'locations'
-                ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
-                : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'locations'
+              ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
+              : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+              }`}
           >
             Kenya Locations Hierarchy
           </button>
@@ -370,11 +377,10 @@ export const AdminDashboardView: React.FC = () => {
             type="button"
             id="admin-tab-activity"
             onClick={() => handleNavigateTab('activity')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'activity'
-                ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
-                : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'activity'
+              ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
+              : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+              }`}
           >
             Activity Log ({adminActivity.length})
           </button>
@@ -383,11 +389,10 @@ export const AdminDashboardView: React.FC = () => {
             type="button"
             id="admin-tab-settings"
             onClick={() => handleNavigateTab('settings')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              activeTab === 'settings'
-                ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
-                : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'settings'
+              ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
+              : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+              }`}
           >
             Settings
           </button>
@@ -570,103 +575,6 @@ export const AdminDashboardView: React.FC = () => {
                 </div>
               </div>
 
-              {/* Quick Admin Navigation Shortcuts Grid */}
-              <div className="bg-neutral-50 dark:bg-[#111111] rounded-3xl p-6 border border-neutral-200 dark:border-[#292929] space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-bold text-sm text-neutral-950 dark:text-[#F5F5F5] uppercase tracking-wider">
-                    Quick Administration Shortcuts
-                  </h3>
-                  <span className="text-xs text-neutral-500 dark:text-[#888888]">
-                    Jump directly to any section
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                  {/* Active / Approved Properties */}
-                  <button
-                    type="button"
-                    onClick={() => handleNavigateTab('all-properties', 'Approved')}
-                    className="p-4 rounded-2xl border border-neutral-200 dark:border-[#292929] bg-white dark:bg-[#151515] hover:border-black dark:hover:border-white transition-all text-left group cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between text-neutral-500 dark:text-[#888888] mb-1.5">
-                      <Building2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform text-neutral-400" />
-                    </div>
-                    <div className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">{activeProperties.length}</div>
-                    <div className="text-[11px] font-semibold text-neutral-500 dark:text-[#A3A3A3] truncate">Approved Listings</div>
-                  </button>
-
-                  {/* Available Vacant Units */}
-                  <button
-                    type="button"
-                    onClick={() => handleNavigateTab('all-properties', 'Approved')}
-                    className="p-4 rounded-2xl border border-neutral-200 dark:border-[#292929] bg-white dark:bg-[#151515] hover:border-black dark:hover:border-white transition-all text-left group cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between text-neutral-500 dark:text-[#888888] mb-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform text-neutral-400" />
-                    </div>
-                    <div className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">{totalVacancies}</div>
-                    <div className="text-[11px] font-semibold text-neutral-500 dark:text-[#A3A3A3] truncate">Vacant Units</div>
-                  </button>
-
-                  {/* Pending Listings */}
-                  <button
-                    type="button"
-                    onClick={() => handleNavigateTab('pending-properties')}
-                    className="p-4 rounded-2xl border border-neutral-200 dark:border-[#292929] bg-white dark:bg-[#151515] hover:border-black dark:hover:border-white transition-all text-left group cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between text-neutral-500 dark:text-[#888888] mb-1.5">
-                      <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform text-neutral-400" />
-                    </div>
-                    <div className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">{pendingProperties.length}</div>
-                    <div className="text-[11px] font-semibold text-neutral-500 dark:text-[#A3A3A3] truncate">Pending Review</div>
-                  </button>
-
-                  {/* Users Management */}
-                  <button
-                    type="button"
-                    onClick={() => handleNavigateTab('users')}
-                    className="p-4 rounded-2xl border border-neutral-200 dark:border-[#292929] bg-white dark:bg-[#151515] hover:border-black dark:hover:border-white transition-all text-left group cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between text-neutral-500 dark:text-[#888888] mb-1.5">
-                      <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform text-neutral-400" />
-                    </div>
-                    <div className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">{users.length}</div>
-                    <div className="text-[11px] font-semibold text-neutral-500 dark:text-[#A3A3A3] truncate">User Accounts</div>
-                  </button>
-
-                  {/* Kenya Locations */}
-                  <button
-                    type="button"
-                    onClick={() => handleNavigateTab('locations')}
-                    className="p-4 rounded-2xl border border-neutral-200 dark:border-[#292929] bg-white dark:bg-[#151515] hover:border-black dark:hover:border-white transition-all text-left group cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between text-neutral-500 dark:text-[#888888] mb-1.5">
-                      <MapPin className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform text-neutral-400" />
-                    </div>
-                    <div className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">47</div>
-                    <div className="text-[11px] font-semibold text-neutral-500 dark:text-[#A3A3A3] truncate">Kenya Counties</div>
-                  </button>
-
-                  {/* Audit Trail */}
-                  <button
-                    type="button"
-                    onClick={() => handleNavigateTab('activity')}
-                    className="p-4 rounded-2xl border border-neutral-200 dark:border-[#292929] bg-white dark:bg-[#151515] hover:border-black dark:hover:border-white transition-all text-left group cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between text-neutral-500 dark:text-[#888888] mb-1.5">
-                      <Activity className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform text-neutral-400" />
-                    </div>
-                    <div className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">{adminActivity.length}</div>
-                    <div className="text-[11px] font-semibold text-neutral-500 dark:text-[#A3A3A3] truncate">Audit Trail</div>
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 
@@ -690,11 +598,10 @@ export const AdminDashboardView: React.FC = () => {
                       key={status}
                       type="button"
                       onClick={() => setPropertyStatusFilter(status)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                        propertyStatusFilter === status
-                          ? 'bg-black dark:bg-white text-white dark:text-black shadow-xs'
-                          : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
-                      }`}
+                      className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${propertyStatusFilter === status
+                        ? 'bg-black dark:bg-white text-white dark:text-black shadow-xs'
+                        : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+                        }`}
                     >
                       {status}
                     </button>
@@ -737,13 +644,12 @@ export const AdminDashboardView: React.FC = () => {
                             }}
                           />
                           <span
-                            className={`absolute top-2.5 right-2.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs ${
-                              prop.status === 'Approved'
-                                ? 'bg-emerald-500 text-white'
-                                : prop.status === 'Pending'
+                            className={`absolute top-2.5 right-2.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-xs ${prop.status === 'Approved'
+                              ? 'bg-emerald-500 text-white'
+                              : prop.status === 'Pending'
                                 ? 'bg-neutral-800 text-white'
                                 : 'bg-rose-500 text-white'
-                            }`}
+                              }`}
                           >
                             {prop.status}
                           </span>
@@ -878,11 +784,10 @@ export const AdminDashboardView: React.FC = () => {
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${
-                          rep.status === 'open'
-                            ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300'
-                            : 'bg-neutral-200 dark:bg-[#262626] text-neutral-700 dark:text-[#C5C5C5]'
-                        }`}>
+                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${rep.status === 'open'
+                          ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300'
+                          : 'bg-neutral-200 dark:bg-[#262626] text-neutral-700 dark:text-[#C5C5C5]'
+                          }`}>
                           {rep.status}
                         </span>
                         <span className="font-bold text-sm text-neutral-900 dark:text-[#F5F5F5]">{rep.targetTitle}</span>
@@ -944,13 +849,12 @@ export const AdminDashboardView: React.FC = () => {
                         </div>
                         <p className="text-xs text-neutral-500 dark:text-[#8A8A8A] truncate mt-0.5">{u.email}</p>
                         <span
-                          className={`inline-block mt-2 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
-                            u.role === 'admin'
-                              ? 'bg-purple-100 dark:bg-purple-950/40 text-purple-900 dark:text-purple-300 border border-purple-200 dark:border-purple-900/50'
-                              : u.role === 'lister'
+                          className={`inline-block mt-2 text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${u.role === 'admin'
+                            ? 'bg-purple-100 dark:bg-purple-950/40 text-purple-900 dark:text-purple-300 border border-purple-200 dark:border-purple-900/50'
+                            : u.role === 'lister'
                               ? 'bg-blue-100 dark:bg-blue-950/40 text-blue-900 dark:text-blue-300 border border-blue-200 dark:border-blue-900/50'
                               : 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-900 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/50'
-                          }`}
+                            }`}
                         >
                           {u.role} {u.listerSubtype ? `• ${u.listerSubtype}` : ''}
                         </span>
@@ -962,8 +866,8 @@ export const AdminDashboardView: React.FC = () => {
                         {u.role === 'lister'
                           ? `${properties.filter((p) => p.lister?.id === u.id).length} listings`
                           : u.role === 'seeker'
-                          ? '1 saved property'
-                          : 'System Admin'}
+                            ? '1 saved property'
+                            : 'System Admin'}
                       </span>
                       <span className="flex items-center gap-1">
                         <span>View Profile</span>
@@ -993,11 +897,10 @@ export const AdminDashboardView: React.FC = () => {
                     key={c.code || c.name}
                     type="button"
                     onClick={() => setLocationCountyFilter(c.name)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      locationCountyFilter === c.name
-                        ? 'bg-black dark:bg-white text-white dark:text-black'
-                        : 'bg-neutral-100 dark:bg-[#181818] hover:bg-neutral-200 dark:hover:bg-[#222222] text-neutral-800 dark:text-[#D5D5D5]'
-                    }`}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${locationCountyFilter === c.name
+                      ? 'bg-black dark:bg-white text-white dark:text-black'
+                      : 'bg-neutral-100 dark:bg-[#181818] hover:bg-neutral-200 dark:hover:bg-[#222222] text-neutral-800 dark:text-[#D5D5D5]'
+                      }`}
                   >
                     {c.name}
                   </button>
@@ -1070,16 +973,15 @@ export const AdminDashboardView: React.FC = () => {
                     return (
                       <div key={act.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-neutral-50 dark:hover:bg-[#161616] px-3 rounded-xl transition-colors">
                         <div className="flex items-start gap-3">
-                          <div className={`mt-0.5 p-2 rounded-xl shrink-0 ${
-                            isApproval ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400' :
+                          <div className={`mt-0.5 p-2 rounded-xl shrink-0 ${isApproval ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400' :
                             isRejection || isSuspension ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400' :
-                            isResolution ? 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400' :
-                            'bg-neutral-100 dark:bg-[#252525] text-neutral-700 dark:text-[#DDDDDD]'
-                          }`}>
+                              isResolution ? 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400' :
+                                'bg-neutral-100 dark:bg-[#252525] text-neutral-700 dark:text-[#DDDDDD]'
+                            }`}>
                             {isApproval ? <CheckCircle2 className="w-4 h-4" /> :
-                             isRejection || isSuspension ? <XCircle className="w-4 h-4" /> :
-                             isResolution ? <ShieldCheck className="w-4 h-4" /> :
-                             <Activity className="w-4 h-4" />}
+                              isRejection || isSuspension ? <XCircle className="w-4 h-4" /> :
+                                isResolution ? <ShieldCheck className="w-4 h-4" /> :
+                                  <Activity className="w-4 h-4" />}
                           </div>
                           <div>
                             <div className="flex flex-wrap items-center gap-2">

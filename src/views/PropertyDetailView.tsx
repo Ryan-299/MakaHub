@@ -320,18 +320,19 @@ export const PropertyDetailView: React.FC = () => {
               <span>{copiedLink ? 'Link Copied!' : 'Share'}</span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => toggleSaveProperty(property.id)}
-              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border text-xs font-bold font-sans transition-all cursor-pointer ${
-                isSaved
+            {!isOwner && (
+              <button
+                type="button"
+                onClick={() => toggleSaveProperty(property.id)}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border text-xs font-bold font-sans transition-all cursor-pointer ${isSaved
                   ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white'
                   : 'bg-white dark:bg-[#151515] text-neutral-800 dark:text-[#E5E5E5] border-neutral-200 dark:border-[#303030] hover:border-black dark:hover:border-white hover:bg-neutral-50 dark:hover:bg-[#1E1E1E]'
-              }`}
-            >
-              <Heart className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
-              <span>{isSaved ? 'Saved' : 'Save Property'}</span>
-            </button>
+                  }`}
+              >
+                <Heart className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
+                <span>{isSaved ? 'Saved' : 'Save Property'}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -477,9 +478,8 @@ export const PropertyDetailView: React.FC = () => {
                   key={idx}
                   type="button"
                   onClick={() => setActivePhotoIdx(idx)}
-                  className={`relative rounded-xl overflow-hidden aspect-4/3 border-2 transition-all cursor-pointer ${
-                    activePhotoIdx === idx ? 'border-black dark:border-white ring-2 ring-black dark:ring-white' : 'border-transparent opacity-70 hover:opacity-100'
-                  }`}
+                  className={`relative rounded-xl overflow-hidden aspect-4/3 border-2 transition-all cursor-pointer ${activePhotoIdx === idx ? 'border-black dark:border-white ring-2 ring-black dark:ring-white' : 'border-transparent opacity-70 hover:opacity-100'
+                    }`}
                 >
                   <img src={img} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
                 </button>
@@ -643,14 +643,16 @@ export const PropertyDetailView: React.FC = () => {
               </div>
 
               {/* Contact Button Action */}
-              <button
-                type="button"
-                onClick={() => setContactModalOpen(true)}
-                className="w-full bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black font-bold font-sans py-3.5 px-4 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-              >
-                <Phone className="w-4 h-4" />
-                <span>Contact Lister</span>
-              </button>
+              {!isOwner && (
+                <button
+                  type="button"
+                  onClick={() => setContactModalOpen(true)}
+                  className="w-full bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black font-bold font-sans py-3.5 px-4 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                >
+                  <Phone className="w-4 h-4" />
+                  <span>Contact Lister</span>
+                </button>
+              )}
 
               <div className="space-y-2 pt-2 border-t border-neutral-100 dark:border-[#262626] text-xs font-sans text-neutral-500 dark:text-[#8A8A8A]">
                 <div className="flex items-center gap-2">
@@ -668,7 +670,7 @@ export const PropertyDetailView: React.FC = () => {
       </div>
 
       {/* Contact Lister Modal */}
-      {contactModalOpen && (
+      {!isOwner && contactModalOpen && (
         <ContactListerModal
           property={property}
           onClose={() => setContactModalOpen(false)}

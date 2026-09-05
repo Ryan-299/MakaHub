@@ -102,7 +102,7 @@ export const upsertUser = mutation({
       userId: effectiveUserId,
       name: args.name ?? existing?.name ?? "MakaoHub User",
       email: args.email ?? existing?.email ?? "",
-      phone: requestedPhone ?? existing?.phone ?? "",
+      phone: requestedPhone || existingPhone || "",
       role: args.role ?? existing?.role ?? "unassigned",
       listerSubtype:
         args.listerSubtype !== undefined
@@ -146,6 +146,24 @@ export const toggleSaveProperty = mutation({
       : [...currentSaved, args.propertyId];
 
     await ctx.db.patch(existing._id, { savedPropertyIds: updated });
+  },
+});
+export const getPropertySaveCounts = query({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+
+    const counts: Record<string, number> = {};
+
+    for (const user of users) {
+      const savedIds = user.savedPropertyIds || [];
+
+      for (const propertyId of savedIds) {
+        counts[propertyId] = (counts[propertyId] || 0) + 1;
+      }
+    }
+
+    return counts;
   },
 });
 export const repairJoinedAt = mutation({

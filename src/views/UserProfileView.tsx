@@ -30,15 +30,31 @@ import { SubscriptionCheckoutModal } from '../components/SubscriptionCheckoutMod
 import { ContactPortfolioModal } from '../components/ContactPortfolioModal';
 import { CancelSubscriptionModal } from '../components/CancelSubscriptionModal';
 
+
 export const UserProfileView: React.FC = () => {
   const {
     currentUser,
     switchUserMode,
     logoutUser,
     setCurrentView,
+    previousView,
     properties = [],
     listerListings = []
   } = useApp();
+  const handleBack = () => {
+    if (previousView && previousView !== 'profile') {
+      setCurrentView(previousView);
+      return;
+    }
+
+    if (currentUser?.role === 'admin') {
+      setCurrentView('admin-dashboard');
+    } else if (currentUser?.role === 'lister') {
+      setCurrentView('lister-dashboard');
+    } else {
+      setCurrentView('tenant-home');
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<'details' | 'billing' | 'settings'>('details');
   const [subscription, setSubscription] = useState(DEFAULT_MARY_SUBSCRIPTION);
@@ -122,11 +138,20 @@ export const UserProfileView: React.FC = () => {
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-white dark:bg-black pb-24 text-neutral-900 dark:text-[#F5F5F5] font-sans transition-colors duration-200">
+
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-400 hover:text-black dark:hover:text-white transition-colors"
+        >
+          ← Back
+        </button>
         {/* Header with Title & Account Identity */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-neutral-200 dark:border-[#262626]">
           <div>
             <div className="flex items-center gap-2">
+
               <span className="text-xs font-bold uppercase tracking-wider bg-black dark:bg-white text-white dark:text-black px-2.5 py-0.5 rounded">
                 My Account
               </span>
@@ -182,11 +207,10 @@ export const UserProfileView: React.FC = () => {
             type="button"
             id="tab-account-details"
             onClick={() => setActiveTab('details')}
-            className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-              activeTab === 'details'
-                ? 'border-black dark:border-white text-black dark:text-white'
-                : 'border-transparent text-neutral-500 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-700'
-            }`}
+            className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer whitespace-nowrap ${activeTab === 'details'
+              ? 'border-black dark:border-white text-black dark:text-white'
+              : 'border-transparent text-neutral-500 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-700'
+              }`}
           >
             <User className="w-3.5 h-3.5" />
             <span>Account Details</span>
@@ -198,11 +222,10 @@ export const UserProfileView: React.FC = () => {
               type="button"
               id="tab-billing-subscription"
               onClick={() => setActiveTab('billing')}
-              className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-                activeTab === 'billing'
-                  ? 'border-black dark:border-white text-black dark:text-white'
-                  : 'border-transparent text-neutral-500 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-700'
-              }`}
+              className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer whitespace-nowrap ${activeTab === 'billing'
+                ? 'border-black dark:border-white text-black dark:text-white'
+                : 'border-transparent text-neutral-500 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-700'
+                }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
               <span>Billing & Subscription</span>
@@ -218,11 +241,10 @@ export const UserProfileView: React.FC = () => {
               type="button"
               id="tab-billing-subscription-info"
               onClick={() => setActiveTab('billing')}
-              className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-                activeTab === 'billing'
-                  ? 'border-black dark:border-white text-black dark:text-white'
-                  : 'border-transparent text-neutral-500 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-700'
-              }`}
+              className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer whitespace-nowrap ${activeTab === 'billing'
+                ? 'border-black dark:border-white text-black dark:text-white'
+                : 'border-transparent text-neutral-500 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-700'
+                }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
               <span>Billing & Subscriptions</span>
@@ -233,11 +255,10 @@ export const UserProfileView: React.FC = () => {
             type="button"
             id="tab-account-settings"
             onClick={() => setActiveTab('settings')}
-            className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-              activeTab === 'settings'
-                ? 'border-black dark:border-white text-black dark:text-white'
-                : 'border-transparent text-neutral-500 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-700'
-            }`}
+            className={`px-4 py-2.5 text-xs font-bold transition-all border-b-2 flex items-center gap-2 cursor-pointer whitespace-nowrap ${activeTab === 'settings'
+              ? 'border-black dark:border-white text-black dark:text-white'
+              : 'border-transparent text-neutral-500 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white hover:border-neutral-300 dark:hover:border-neutral-700'
+              }`}
           >
             <Sliders className="w-3.5 h-3.5" />
             <span>Settings</span>
@@ -285,8 +306,8 @@ export const UserProfileView: React.FC = () => {
                     {currentUser.role === 'lister'
                       ? (currentUser.listerSubtype || 'Property Lister / Landlord')
                       : currentUser.role === 'admin'
-                      ? 'Platform Administrator'
-                      : 'Property Seeker'}
+                        ? 'Platform Administrator'
+                        : 'Property Seeker'}
                   </div>
                 </div>
               </div>
@@ -310,9 +331,11 @@ export const UserProfileView: React.FC = () => {
                     <span>Phone Number</span>
                   </div>
                   <div className="font-bold text-neutral-950 dark:text-[#F5F5F5] text-sm">
-                    {currentUser.phone || '+254 712 345 678'}
+                    {currentUser.phone || 'Not added'}
                   </div>
-                  <span className="text-[10px] text-neutral-400 dark:text-[#7D7D7D] block">Safaricom M-PESA registered</span>
+                  <span className="text-[10px] text-neutral-400 dark:text-[#7D7D7D] block">
+                    MakaoHub account phone • Locked
+                  </span>
                 </div>
 
                 <div className="p-4 bg-neutral-50 dark:bg-[#161616] rounded-2xl border border-neutral-200 dark:border-[#292929] space-y-1">
@@ -341,11 +364,10 @@ export const UserProfileView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => switchUserMode('seeker')}
-                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                    currentUser.role === 'seeker'
-                      ? 'bg-neutral-100 dark:bg-[#1C1C1C] border-black dark:border-white ring-1 ring-black dark:ring-white'
-                      : 'bg-white dark:bg-[#151515] hover:bg-neutral-50 dark:hover:bg-[#1C1C1C] border-neutral-200 dark:border-[#2A2A2A]'
-                  }`}
+                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${currentUser.role === 'seeker'
+                    ? 'bg-neutral-100 dark:bg-[#1C1C1C] border-black dark:border-white ring-1 ring-black dark:ring-white'
+                    : 'bg-white dark:bg-[#151515] hover:bg-neutral-50 dark:hover:bg-[#1C1C1C] border-neutral-200 dark:border-[#2A2A2A]'
+                    }`}
                 >
                   <div>
                     <span className="text-xs font-bold text-neutral-500 dark:text-[#8A8A8A] uppercase tracking-wider block">
@@ -360,11 +382,10 @@ export const UserProfileView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => switchUserMode('lister')}
-                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                    currentUser.role === 'lister'
-                      ? 'bg-neutral-100 dark:bg-[#1C1C1C] border-black dark:border-white ring-1 ring-black dark:ring-white'
-                      : 'bg-white dark:bg-[#151515] hover:bg-neutral-50 dark:hover:bg-[#1C1C1C] border-neutral-200 dark:border-[#2A2A2A]'
-                  }`}
+                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${currentUser.role === 'lister'
+                    ? 'bg-neutral-100 dark:bg-[#1C1C1C] border-black dark:border-white ring-1 ring-black dark:ring-white'
+                    : 'bg-white dark:bg-[#151515] hover:bg-neutral-50 dark:hover:bg-[#1C1C1C] border-neutral-200 dark:border-[#2A2A2A]'
+                    }`}
                 >
                   <div>
                     <span className="text-xs font-bold text-neutral-500 dark:text-[#8A8A8A] uppercase tracking-wider block">
@@ -479,9 +500,8 @@ export const UserProfileView: React.FC = () => {
                     {/* Progress Bar */}
                     <div className="w-full h-2.5 bg-neutral-200 dark:bg-[#2A2A2A] rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all duration-300 ${
-                          isAtOrOverLimit ? 'bg-rose-600 dark:bg-rose-500' : 'bg-black dark:bg-white'
-                        }`}
+                        className={`h-full transition-all duration-300 ${isAtOrOverLimit ? 'bg-rose-600 dark:bg-rose-500' : 'bg-black dark:bg-white'
+                          }`}
                         style={{ width: `${Math.max(5, usagePercentage)}%` }}
                       />
                     </div>
@@ -591,23 +611,21 @@ export const UserProfileView: React.FC = () => {
                         <div
                           key={plan.id}
                           id={`plan-card-${plan.id}`}
-                          className={`rounded-3xl p-6 sm:p-7 border flex flex-col justify-between transition-all relative ${
-                            isCurrent
-                              ? 'bg-neutral-950 dark:bg-[#181818] text-white border-neutral-950 dark:border-white ring-2 ring-neutral-950/20 dark:ring-white/20 shadow-lg'
-                              : plan.popular
+                          className={`rounded-3xl p-6 sm:p-7 border flex flex-col justify-between transition-all relative ${isCurrent
+                            ? 'bg-neutral-950 dark:bg-[#181818] text-white border-neutral-950 dark:border-white ring-2 ring-neutral-950/20 dark:ring-white/20 shadow-lg'
+                            : plan.popular
                               ? 'bg-white dark:bg-[#131313] text-neutral-900 dark:text-[#F5F5F5] border-neutral-900 dark:border-neutral-400 shadow-md'
                               : 'bg-white dark:bg-[#111111] text-neutral-900 dark:text-[#F5F5F5] border-neutral-200 dark:border-[#2A2A2A] shadow-xs hover:border-neutral-400 dark:hover:border-neutral-500'
-                          }`}
+                            }`}
                         >
                           {/* Top Badges */}
                           <div className="space-y-3">
                             <div className="flex items-center justify-between">
                               <span
-                                className={`text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md ${
-                                  isCurrent
-                                    ? 'bg-white dark:bg-white text-black dark:text-black'
-                                    : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#E5E5E5]'
-                                }`}
+                                className={`text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md ${isCurrent
+                                  ? 'bg-white dark:bg-white text-black dark:text-black'
+                                  : 'bg-neutral-100 dark:bg-[#202020] text-neutral-800 dark:text-[#E5E5E5]'
+                                  }`}
                               >
                                 {plan.name}
                               </span>
@@ -668,11 +686,10 @@ export const UserProfileView: React.FC = () => {
                                 type="button"
                                 id={`btn-choose-${plan.id}`}
                                 onClick={() => handleSelectPlan(plan)}
-                                className={`w-full py-3 px-4 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                                  plan.popular
-                                    ? 'bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black shadow-sm'
-                                    : 'bg-neutral-100 dark:bg-[#202020] hover:bg-neutral-200 dark:hover:bg-[#2A2A2A] text-neutral-900 dark:text-[#F5F5F5]'
-                                }`}
+                                className={`w-full py-3 px-4 rounded-xl font-bold text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 ${plan.popular
+                                  ? 'bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black shadow-sm'
+                                  : 'bg-neutral-100 dark:bg-[#202020] hover:bg-neutral-200 dark:hover:bg-[#2A2A2A] text-neutral-900 dark:text-[#F5F5F5]'
+                                  }`}
                               >
                                 <span>Choose {plan.name}</span>
                                 <ArrowRight className="w-3.5 h-3.5" />
