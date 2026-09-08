@@ -6,6 +6,8 @@ import darkLogo from '../assets/MAKAOHUB LOGO NO BACKGROUND (Dark Mode).png';
 import lightLogo from '../assets/official no white background image.png';
 
 export const SignupView: React.FC = () => {
+  const [acceptedLegal, setAcceptedLegal] = React.useState(false);
+  const [legalError, setLegalError] = React.useState(false);
   const { signupNewUser, setCurrentView, resolvedTheme, setTheme } = useApp();
   const isDark = resolvedTheme === 'dark';
   const { signUp, fetchStatus } = useSignUp();
@@ -506,16 +508,73 @@ export const SignupView: React.FC = () => {
               </button>
             </div>
           </div>
+          {/* Legal Agreement */}
+          <div className="mb-4 flex w-full items-start gap-3 px-1">
+            <input
+              id="legal-agreement"
+              type="checkbox"
+              checked={acceptedLegal}
+              onChange={(e) => {
+                setAcceptedLegal(e.target.checked);
+
+                if (e.target.checked) {
+                  setLegalError(false);
+                }
+              }}
+              className="mt-[3px] h-4 w-4 shrink-0 cursor-pointer accent-white"
+            />
+
+            <label
+              htmlFor="legal-agreement"
+              className={`text-[12px] leading-5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
+                }`}
+            >
+              I agree to MakaoHub&apos;s{' '}
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`font-semibold underline underline-offset-2 ${isDark ? 'text-white' : 'text-black'
+                  }`}
+              >
+                Terms of Service
+              </a>{' '}
+              and{' '}
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`font-semibold underline underline-offset-2 ${isDark ? 'text-white' : 'text-black'
+                  }`}
+              >
+                Privacy Policy
+              </a>
+              .
+            </label>
+          </div>
 
           {/* Primary Action: CONTINUE */}
+          {legalError && (
+            <p className="mb-3 text-[11px] font-medium text-red-500">
+              Please agree to the Terms of Service and Privacy Policy to continue.
+            </p>
+          )}
           <button
             type="submit"
+            onClick={(e) => {
+              if (!acceptedLegal) {
+                e.preventDefault();
+                setLegalError(true);
+              }
+            }}
             id="signup-continue-btn"
+
             className={`w-full h-[52px] sm:h-14 mt-2 rounded-2xl text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 ${isDark
               ? 'bg-white hover:bg-neutral-100 active:bg-neutral-200 text-black focus:ring-white focus:ring-offset-black'
               : 'bg-black hover:bg-neutral-800 active:bg-neutral-900 text-white focus:ring-black focus:ring-offset-white'
               }`}
           >
+
             <span>CONTINUE</span>
           </button>
         </form>
@@ -538,7 +597,14 @@ export const SignupView: React.FC = () => {
         <button
           type="button"
           id="signup-google-btn"
-          onClick={handleGoogleClick}
+          onClick={() => {
+            if (!acceptedLegal) {
+              setLegalError(true);
+              return;
+            }
+
+            handleGoogleClick();
+          }}
           className={`w-full h-[52px] sm:h-14 rounded-2xl text-sm font-semibold tracking-wide flex items-center justify-center gap-3 transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer border focus:outline-none focus:ring-2 ${isDark
             ? 'bg-transparent hover:bg-white/5 active:bg-white/10 border-neutral-800 text-white focus:ring-white focus:ring-offset-black'
             : 'bg-white hover:bg-neutral-50 active:bg-neutral-100 border-neutral-300 text-neutral-900 focus:ring-black focus:ring-offset-white'

@@ -336,7 +336,14 @@ export const ListerDashboardView: React.FC = () => {
                 </div>
               ) : (
                 listerEnquiries.slice(0, 4).map((enq) => (
-                  <div key={enq.id} className="py-3.5 first:pt-0 last:pb-0 space-y-2">
+                  <div
+                    key={enq.id}
+                    onClick={() => {
+                      setTargetEnquiryId(enq.id);
+                      setCurrentView('lister-enquiries');
+                    }}
+                    className="py-3.5 first:pt-0 last:pb-0 space-y-2 cursor-pointer rounded-xl hover:bg-neutral-50 dark:hover:bg-[#171717] transition-colors"
+                  >
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-xs">
@@ -356,6 +363,7 @@ export const ListerDashboardView: React.FC = () => {
 
                     <div className="flex items-center gap-2 pt-1">
                       <a
+                        onClick={(e) => e.stopPropagation()}
                         href={`tel:${enq.seekerPhone}`}
                         className="flex-1 py-1.5 bg-black hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-white rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
                       >

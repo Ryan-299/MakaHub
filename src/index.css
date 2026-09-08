@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'Anurati';
+  src: url('./Fonts/Anurati-Regular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.font-anurati {
+  font-family: 'Anurati', sans-serif;
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
@@ -13,7 +24,7 @@
   :root {
     color-scheme: light;
   }
-  
+
   html.dark {
     color-scheme: dark;
   }
@@ -167,6 +178,7 @@
     transform: scale(0.4);
     opacity: 0.9;
   }
+
   100% {
     transform: scale(2.0);
     opacity: 0;
@@ -177,6 +189,7 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;

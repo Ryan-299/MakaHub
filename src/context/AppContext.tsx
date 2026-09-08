@@ -2702,10 +2702,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         targetEnquiryId: enquiryId
       };
       setNotifications((prev) => [newNotif, ...prev]);
+      if (isConvexConfigured && convexClient) {
+        try {
+          await convexClient.mutation(api.notifications.send, {
+            recipientUserId: newNotif.recipientUserId,
+            userId: newNotif.userId,
+            title: newNotif.title,
+            message: newNotif.message,
+            time: newNotif.time,
+            type: newNotif.type,
+            targetPropertyId: newNotif.targetPropertyId,
+            targetEnquiryId: newNotif.targetEnquiryId,
+          });
+        } catch (error) {
+          console.error('Failed to send enquiry notification to Convex:', error);
+        }
+      }
     }
   };
 
-  const sendEnquiryReply = (enquiryId: string, replyText: string) => {
+  const sendEnquiryReply = async (enquiryId: string, replyText: string) => {
     if (!replyText.trim()) return;
     const enq = enquiries.find((e) => e.id === enquiryId);
     if (!enq) return;
@@ -2728,7 +2744,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       message: replyText.trim(),
       createdAt: nowStr
     };
-
+    if (isConvexConfigured && convexClient) {
+      try {
+        await convexClient.mutation(api.enquiries.sendMessage, {
+          enquiryId: enquiryId as any,
+          senderId,
+          senderName,
+          senderRole,
+          senderAvatar: senderAvatar || undefined,
+          message: replyText.trim(),
+          createdAt: nowStr,
+        });
+      } catch (error) {
+        console.error('Failed to save enquiry reply to Convex:', error);
+        throw error;
+      }
+    }
     const existingMsgs = (enq.messages && enq.messages.length > 0)
       ? enq.messages
       : [
@@ -2779,6 +2810,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         targetMessageId: newMsg.id
       };
       setNotifications((prev) => [seekerNotif, ...prev]);
+      if (isConvexConfigured && convexClient) {
+        try {
+          await convexClient.mutation(api.notifications.send, {
+            recipientUserId: seekerNotif.recipientUserId,
+            userId: seekerNotif.userId,
+            title: seekerNotif.title,
+            message: seekerNotif.message,
+            time: seekerNotif.time,
+            type: seekerNotif.type,
+            targetPropertyId: seekerNotif.targetPropertyId,
+            targetEnquiryId: seekerNotif.targetEnquiryId,
+            targetMessageId: seekerNotif.targetMessageId,
+          });
+        } catch (error) {
+          console.error('Failed to send reply notification to seeker:', error);
+        }
+      }
     } else {
       // Seeker replied -> notify Lister
       const listerNotif: UserNotification = {
@@ -2796,6 +2844,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         targetMessageId: newMsg.id
       };
       setNotifications((prev) => [listerNotif, ...prev]);
+      if (isConvexConfigured && convexClient) {
+        try {
+          await convexClient.mutation(api.notifications.send, {
+            recipientUserId: listerNotif.recipientUserId,
+            userId: listerNotif.userId,
+            title: listerNotif.title,
+            message: listerNotif.message,
+            time: listerNotif.time,
+            type: listerNotif.type,
+            targetPropertyId: listerNotif.targetPropertyId,
+            targetEnquiryId: listerNotif.targetEnquiryId,
+            targetMessageId: listerNotif.targetMessageId,
+          });
+        } catch (error) {
+          console.error('Failed to send reply notification to lister:', error);
+        }
+      }
     }
   };
 

@@ -215,22 +215,21 @@ export const Footer: React.FC = () => {
                   </button>
                 </li>
                 <li>
-                  <button
-                    type="button"
-                    onClick={() => setActiveModal('privacy')}
-                    className="hover:text-[#111111] dark:hover:text-white transition-colors cursor-pointer text-left"
+                  <a
+                    href="/privacy"
+                    className="text-neutral-400 hover:text-white transition-colors"
                   >
                     Privacy Policy
-                  </button>
+                  </a>
                 </li>
+
                 <li>
-                  <button
-                    type="button"
-                    onClick={() => setActiveModal('terms')}
-                    className="hover:text-[#111111] dark:hover:text-white transition-colors cursor-pointer text-left"
+                  <a
+                    href="/terms"
+                    className="text-neutral-400 hover:text-white transition-colors"
                   >
                     Terms of Service
-                  </button>
+                  </a>
                 </li>
               </ul>
             </div>
@@ -242,7 +241,7 @@ export const Footer: React.FC = () => {
               © 2026 MakaoHub. <span className="text-[#111111] dark:text-white font-semibold">Powered by SHEN Studios.</span>
             </p>
             <div className="flex items-center gap-5 sm:gap-6 text-[#666666] dark:text-[#888888]">
-              <span>Nairobi, Kenya</span>
+              <span>Nakuru, Kenya</span>
               <span>•</span>
               <span>All rights reserved</span>
             </div>

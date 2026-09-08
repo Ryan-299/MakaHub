@@ -98,23 +98,23 @@ export const HelpAndLegalModals: React.FC<HelpAndLegalModalsProps> = ({ activeMo
           {activeModal === 'about' && (
             <div className="space-y-3">
               <p className="font-medium text-neutral-900 dark:text-white">
-                MakaoHub is Kenya’s dedicated rental property discovery marketplace.
+                Finding a home or filling a vacancy shouldn’t be a complicated process.
               </p>
               <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
-                Our platform connects property seekers with verified landlords, caretakers, property managers, and developers across Nairobi and major towns throughout Kenya.
+                MakaoHub connects property seekers with landlords, caretakers, agents and property managers across Kenya. Seekers can discover available homes, compare prices and move-in costs, check vacancies, explore locations and contact listers directly. Property listers can showcase their rentals, manage vacancies and connect with genuinely interested tenants from one place.
               </p>
               <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-2 text-xs">
                 <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-white">
                   <CheckCircle2 className="w-4 h-4 text-neutral-800 dark:text-neutral-200" />
-                  <span>Verified Kenyan Rental Listings</span>
+                  <span>Discover & Compare Rental Homes</span>
                 </div>
                 <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-white">
                   <CheckCircle2 className="w-4 h-4 text-neutral-800 dark:text-neutral-200" />
-                  <span>Live Vacancy Tracking & Direct Enquiries</span>
+                  <span>List Properties & Manage Vacancies</span>
                 </div>
                 <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-white">
                   <CheckCircle2 className="w-4 h-4 text-neutral-800 dark:text-neutral-200" />
-                  <span>Transparent Move-In Costs & Genuine Reviews</span>
+                  <span>Direct Enquiries, Calls, WhatsApp & Reviews</span>
                 </div>
               </div>
             </div>

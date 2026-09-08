@@ -94,17 +94,17 @@ export const ListerEnquiriesView: React.FC = () => {
     ? activeEnquiry.messages && activeEnquiry.messages.length > 0
       ? activeEnquiry.messages
       : [
-          {
-            id: `init-${activeEnquiry.id}`,
-            enquiryId: activeEnquiry.id,
-            senderId: activeEnquiry.seekerId || 'demo-seeker-001',
-            senderName: activeEnquiry.seekerName,
-            senderRole: 'seeker' as const,
-            senderAvatar: activeEnquiry.seekerAvatar,
-            message: activeEnquiry.message,
-            createdAt: activeEnquiry.date || 'Recently'
-          }
-        ]
+        {
+          id: `init-${activeEnquiry.id}`,
+          enquiryId: activeEnquiry.id,
+          senderId: activeEnquiry.seekerId || 'demo-seeker-001',
+          senderName: activeEnquiry.seekerName,
+          senderRole: 'seeker' as const,
+          senderAvatar: activeEnquiry.seekerAvatar,
+          message: activeEnquiry.message,
+          createdAt: activeEnquiry.date || 'Recently'
+        }
+      ]
     : [];
 
   // Scroll to targetMessageId or bottom/latest message of the conversation
@@ -282,11 +282,10 @@ export const ListerEnquiriesView: React.FC = () => {
                         setSelectedEnquiryId(enq.id);
                         setTargetEnquiryId(null);
                       }}
-                      className={`p-4 rounded-2xl border transition-all cursor-pointer text-left relative ${
-                        isSelected
-                          ? 'bg-white dark:bg-[#151515] border-black dark:border-white ring-2 ring-black/10 dark:ring-white/10 shadow-md'
-                          : 'bg-white dark:bg-[#111111] border-neutral-200 dark:border-[#2A2A2A] hover:border-neutral-400 dark:hover:border-[#444444] hover:shadow-xs'
-                      } ${targetEnquiryId === enq.id ? 'ring-2 ring-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20' : ''}`}
+                      className={`p-4 rounded-2xl border transition-all cursor-pointer text-left relative ${isSelected
+                        ? 'bg-white dark:bg-[#151515] border-black dark:border-white ring-2 ring-black/10 dark:ring-white/10 shadow-md'
+                        : 'bg-white dark:bg-[#111111] border-neutral-200 dark:border-[#2A2A2A] hover:border-neutral-400 dark:hover:border-[#444444] hover:shadow-xs'
+                        } ${targetEnquiryId === enq.id ? 'ring-2 ring-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20' : ''}`}
                     >
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div className="flex items-center gap-2.5">
@@ -348,9 +347,8 @@ export const ListerEnquiriesView: React.FC = () => {
             {/* Right Main Column: Active Lead Thread */}
             {activeEnquiry && (
               <div
-                className={`lg:col-span-8 space-y-4 ${
-                  highlightActive ? 'animate-pulse ring-2 ring-black dark:ring-white rounded-3xl' : ''
-                }`}
+                className={`lg:col-span-8 space-y-4 ${highlightActive ? 'animate-pulse ring-2 ring-black dark:ring-white rounded-3xl' : ''
+                  }`}
               >
                 {/* Mobile Back Button */}
                 <div className="lg:hidden">
@@ -389,22 +387,35 @@ export const ListerEnquiriesView: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2">
+
+                      {/* CALL */}
                       <a
                         href={`tel:${activeEnquiry.seekerPhone}`}
-                        className="px-4 py-2.5 bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition-colors"
+                        className="px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-xl font-semibold flex items-center gap-2 hover:opacity-90 transition"
                       >
                         <Phone className="w-3.5 h-3.5" />
-                        <span>Call {activeEnquiry.seekerPhone}</span>
+                        <span>Call</span>
                       </a>
-                      {activeEnquiry.seekerEmail && (
-                        <a
-                          href={`mailto:${activeEnquiry.seekerEmail}`}
-                          className="px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#303030] hover:border-black dark:hover:border-white text-neutral-700 dark:text-[#F5F5F5] text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors"
+
+                      {/* WHATSAPP */}
+                      <a
+                        href={`https://wa.me/${activeEnquiry.seekerPhone.replace(/\D/g, '')}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-neutral-700 rounded-xl font-semibold flex items-center gap-2 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition"
+                      >
+                        <svg
+                          viewBox="0 0 32 32"
+                          className="w-4 h-4 fill-[#25D366]"
+                          aria-hidden="true"
                         >
-                          <Mail className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">Email</span>
-                        </a>
-                      )}
+                          <path d="M16.04 3C9.39 3 4 8.24 4 14.7c0 2.34.7 4.52 1.91 6.35L4 29l8.19-1.86a12.34 12.34 0 0 0 3.85.61C22.69 27.75 28 22.51 28 16.05 28 9.59 22.69 3 16.04 3zm0 21.75c-1.3 0-2.56-.25-3.73-.74l-.27-.11-4.86 1.1 1.16-4.61-.18-.29a9.26 9.26 0 0 1-1.46-5.02c0-5.12 4.21-9.28 9.38-9.28 5.18 0 9.38 4.16 9.38 9.28s-4.2 9.67-9.42 9.67zm5.14-6.96c-.28-.14-1.66-.81-1.92-.9-.26-.09-.45-.14-.64.14-.19.28-.73.9-.9 1.08-.17.19-.33.21-.61.07-.28-.14-1.19-.43-2.26-1.38-.84-.73-1.4-1.64-1.57-1.92-.17-.28-.02-.43.13-.57.13-.13.28-.33.42-.5.14-.17.19-.28.28-.47.09-.19.05-.35-.02-.5-.07-.14-.64-1.53-.88-2.1-.23-.55-.47-.48-.64-.49h-.55c-.19 0-.5.07-.76.35-.26.28-1 1-1 2.43s1.04 2.82 1.19 3.01c.14.19 2.05 3.1 4.97 4.35.69.3 1.23.48 1.65.61.69.22 1.32.19 1.82.12.56-.08 1.66-.67 1.9-1.32.23-.65.23-1.2.16-1.32-.07-.12-.26-.19-.54-.33z" />
+                        </svg>
+                        <span>WhatsApp</span>
+                      </a>
+
+
+
                     </div>
                   </div>
 
@@ -463,9 +474,8 @@ export const ListerEnquiriesView: React.FC = () => {
                         <div
                           key={msg.id || index}
                           id={`message-${msg.id}`}
-                          className={`flex gap-3 items-end ${isLister ? 'justify-end' : 'justify-start'} transition-all duration-300 ${
-                            isHighlighted ? 'scale-[1.01]' : ''
-                          }`}
+                          className={`flex gap-3 items-end ${isLister ? 'justify-end' : 'justify-start'} transition-all duration-300 ${isHighlighted ? 'scale-[1.01]' : ''
+                            }`}
                         >
                           {/* Seeker Avatar (Left) */}
                           {!isLister && (
@@ -476,24 +486,21 @@ export const ListerEnquiriesView: React.FC = () => {
 
                           {/* Message Bubble */}
                           <div
-                            className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 shadow-2xs space-y-1.5 transition-all duration-300 ${
-                              isLister
-                                ? 'bg-black dark:bg-[#F5F5F5] text-white dark:text-[#111111] rounded-br-xs'
-                                : 'bg-white dark:bg-[#181818] text-neutral-900 dark:text-[#F5F5F5] border border-neutral-200 dark:border-[#303030] rounded-bl-xs'
-                            } ${
-                              isHighlighted
+                            className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 shadow-2xs space-y-1.5 transition-all duration-300 ${isLister
+                              ? 'bg-black dark:bg-[#F5F5F5] text-white dark:text-[#111111] rounded-br-xs'
+                              : 'bg-white dark:bg-[#181818] text-neutral-900 dark:text-[#F5F5F5] border border-neutral-200 dark:border-[#303030] rounded-bl-xs'
+                              } ${isHighlighted
                                 ? isLister
                                   ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-white dark:ring-offset-black shadow-md'
                                   : 'ring-2 ring-emerald-600 dark:ring-emerald-400 bg-emerald-50/60 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 ring-offset-2 ring-offset-white dark:ring-offset-black shadow-md'
                                 : ''
-                            }`}
+                              }`}
                           >
                             <div className="flex items-center justify-between gap-3 text-[10px]">
                               <div className="flex items-center gap-1.5">
                                 <span
-                                  className={`font-bold ${
-                                    isLister ? 'text-neutral-300 dark:text-neutral-700' : 'text-neutral-900 dark:text-[#F5F5F5]'
-                                  }`}
+                                  className={`font-bold ${isLister ? 'text-neutral-300 dark:text-neutral-700' : 'text-neutral-900 dark:text-[#F5F5F5]'
+                                    }`}
                                 >
                                   {isLister ? 'You (Lister)' : msg.senderName}
                                 </span>
@@ -504,18 +511,16 @@ export const ListerEnquiriesView: React.FC = () => {
                                 )}
                               </div>
                               <span
-                                className={`${
-                                  isLister ? 'text-neutral-400 dark:text-neutral-600' : 'text-neutral-400 dark:text-[#7D7D7D]'
-                                }`}
+                                className={`${isLister ? 'text-neutral-400 dark:text-neutral-600' : 'text-neutral-400 dark:text-[#7D7D7D]'
+                                  }`}
                               >
                                 {msg.createdAt || 'Just now'}
                               </span>
                             </div>
 
                             <p
-                              className={`text-xs sm:text-sm leading-relaxed whitespace-pre-wrap ${
-                                isLister ? 'text-neutral-100 dark:text-neutral-900' : 'text-neutral-800 dark:text-[#D5D5D5]'
-                              }`}
+                              className={`text-xs sm:text-sm leading-relaxed whitespace-pre-wrap ${isLister ? 'text-neutral-100 dark:text-neutral-900' : 'text-neutral-800 dark:text-[#D5D5D5]'
+                                }`}
                             >
                               {msg.message}
                             </p>

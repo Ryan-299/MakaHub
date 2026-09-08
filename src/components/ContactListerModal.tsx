@@ -25,10 +25,15 @@ export const ContactListerModal: React.FC<ContactListerModalProps> = ({
   );
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    sendEnquiry(property.id, name, phone, email, message);
-    setSubmitted(true);
+
+    try {
+      await sendEnquiry(property.id, name, phone, email, message);
+      setSubmitted(true);
+    } catch (error) {
+      console.error('Failed to send enquiry:', error);
+    }
   };
 
   return (
