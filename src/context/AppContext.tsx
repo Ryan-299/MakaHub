@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { useUser, useClerk } from '@clerk/react';
 import { useConvexAuth } from 'convex/react';
 import {
@@ -155,6 +155,12 @@ interface AppContextType {
   addReviewReply: (reviewId: string, replyText: string) => void;
   editReviewReply: (reviewId: string, replyText: string) => void;
   deleteReviewReply: (reviewId: string) => void;
+  editReview: (
+    reviewId: string,
+    rating: number,
+    comment?: string,
+    wouldRecommend?: boolean
+  ) => void;
   deleteReview: (reviewId: string) => void;
   reportReview: (reviewId: string, reason?: string) => void;
 
@@ -592,70 +598,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Main Data States
-  const [properties, setProperties] = useState<PropertyListing[]>(() => {
-    const FAKE_PROPERTY_IDS = new Set([
-      'prop-seasons-peak',
-      'prop-roysambu-lumumba',
-      'prop-kilimani-dennis',
-      'prop-kileleshwa-oloitokitok',
-      'prop-syokimau-haven',
-      'prop-njoro-egerton'
-    ]);
-    const FAKE_LISTER_IDS = new Set([
-      'demo-lister-john',
-      'demo-lister-samuel',
-      'demo-lister-prime'
-    ]);
+  const [properties, setProperties] = useState<PropertyListing[]>([]);
 
-    const local = localStorage.getItem('makaohub_properties');
-    if (local) {
-      try {
-        const parsed: PropertyListing[] = JSON.parse(local);
-        const filtered = parsed
-          .filter((p) => !FAKE_PROPERTY_IDS.has(p.id) && !FAKE_LISTER_IDS.has(p.lister?.id || ''))
-          .map((p) => {
-            if (
-              p.lister?.id === 'user-mary-wanjiku' ||
-              p.lister?.id === 'demo-lister-mary' ||
-              p.lister?.email === 'mary.wanjiku@makaohub.ke'
-            ) {
-              return {
-                ...p,
-                lister: {
-                  ...p.lister,
-                  id: 'demo-lister-001',
-                  email: 'lister@makaohub.test'
-                }
-              };
-            }
-            return p;
-          });
-
-        if (filtered.length > 0) {
-          return filtered;
-        }
-        return [];
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
-
-  const [reviews, setReviews] = useState<PropertyReview[]>(() => {
-    const local = localStorage.getItem('makaohub_reviews');
-    if (local) {
-      try {
-        const parsed: PropertyReview[] = JSON.parse(local);
-        const validPropIds = new Set(INITIAL_PROPERTIES.map(p => p.id));
-        const filtered = parsed.filter(r => validPropIds.has(r.propertyId) || r.authorId === 'demo-seeker-001');
-        return filtered.length > 0 ? filtered : INITIAL_REVIEWS;
-      } catch {
-        return INITIAL_REVIEWS;
-      }
-    }
-    return INITIAL_REVIEWS;
-  });
+  const [reviews, setReviews] = useState<PropertyReview[]>([]);
 
   const [reports, setReports] = useState<PlatformReport[]>(() => {
     const local = localStorage.getItem('makaohub_reports');
@@ -694,7 +639,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return INITIAL_NOTIFICATIONS;
   });
+  // Desktop / Windows popup notifications
+  const desktopNotificationIdsRef = useRef<Set<string>>(new Set());
+  const desktopNotificationUserRef = useRef<string | null>(null);
 
+  useEffect(() => {
+    if (!currentUser || typeof window === 'undefined' || !('Notification' in window)) {
+      return;
+    }
+
+    const currentUserId = currentUser.id;
+
+    const myNotifications = notifications.filter((notification) => {
+      const recipientId =
+        notification.recipientUserId || notification.userId;
+
+      return recipientId === currentUserId;
+    });
+
+    // When the account first loads or changes, remember existing notifications.
+    // This prevents old notifications from suddenly popping up.
+    if (desktopNotificationUserRef.current !== currentUserId) {
+      desktopNotificationUserRef.current = currentUserId;
+      desktopNotificationIdsRef.current = new Set(
+        myNotifications.map((notification) => notification.id)
+      );
+      return;
+    }
+
+    const newNotifications = myNotifications.filter(
+      (notification) =>
+        !desktopNotificationIdsRef.current.has(notification.id)
+    );
+
+    newNotifications.forEach((notification) => {
+      desktopNotificationIdsRef.current.add(notification.id);
+
+      if (Notification.permission === 'granted') {
+        new Notification(notification.title || 'MakaoHub', {
+          body: notification.message,
+          icon: '/favicon3.png',
+        });
+      }
+    });
+  }, [notifications, currentUser]);
+
+  // Ask for desktop notification permission on the user's next click
+  useEffect(() => {
+    if (
+      !currentUser ||
+      typeof window === 'undefined' ||
+      !('Notification' in window) ||
+      Notification.permission !== 'default'
+    ) {
+      return;
+    }
+
+    const requestPermission = () => {
+      void Notification.requestPermission();
+    };
+
+    window.addEventListener('click', requestPermission, { once: true });
+
+    return () => {
+      window.removeEventListener('click', requestPermission);
+    };
+  }, [currentUser?.id]);
   const [enquiries, setEnquiries] = useState<ListerEnquiry[]>(() => {
     const local = localStorage.getItem('makaohub_enquiries');
     if (local) {
@@ -749,9 +759,161 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     void loadUsersFromConvex();
   }, [isConvexAuthenticated, currentUser?.role]);
+  // Load shared property reviews from Convex for all users
+  // Load shared property reviews from Convex and keep them live
+  useEffect(() => {
+    if (!isConvexConfigured || !convexClient) return;
+
+    const applyReviews = (convexReviews: any[]) => {
+      const realReviews: PropertyReview[] = convexReviews.map(
+        (review: any) => ({
+          ...review,
+          id: review._id,
+        })
+      );
+
+      setReviews(realReviews);
+    };
+
+    // Load the current reviews immediately
+    convexClient
+      .query(api.reviews.listAll, {})
+      .then(applyReviews)
+      .catch((error) => {
+        console.error('Failed to load reviews from Convex:', error);
+      });
+
+    // Then listen for future changes
+    const watch = convexClient.watchQuery(api.reviews.listAll, {});
+
+    const unsubscribe = watch.onUpdate(() => {
+      try {
+        const latestReviews = watch.localQueryResult();
+
+        if (latestReviews) {
+          applyReviews(latestReviews);
+        }
+      } catch (error) {
+        console.error('Failed to receive live review update:', error);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isConvexAuthenticated]);
+  // Live Convex enquiries listener
+  useEffect(() => {
+    if (!isConvexAuthenticated || !convexClient || !currentUser) return;
+
+    if (currentUser.role !== 'lister' && currentUser.role !== 'seeker') {
+      return;
+    }
+
+    const applyEnquiries = (docs: any[]) => {
+      const liveEnquiries: ListerEnquiry[] = docs.map((doc: any) => ({
+        id: doc._id.toString(),
+        propertyId: doc.propertyId,
+        propertyName: doc.propertyName,
+        seekerId: doc.seekerId,
+        seekerName: doc.seekerName,
+        seekerPhone: doc.seekerPhone,
+        seekerEmail: doc.seekerEmail || '',
+        seekerAvatar: doc.seekerAvatar,
+        listerId: doc.listerId,
+        message: doc.message,
+        date: doc.date,
+        createdAt: doc.createdAt,
+        status: doc.status,
+        readByLister: doc.readByLister ?? false,
+        readBySeeker: doc.readBySeeker ?? true,
+        messages: doc.messages || [],
+        replies: doc.messages || [],
+      }));
+
+      setEnquiries(liveEnquiries);
+    };
+
+    let watch: any;
+
+    if (currentUser.role === 'lister') {
+      convexClient
+        .query(api.enquiries.listByLister, {
+          listerId: currentUser.id,
+        })
+        .then(applyEnquiries)
+        .catch((error) =>
+          console.error('Failed to load lister enquiries:', error)
+        );
+
+      watch = (convexClient as any).watchQuery(
+        api.enquiries.listByLister,
+        { listerId: currentUser.id }
+      );
+    } else {
+      convexClient
+        .query(api.enquiries.listBySeeker, {
+          seekerId: currentUser.id,
+        })
+        .then(applyEnquiries)
+        .catch((error) =>
+          console.error('Failed to load seeker enquiries:', error)
+        );
+
+      watch = (convexClient as any).watchQuery(
+        api.enquiries.listBySeeker,
+        { seekerId: currentUser.id }
+      );
+    }
+
+    const unsubscribe = watch.onUpdate(() => {
+      try {
+        const result = watch.localQueryResult();
+
+        if (result) {
+          applyEnquiries(result);
+        }
+      } catch (error) {
+        console.error('Failed to receive live enquiry update:', error);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [
+    isConvexAuthenticated,
+    currentUser?.id,
+    currentUser?.role,
+  ]);
   const [filters, setFilters] = useState<FilterCriteria>(DEFAULT_FILTERS);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [seekerLocation, setSeekerLocation] = useState<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (currentUser?.role !== 'seeker') return;
+    if (seekerLocation) return;
+
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setSeekerLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (error) => {
+        console.warn('Location permission unavailable or denied:', error);
+      },
+      {
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 300000,
+      }
+    );
+  }, [currentUser?.role, seekerLocation]);
   const [mapTarget, setMapTarget] = useState<MapNavigationTarget | null>(null);
 
   const triggerMapNavigation = (
@@ -774,9 +936,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Sync to localStorage
-  useEffect(() => {
-    localStorage.setItem('makaohub_properties', JSON.stringify(properties));
-  }, [properties]);
+
 
   useEffect(() => {
     localStorage.setItem('makaohub_reviews', JSON.stringify(reviews));
@@ -827,7 +987,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             rating: doc.rating ?? 0,
             reviewCount: doc.reviewCount ?? 0,
             saveCount: latestSaveCounts[doc._id || doc.id] ?? 0,
-            timePosted: doc.timePosted || 'Recently',
+            timePosted: formatTimeAgo(doc._creationTime ?? doc.createdAt),
             images: doc.images || [],
             coverPhoto: doc.coverPhoto || (doc.images && doc.images[0]) || '',
             video: doc.video || undefined,
@@ -841,7 +1001,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             status: doc.status || 'Pending',
             rejectionReason: doc.rejectionReason,
             featured: doc.featured,
-            createdAt: doc.createdAt || new Date().toISOString(),
+            createdAt: doc.createdAt || (
+              doc._creationTime
+                ? new Date(doc._creationTime).toISOString()
+                : new Date().toISOString()
+            ),
             viewsCount: doc.viewsCount ?? 0,
             enquiriesCount: doc.enquiriesCount ?? 0
           }));
@@ -1126,6 +1290,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           userId: currentUser.id,
           propertyId: id,
         });
+        // Notify the lister only when the property is being SAVED
+        if (!isSaved) {
+          const prop = properties.find((p) => p.id === id);
+
+          if (prop?.lister?.id) {
+            const now = new Date().toISOString();
+
+            const saveNotif: UserNotification = {
+              id: `notif-save-${Date.now()}`,
+              recipientUserId: prop.lister.id,
+              userId: prop.lister.id,
+              title: 'Property Saved',
+              message: `${currentUser.name} saved your property ${prop.name}.`,
+              time: now,
+              createdAt: now,
+              read: false,
+              type: 'review',
+              targetPropertyId: id,
+            };
+
+            setNotifications((prev) => [saveNotif, ...prev]);
+
+            await convexClient.mutation(api.notifications.send, {
+              recipientUserId: saveNotif.recipientUserId,
+              userId: saveNotif.userId,
+              title: saveNotif.title,
+              message: saveNotif.message,
+              time: saveNotif.time,
+              type: saveNotif.type,
+              targetPropertyId: saveNotif.targetPropertyId,
+            });
+          }
+        }
       } catch (error) {
         console.error('Failed to sync saved property to Convex:', error);
       }
@@ -1658,7 +1855,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Lister: Delete One Property Listing
-  const deletePropertyListing = (propertyId: string) => {
+  const deletePropertyListing = async (propertyId: string) => {
     const target = properties.find((p) => p.id === propertyId);
     if (!target) return;
 
@@ -1679,6 +1876,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     cleanupDeletedPropertyMedia(deletedMedia, remainingMedia);
+    if (isConvexConfigured && convexClient) {
+      try {
+        await convexClient.mutation(api.properties.remove, {
+          id: propertyId as any,
+        });
+      } catch (error) {
+        console.error('Failed to delete property from Convex:', error);
+        return;
+      }
+    }
 
     setProperties(remaining);
 
@@ -2042,6 +2249,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       date: 'Just now'
     };
     setReviews((prev) => [newRev, ...prev]);
+    // Persist the review to Convex so every account can see it
+    if (isConvexConfigured && convexClient) {
+      convexClient
+        .mutation(api.reviews.add, {
+          propertyId,
+          authorId,
+          authorName: reviewData.authorName,
+          authorAvatar: reviewData.authorAvatar,
+          rating: reviewData.rating,
+          date: new Date().toISOString(),
+          comment: reviewData.comment,
+          wouldRecommend: reviewData.wouldRecommend,
+        })
+        .catch((error) => {
+          console.error('Failed to save review to Convex:', error);
+        });
+    }
 
     // Update property rating
     const existing = reviews.filter((r) => r.propertyId === propertyId);
@@ -2106,6 +2330,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       setNotifications((prev) => [...createdNotifications, ...prev]);
+      // Persist review notifications to Convex so the lister receives them
+      if (isConvexConfigured && convexClient) {
+        createdNotifications.forEach((notif) => {
+          convexClient
+            .mutation(api.notifications.send, {
+              recipientUserId: notif.recipientUserId,
+              userId: notif.userId,
+              title: notif.title,
+              message: notif.message,
+              time: notif.time,
+              type: notif.type,
+              targetPropertyId: notif.targetPropertyId,
+              targetReviewId: notif.targetReviewId,
+            })
+            .catch((error) => {
+              console.error('Failed to send review notification:', error);
+            });
+        });
+      }
     }
   };
 
@@ -2138,6 +2381,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((r) => (r.id === reviewId ? { ...r, reply } : r))
     );
 
+    // PASTE HERE — line 2168
+    if (isConvexConfigured && convexClient) {
+      convexClient
+        .mutation(api.reviews.addReply, {
+          reviewId: reviewId as any,
+          propertyId: prop.id,
+          listerId: currentUser.id,
+          listerName: currentUser.name || 'Property Lister',
+          listerSubtype: currentUser.listerSubtype,
+          listerAvatar: currentUser.avatar,
+          replyText: replyText.trim(),
+          createdAt: new Date().toISOString(),
+        })
+        .catch((error) => {
+          console.error('Failed to save review reply to Convex:', error);
+        });
+    }
+
+    // Requirement 8: Send Seeker notification
     // Requirement 8: Send Seeker notification
     // Title: "Lister Replied to Your Review"
     // Message: "[Lister Name] replied to your review of [Property Name]."
@@ -2158,6 +2420,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       targetReviewId: reviewId,
     };
     setNotifications((prev) => [newNotif, ...prev]);
+    // Save seeker notification to Convex
+    if (isConvexConfigured && convexClient) {
+      convexClient
+        .mutation(api.notifications.send, {
+          recipientUserId: seekerId,
+          userId: seekerId,
+          title: 'Lister Replied to Your Review',
+          message: `${currentUser.name || 'Property Lister'} replied to your review of ${prop.name}.`,
+          time: nowIso,
+          type: 'review',
+          targetPropertyId: prop.id,
+          targetReviewId: reviewId,
+        })
+        .catch((error) => {
+          console.error('Failed to save reply notification to Convex:', error);
+        });
+    }
   };
 
   const editReviewReply = (reviewId: string, replyText: string) => {
@@ -2171,7 +2450,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (currentUser?.role !== 'lister' || prop.lister?.id !== currentUser.id) {
       return;
     }
-
+    const updatedAt = new Date().toISOString();
     setReviews((prev) =>
       prev.map((r) => {
         if (r.id === reviewId && r.reply) {
@@ -2180,13 +2459,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             reply: {
               ...r.reply,
               replyText: replyText.trim(),
-              updatedAt: 'Edited just now'
+              updatedAt,
             }
           };
         }
         return r;
       })
     );
+    // Save edited reply permanently to Convex
+    if (isConvexConfigured && convexClient) {
+      convexClient
+        .mutation(api.reviews.editReply, {
+          reviewId: reviewId as any,
+          replyText: replyText.trim(),
+          updatedAt,
+        })
+        .catch((error) => {
+          console.error('Failed to edit review reply in Convex:', error);
+        });
+    }
   };
 
   const deleteReviewReply = (reviewId: string) => {
@@ -2209,6 +2500,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return r;
       })
     );
+  };
+  const editReview = (
+    reviewId: string,
+    rating: number,
+    comment?: string,
+    wouldRecommend?: boolean
+  ) => {
+    const targetReview = reviews.find((r) => r.id === reviewId);
+    if (!targetReview) return;
+
+    // Only the person who wrote the review can edit it
+    if (!currentUser || targetReview.authorId !== currentUser.id) {
+      console.warn('Unauthorized: Only the review author can edit this review.');
+      return;
+    }
+
+    const updatedAt = new Date().toISOString();
+    const cleanedComment = comment?.trim();
+
+    // Update this account immediately
+    setReviews((prev) =>
+      prev.map((r) =>
+        r.id === reviewId
+          ? {
+            ...r,
+            rating,
+            comment: cleanedComment,
+            wouldRecommend,
+            updatedAt,
+          }
+          : r
+      )
+    );
+
+    // Save the edited review permanently to Convex
+    if (isConvexConfigured && convexClient) {
+      convexClient
+        .mutation(api.reviews.editReview, {
+          reviewId: reviewId as any,
+          rating,
+          comment: cleanedComment,
+          wouldRecommend,
+          updatedAt,
+        })
+        .catch((error) => {
+          console.error('Failed to edit review in Convex:', error);
+        });
+    }
   };
 
   const deleteReview = (reviewId: string) => {
@@ -2268,7 +2607,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Enquiries
-  const sendEnquiry = (
+  const sendEnquiry = async (
     propertyId: string,
     seekerName: string,
     seekerPhone: string,
@@ -2312,6 +2651,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       messages: [initialMsg],
       replies: [initialMsg]
     };
+    if (isConvexConfigured && convexClient) {
+      try {
+        await convexClient.mutation(api.enquiries.create, {
+          propertyId,
+          propertyName: prop?.name || 'Property',
+          seekerId,
+          seekerName,
+          seekerPhone,
+          seekerEmail: seekerEmail || undefined,
+          seekerAvatar: currentUser?.avatar || undefined,
+          listerId,
+          message: cleanMsg,
+          date: nowStr,
+          createdAt: nowStr,
+          status: 'New',
+        });
+      } catch (error) {
+        console.error('Failed to save enquiry to Convex:', error);
+        throw error;
+      }
+    }
     setEnquiries((prev) => [newEnq, ...prev]);
 
     // Update property enquiriesCount
@@ -2603,6 +2963,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         listerReviews,
         getPropertyReviews,
         addReview,
+        editReview,
         addReviewReply,
         editReviewReply,
         deleteReviewReply,

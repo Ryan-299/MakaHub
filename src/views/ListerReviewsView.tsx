@@ -19,6 +19,21 @@ import {
 import { useApp } from '../context/AppContext';
 import { PropertyReview } from '../types';
 
+const formatReviewDate = (dateString: string) => {
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return dateString;
+  }
+
+  return date.toLocaleString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+};
 export const ListerReviewsView: React.FC = () => {
   const {
     currentUser,
@@ -65,18 +80,27 @@ export const ListerReviewsView: React.FC = () => {
     }
 
     // Locate target review to match property filter
-    const targetRev = listerReviews.find((r) => r.id === targetReviewId);
+    const targetRev =
+      listerReviews.find((r) => r.id === targetReviewId) ||
+      (selectedPropertyId && selectedPropertyId !== 'all'
+        ? [...listerReviews]
+          .filter((r) => r.propertyId === selectedPropertyId)
+          .sort(
+            (a, b) =>
+              new Date(b.date).getTime() - new Date(a.date).getTime()
+          )[0]
+        : undefined);
     if (targetRev) {
       setSelectedPropertyFilter(targetRev.propertyId);
       setNotFoundMessage(null);
       setStatusFilter('all');
       setSearchQuery('');
-      setHighlightedReviewId(targetReviewId);
+      setHighlightedReviewId(targetRev.id);
 
       const attemptScroll = () => {
         const reviewElement =
-          document.getElementById(`review-${targetReviewId}`) ||
-          document.getElementById(`lister-review-card-${targetReviewId}`);
+          document.getElementById(`review-${targetRev.id}`) ||
+          document.getElementById(`lister-review-card-${targetRev.id}`)
 
         if (reviewElement) {
           reviewElement.scrollIntoView({
@@ -148,7 +172,10 @@ export const ListerReviewsView: React.FC = () => {
       return matchAuthor || matchComment || matchProp;
     }
     return true;
-  });
+  }).sort(
+    (a, b) =>
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
 
   const totalReviewsCount = listerReviews.length;
   const repliedCount = listerReviews.filter((r) => !!r.reply).length;
@@ -156,8 +183,8 @@ export const ListerReviewsView: React.FC = () => {
   const avgRating =
     totalReviewsCount > 0
       ? (
-          listerReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviewsCount
-        ).toFixed(1)
+        listerReviews.reduce((sum, r) => sum + r.rating, 0) / totalReviewsCount
+      ).toFixed(1)
       : '0.0';
 
   const handleStartReply = (review: PropertyReview) => {
@@ -334,33 +361,30 @@ export const ListerReviewsView: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setStatusFilter('all')}
-                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${
-                  statusFilter === 'all'
-                    ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs'
-                    : 'text-neutral-600 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white'
-                }`}
+                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${statusFilter === 'all'
+                  ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs'
+                  : 'text-neutral-600 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white'
+                  }`}
               >
                 All ({totalReviewsCount})
               </button>
               <button
                 type="button"
                 onClick={() => setStatusFilter('unreplied')}
-                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${
-                  statusFilter === 'unreplied'
-                    ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs'
-                    : 'text-neutral-600 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white'
-                }`}
+                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${statusFilter === 'unreplied'
+                  ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs'
+                  : 'text-neutral-600 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white'
+                  }`}
               >
                 Unanswered ({unrepliedCount})
               </button>
               <button
                 type="button"
                 onClick={() => setStatusFilter('replied')}
-                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${
-                  statusFilter === 'replied'
-                    ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs'
-                    : 'text-neutral-600 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white'
-                }`}
+                className={`px-3 py-1.5 font-bold rounded-lg transition-all cursor-pointer ${statusFilter === 'replied'
+                  ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs'
+                  : 'text-neutral-600 dark:text-[#8A8A8A] hover:text-black dark:hover:text-white'
+                  }`}
               >
                 Replied ({repliedCount})
               </button>
@@ -395,11 +419,10 @@ export const ListerReviewsView: React.FC = () => {
                 <div
                   key={rev.id}
                   id={`review-${rev.id}`}
-                  className={`p-5 sm:p-6 rounded-2xl border space-y-4 transition-all duration-500 ${
-                    isHighlighted
-                      ? 'border-black dark:border-white ring-2 ring-black dark:ring-white bg-neutral-50/90 dark:bg-[#151515] shadow-md scale-[1.008]'
-                      : 'border-neutral-200 dark:border-[#292929] bg-white dark:bg-[#111111] shadow-xs'
-                  }`}
+                  className={`p-5 sm:p-6 rounded-2xl border space-y-4 transition-all duration-500 ${isHighlighted
+                    ? 'border-black dark:border-white ring-2 ring-black dark:ring-white bg-neutral-50/90 dark:bg-[#151515] shadow-md scale-[1.008]'
+                    : 'border-neutral-200 dark:border-[#292929] bg-white dark:bg-[#111111] shadow-xs'
+                    }`}
                 >
                   {/* Highlight Badge when navigated from notification */}
                   {isHighlighted && (
@@ -434,18 +457,17 @@ export const ListerReviewsView: React.FC = () => {
                           {[1, 2, 3, 4, 5].map((starIndex) => (
                             <Star
                               key={starIndex}
-                              className={`w-3.5 h-3.5 ${
-                                starIndex <= rev.rating
-                                  ? 'text-yellow-400 fill-yellow-400'
-                                  : 'text-neutral-300 dark:text-[#444444]'
-                              }`}
+                              className={`w-3.5 h-3.5 ${starIndex <= rev.rating
+                                ? 'text-yellow-400 fill-yellow-400'
+                                : 'text-neutral-300 dark:text-[#444444]'
+                                }`}
                             />
                           ))}
                         </div>
                         <span className="text-xs font-bold text-neutral-900 dark:text-[#F5F5F5] ml-0.5">{rev.rating}.0</span>
                       </div>
                       <span className="text-xs text-neutral-400 dark:text-[#7D7D7D]">•</span>
-                      <span className="text-xs text-neutral-500 dark:text-[#8A8A8A] font-medium">{rev.date}</span>
+                      <span className="text-xs text-neutral-500 dark:text-[#8A8A8A] font-medium">{formatReviewDate(rev.date)}</span>
                     </div>
                   </div>
 

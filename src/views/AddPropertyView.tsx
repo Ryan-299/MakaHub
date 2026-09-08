@@ -509,7 +509,7 @@ export const AddPropertyView: React.FC = () => {
         for (let i = 0; i < photoFiles.length; i++) {
           const file = photoFiles[i];
           if (file) {
-            setUploadProgressText(`Uploading photo ${i + 1} of ${photoFiles.length} to storage...`);
+            setUploadProgressText('Uploading...');
             const storageId = await uploadFileToConvex(file);
             imageStorageIds.push(storageId);
           }
@@ -519,7 +519,7 @@ export const AddPropertyView: React.FC = () => {
       // 2. Upload video tour file to Convex storage if provided
       let videoStorageId: string | undefined = undefined;
       if (videoFile && isConvexConfigured && convexClient) {
-        setUploadProgressText(`Uploading video tour (${formatVideoSize(videoFile.size)})...`);
+        setUploadProgressText('Uploading...');
         videoStorageId = await uploadFileToConvex(videoFile);
       }
 

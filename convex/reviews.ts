@@ -10,7 +10,14 @@ export const listByProperty = query({
       .collect();
   },
 });
-
+export const listAll = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("reviews")
+      .collect();
+  },
+});
 export const add = mutation({
   args: {
     propertyId: v.string(),
@@ -55,6 +62,57 @@ export const addReply = mutation({
         replyText: args.replyText,
         createdAt: args.createdAt,
       },
+    });
+  },
+});
+export const editReply = mutation({
+  args: {
+    reviewId: v.id("reviews"),
+    replyText: v.string(),
+    updatedAt: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    const review = await ctx.db.get(args.reviewId);
+
+    if (!review) {
+      throw new Error("Review not found");
+    }
+
+    if (!review.reply) {
+      throw new Error("This review does not have a reply to edit");
+    }
+
+    await ctx.db.patch(args.reviewId, {
+      reply: {
+        ...review.reply,
+        replyText: args.replyText,
+        updatedAt: args.updatedAt,
+      },
+    });
+  },
+});
+export const editReview = mutation({
+  args: {
+    reviewId: v.id("reviews"),
+    rating: v.number(),
+    comment: v.optional(v.string()),
+    wouldRecommend: v.optional(v.boolean()),
+    updatedAt: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    const review = await ctx.db.get(args.reviewId);
+
+    if (!review) {
+      throw new Error("Review not found");
+    }
+
+    await ctx.db.patch(args.reviewId, {
+      rating: args.rating,
+      comment: args.comment,
+      wouldRecommend: args.wouldRecommend,
+      updatedAt: args.updatedAt,
     });
   },
 });

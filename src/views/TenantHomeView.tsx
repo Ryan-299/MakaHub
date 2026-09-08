@@ -3,7 +3,31 @@ import { SearchBar } from '../components/SearchBar';
 import { PropertyCard } from '../components/PropertyCard';
 import { useApp } from '../context/AppContext';
 import { Map, SlidersHorizontal, ArrowRight, X } from 'lucide-react';
+const calculateDistanceKm = (
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+) => {
+  const earthRadiusKm = 6371;
 
+  const toRadians = (degrees: number) =>
+    degrees * (Math.PI / 180);
+
+  const dLat = toRadians(lat2 - lat1);
+  const dLng = toRadians(lng2 - lng1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) *
+    Math.cos(toRadians(lat2)) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return earthRadiusKm * c;
+};
 export const TenantHomeView: React.FC = () => {
   const {
     currentUser,
@@ -12,7 +36,8 @@ export const TenantHomeView: React.FC = () => {
     resetFilters,
     isFilterActive,
     setCurrentView,
-    setSelectedPropertyId
+    setSelectedPropertyId,
+    seekerLocation,
   } = useApp();
 
   // 5. Dynamic Greeting Calculation based on device/local time
@@ -37,11 +62,30 @@ export const TenantHomeView: React.FC = () => {
     return [...filteredProperties];
   }, [filteredProperties]);
 
-  // Properties Near You (using geolocation/proximity ordering)
+  // Properties Near You (real geolocation/proximity ordering)
   const propertiesNearYou = useMemo(() => {
-    return [...filteredProperties];
-  }, [filteredProperties]);
+    if (!seekerLocation) return [];
 
+    return [...filteredProperties]
+      .filter(
+        (property) =>
+          Number.isFinite(property.location?.lat) &&
+          Number.isFinite(property.location?.lng)
+      )
+      .map((property) => ({
+        property,
+        distanceKm: calculateDistanceKm(
+          seekerLocation.lat,
+          seekerLocation.lng,
+          property.location.lat,
+          property.location.lng
+        ),
+      }))
+      .filter((item) => item.distanceKm <= 50)
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .slice(0, 6)
+      .map((item) => item.property);
+  }, [filteredProperties, seekerLocation]);
   return (
     <div className="min-h-screen bg-white dark:bg-black pb-24 text-neutral-900 dark:text-neutral-100 transition-colors">
       <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-8 sm:pt-12 space-y-10 sm:space-y-14">
@@ -125,7 +169,52 @@ export const TenantHomeView: React.FC = () => {
             </div>
           </div>
         )}
+        <div className="flex items-end justify-between gap-4 pb-2 border-b border-neutral-200 dark:border-neutral-800">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl sm:text-2xl font-bold text-neutral-950 dark:text-white">
+                Properties Near You
+              </h2>
 
+              <span className="text-[10px] font-bold uppercase tracking-wide bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2 py-1 rounded-md">
+                Nearby
+              </span>
+            </div>
+
+            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
+              Available vacancies arranged by proximity to your current location
+            </p>
+          </div>
+
+          <button
+            type="button"
+            id="nearby-view-map-btn"
+            onClick={() => {
+              setSelectedPropertyId(null);
+              setCurrentView('map-explore');
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 dark:bg-neutral-900 rounded-xl text-xs font-bold"
+          >
+            <Map className="w-3.5 h-3.5" />
+            <span>Live Map</span>
+          </button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+          {propertiesNearYou.length > 0 ? (
+            propertiesNearYou.map((prop) => (
+              <PropertyCard key={`near-${prop.id}`} property={prop} />
+            ))
+          ) : (
+            <div className="col-span-full py-10 text-center">
+              <p className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
+                No properties within 50 km of your current location.
+              </p>
+              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-500">
+                Try exploring the map or searching another area.
+              </p>
+            </div>
+          )}
+        </div>
         {/* 9. NEWLY LISTED SECTION */}
         <section id="newly-listed-section" className="space-y-5">
           <div className="flex items-end justify-between gap-4 pb-2 border-b border-neutral-200 dark:border-neutral-800">
@@ -180,43 +269,7 @@ export const TenantHomeView: React.FC = () => {
           )}
         </section>
 
-        {/* 10. PROPERTIES NEAR YOU SECTION */}
-        <section id="properties-near-you-section" className="space-y-5 pt-2">
-          <div className="flex items-end justify-between gap-4 pb-2 border-b border-neutral-200 dark:border-neutral-800">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-bold text-neutral-950 dark:text-white tracking-tight">
-                  Properties Near You
-                </h2>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2 py-0.5 rounded">
-                  Nearby
-                </span>
-              </div>
-              <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-                Available vacancies arranged by proximity in your selected area
-              </p>
-            </div>
 
-            <button
-              type="button"
-              id="nearby-view-map-btn"
-              onClick={() => {
-                setSelectedPropertyId(null);
-                setCurrentView('map-explore');
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 dark:bg-neutral-900 hover:bg-neutral-200 dark:hover:bg-neutral-800 text-neutral-900 dark:text-neutral-100 text-xs font-bold rounded-xl border border-neutral-200 dark:border-neutral-800 transition-all cursor-pointer shadow-2xs"
-            >
-              <Map className="w-3.5 h-3.5" />
-              <span>Live Map</span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
-            {propertiesNearYou.map((prop) => (
-              <PropertyCard key={`near-${prop.id}`} property={prop} />
-            ))}
-          </div>
-        </section>
       </main>
     </div>
   );

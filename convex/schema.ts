@@ -116,6 +116,7 @@ export default defineSchema({
     authorAvatar: v.optional(v.string()),
     rating: v.number(),
     date: v.string(),
+    updatedAt: v.optional(v.string()),
     comment: v.optional(v.string()),
     wouldRecommend: v.optional(v.boolean()),
     reported: v.optional(v.boolean()),

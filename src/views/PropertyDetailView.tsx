@@ -46,7 +46,6 @@ export const PropertyDetailView: React.FC = () => {
     setEditingPropertyId,
     deletePropertyListing
   } = useApp();
-
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -60,7 +59,7 @@ export const PropertyDetailView: React.FC = () => {
       ? properties.find((p) => p.id.toLowerCase() === selectedPropertyId.toLowerCase())
       : null) ||
     (!selectedPropertyId && properties.length > 0 ? properties[0] : null);
-
+  const saveCount = property?.saveCount ?? 0;
   // Check if current user is the owner/lister of this property
   const isOwner = Boolean(
     currentUser &&
@@ -343,6 +342,9 @@ export const PropertyDetailView: React.FC = () => {
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
               <span>
                 <strong className="text-white font-semibold">Owner Management Mode:</strong> You are viewing your own property listing.
+                <span className="ml-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-neutral-800 border border-neutral-700 text-white font-semibold">
+                  ♡ {saveCount} {saveCount === 1 ? 'save' : 'saves'}
+                </span>
               </span>
             </div>
 

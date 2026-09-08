@@ -55,8 +55,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       id={`property-card-${property.id}`}
       onClick={handleClick}
       className={`group bg-white dark:bg-[#111111] rounded-2xl border transition-all duration-200 overflow-hidden cursor-pointer flex flex-col justify-between font-sans ${highlighted
-          ? 'border-black dark:border-white ring-2 ring-black dark:ring-white shadow-lg scale-[1.01]'
-          : 'border-neutral-200 dark:border-[#2A2A2A] hover:border-neutral-400 dark:hover:border-[#444444] hover:shadow-xl'
+        ? 'border-black dark:border-white ring-2 ring-black dark:ring-white shadow-lg scale-[1.01]'
+        : 'border-neutral-200 dark:border-[#2A2A2A] hover:border-neutral-400 dark:hover:border-[#444444] hover:shadow-xl'
         }`}
     >
       {/* Top Image Section */}
@@ -94,8 +94,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           type="button"
           onClick={handleHeartClick}
           className={`absolute top-2 right-2 sm:top-3 sm:right-3 w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all z-10 cursor-pointer ${isSaved
-              ? 'bg-black dark:bg-[#F5F5F5] text-white dark:text-[#111111] shadow-md scale-105 sm:scale-110'
-              : 'bg-white/90 dark:bg-[#181818]/90 text-neutral-700 dark:text-[#F5F5F5] hover:bg-white dark:hover:bg-[#222222] hover:text-black dark:hover:text-white border border-neutral-200/60 dark:border-[#303030] shadow-xs'
+            ? 'bg-black dark:bg-[#F5F5F5] text-white dark:text-[#111111] shadow-md scale-105 sm:scale-110'
+            : 'bg-white/90 dark:bg-[#181818]/90 text-neutral-700 dark:text-[#F5F5F5] hover:bg-white dark:hover:bg-[#222222] hover:text-black dark:hover:text-white border border-neutral-200/60 dark:border-[#303030] shadow-xs'
             }`}
           aria-label={isSaved ? 'Remove from saved' : 'Save property'}
         >
@@ -106,8 +106,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         <div className="absolute bottom-2 left-2 right-2 sm:bottom-3 sm:left-3 sm:right-3 flex items-center justify-between pointer-events-none">
           <div
             className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 sm:px-3 sm:py-1 rounded-full backdrop-blur-md shadow-xs flex items-center gap-1 sm:gap-1.5 font-sans ${isAvailable
-                ? 'bg-white/95 dark:bg-[#111111]/90 text-black dark:text-[#F5F5F5] border border-neutral-200 dark:border-[#303030]'
-                : 'bg-neutral-900/90 text-white'
+              ? 'bg-white/95 dark:bg-[#111111]/90 text-black dark:text-[#F5F5F5] border border-neutral-200 dark:border-[#303030]'
+              : 'bg-neutral-900/90 text-white'
               }`}
           >
             {isAvailable ? (
@@ -154,6 +154,13 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
             <span className="truncate">
               {property.location.estate}, {property.location.subCounty}
             </span>
+            {realDistanceKm !== null && Number.isFinite(realDistanceKm) && (
+              <span className="shrink-0 font-semibold text-neutral-700 dark:text-neutral-300">
+                · {realDistanceKm < 1
+                  ? `${Math.round(realDistanceKm * 1000)} m away`
+                  : `${realDistanceKm.toFixed(1)} km away`}
+              </span>
+            )}
           </div>
 
           {/* Amenities Pills */}

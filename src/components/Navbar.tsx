@@ -18,6 +18,7 @@ import { SidebarDrawer } from './SidebarDrawer';
 import { formatRelativeTime } from '../utils/formatTime';
 
 export const Navbar: React.FC = () => {
+  const [navError, setNavError] = React.useState<string | null>(null);
   const {
     currentUser,
     currentView,
@@ -68,13 +69,52 @@ export const Navbar: React.FC = () => {
         setCurrentView('admin-reports');
         return;
       }
-      if (notif.type === 'approval' || notif.title.toLowerCase().includes('submitted') || notif.title.toLowerCase().includes('review')) {
+      if (
+        notif.type === 'approval' ||
+        notif.title.toLowerCase().includes('awaiting approval')
+      ) {
+        if (notif.targetPropertyId) {
+          const propExists = properties.some(
+            (p) =>
+              p.id.toLowerCase() === notif.targetPropertyId?.toLowerCase()
+          );
+
+          if (!propExists) {
+            setNavError(
+              'Property not found. This property may have been deleted or is no longer available.'
+            );
+
+            setTimeout(() => {
+              setNavError(null);
+            }, 4000);
+
+            return;
+          }
+        }
+
         setCurrentView('admin-pending');
         return;
       }
       if (notif.targetPropertyId) {
-        setSelectedPropertyId(notif.targetPropertyId);
-        setCurrentView('admin-properties');
+        const propExists = properties.some(
+          (p) =>
+            p.id.toLowerCase() === notif.targetPropertyId?.toLowerCase()
+        );
+
+        if (propExists) {
+          setSelectedPropertyId(notif.targetPropertyId);
+          setCurrentView('admin-properties');
+          return;
+        }
+
+        setNavError(
+          'Property not found. This property may have been deleted or is no longer available.'
+        );
+
+        setTimeout(() => {
+          setNavError(null);
+        }, 4000);
+
         return;
       }
       setCurrentView('admin-dashboard');
@@ -125,6 +165,17 @@ export const Navbar: React.FC = () => {
           setCurrentView('property-detail');
           return;
         }
+
+
+        setNavError(
+          'Property not found. This property may have been deleted or is no longer available.'
+        );
+
+        setTimeout(() => {
+          setNavError(null);
+        }, 4000);
+
+        return;
       }
       setCurrentView(currentUser?.role === 'lister' ? 'my-listings' : 'tenant-home');
       return;
@@ -197,6 +248,11 @@ export const Navbar: React.FC = () => {
 
   return (
     <>
+      {navError && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 px-5 py-3 rounded-xl shadow-lg text-sm font-medium">
+          {navError}
+        </div>
+      )}
       {/* Slide-out Left Sidebar Drawer */}
       <SidebarDrawer isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
