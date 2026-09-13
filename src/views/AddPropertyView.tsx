@@ -580,7 +580,12 @@ export const AddPropertyView: React.FC = () => {
           videoStorageId: videoStorageId || editingProperty.videoStorageId,
           video: videoUrl || undefined,
           videoName: videoFile?.name || editingProperty.videoName,
-          videoSize: videoFile?.size || editingProperty.videoSize
+          videoSize: videoFile?.size || editingProperty.videoSize,
+
+          status:
+            editingProperty.status === 'Rejected'
+              ? 'Pending'
+              : editingProperty.status,
         });
         setEditingPropertyId(null);
       } else {

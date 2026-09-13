@@ -12,7 +12,13 @@ export const InvestigateReportModal: React.FC<InvestigateReportModalProps> = ({
   report,
   onClose
 }) => {
-  const { dismissReport, hideListingReport, suspendUserReport } = useApp();
+  const {
+    dismissReport,
+    removeReviewReport,
+    hideListingReport,
+    suspendUserReport,
+    reviews,
+  } = useApp();
   const [feedback, setFeedback] = useState<string | null>(null);
 
   const handleDismiss = () => {
@@ -22,15 +28,37 @@ export const InvestigateReportModal: React.FC<InvestigateReportModalProps> = ({
   };
 
   const handleHideListing = () => {
-    hideListingReport(report.id, report.targetId);
-    setFeedback('Listing has been flagged and hidden from tenant search.');
+    if (report.type === 'review') {
+      removeReviewReport(report.id, report.targetId);
+      setFeedback('Reported review has been removed.');
+    } else {
+      hideListingReport(report.id, report.targetId);
+      setFeedback('Listing has been flagged and hidden from tenant search.');
+    }
+
     setTimeout(onClose, 1200);
   };
 
   const handleSuspendUser = () => {
-    suspendUserReport(report.id, report.targetId);
-    setFeedback('User account suspended and flagged across the platform.');
-    setTimeout(onClose, 1200);
+    if (report.type === 'review') {
+      const reportedReview = reviews.find(
+        (review) => String(review.id) === String(report.targetId)
+      );
+
+      if (!reportedReview?.authorId) {
+        setFeedback('Unable to identify the account that wrote this review.');
+        return;
+      }
+
+      suspendUserReport(report.id, reportedReview.authorId);
+      setFeedback(
+        'Review author account suspended and flagged across the platform.'
+      );
+      setTimeout(onClose, 1200);
+      return;
+    }
+
+    setFeedback('User suspension for this report type is not configured yet.');
   };
 
   return (
@@ -89,9 +117,13 @@ export const InvestigateReportModal: React.FC<InvestigateReportModalProps> = ({
               >
                 <EyeOff className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
                 <div>
-                  <div>Hide / Flag Listing</div>
+                  <div>
+                    {report.type === 'review' ? 'Remove Review' : 'Hide / Flag Listing'}
+                  </div>
                   <div className="text-[11px] font-normal text-amber-800 dark:text-amber-300/80">
-                    Immediately removes the listing from seeker discovery
+                    {report.type === 'review'
+                      ? 'Permanently removes this review from the property'
+                      : 'Immediately removes the listing from seeker discovery'}
                   </div>
                 </div>
               </button>

@@ -134,7 +134,40 @@ export default defineSchema({
         updatedAt: v.optional(v.string()),
       })
     ),
-  }).index("by_property", ["propertyId"]),
+  })
+    .index("by_property", ["propertyId"])
+    .index("by_author", ["authorId"]),
+  propertyViews: defineTable({
+    propertyId: v.id("properties"),
+    listerId: v.string(),
+    viewerId: v.string(),
+    month: v.string(),
+    viewedAt: v.string(),
+  })
+    .index("by_viewer_property_month", [
+      "viewerId",
+      "propertyId",
+      "month",
+    ])
+    .index("by_lister_month", ["listerId", "month"])
+    .index("by_property_month", ["propertyId", "month"]),
+  reports: defineTable({
+    type: v.string(),
+    targetId: v.string(),
+    targetTitle: v.string(),
+    targetSubtitle: v.optional(v.string()),
+    reason: v.string(),
+    reporterCount: v.number(),
+    status: v.string(),
+    createdAt: v.string(),
+    reporterUserId: v.optional(v.string()),
+    propertyId: v.optional(v.string()),
+  })
+
+    .index("by_status", ["status"])
+    .index("by_target", ["targetId"])
+    .index("by_reporter", ["reporterUserId"])
+    .index("by_property", ["propertyId"]),
 
   notifications: defineTable({
     recipientUserId: v.string(),

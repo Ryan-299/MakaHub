@@ -42,6 +42,7 @@ export const ReviewList: React.FC<ReviewListProps> = ({ property }) => {
     editReviewReply,
     editReview,
     deleteReviewReply,
+    deleteOwnReview,
     reportReview,
     currentUser,
     targetReviewId,
@@ -52,6 +53,7 @@ export const ReviewList: React.FC<ReviewListProps> = ({ property }) => {
   const [highlightedReviewId, setHighlightedReviewId] = useState<string | null>(null);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [editReviewText, setEditReviewText] = useState('');
+  const [deleteReviewConfirmId, setDeleteReviewConfirmId] = useState<string | null>(null);
 
 
   // Active reply form states
@@ -348,16 +350,51 @@ export const ReviewList: React.FC<ReviewListProps> = ({ property }) => {
                       )}
 
                       {isReviewAuthor && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingReviewId(rev.id);
-                            setEditReviewText(rev.comment || '');
-                          }}
-                          className="mt-1 text-[11px] font-medium text-neutral-500 dark:text-neutral-400 hover:text-black dark:hover:text-white hover:underline"
-                        >
-                          Edit
-                        </button>
+                        <div className="mt-1 flex items-center gap-3">
+                          {deleteReviewConfirmId === rev.id ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteReviewConfirmId(null)}
+                                className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400"
+                              >
+                                Cancel
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  deleteOwnReview(rev.id);
+                                  setDeleteReviewConfirmId(null);
+                                }}
+                                className="text-[11px] font-medium text-red-600 dark:text-red-400"
+                              >
+                                Confirm Delete
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingReviewId(rev.id);
+                                  setEditReviewText(rev.comment || '');
+                                }}
+                                className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400"
+                              >
+                                Edit
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => setDeleteReviewConfirmId(rev.id)}
+                                className="text-[11px] font-medium text-red-600 dark:text-red-400"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
                       )}
                     </>
                   )}

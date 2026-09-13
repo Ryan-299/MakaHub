@@ -98,6 +98,7 @@ interface AppContextType {
   ) => Promise<void>;
   loginUser: (role: UserRole) => void;
   logoutUser: () => void;
+  updateCurrentUserName: (name: string) => Promise<void>;
 
   // Property management
   properties: PropertyListing[];
@@ -144,6 +145,7 @@ interface AppContextType {
   // Reports & moderation
   reports: PlatformReport[];
   dismissReport: (reportId: string) => void;
+  removeReviewReport: (reportId: string, reviewId: string) => void;
   hideListingReport: (reportId: string, propertyId: string) => void;
   suspendUserReport: (reportId: string, userId: string) => void;
 
@@ -162,6 +164,7 @@ interface AppContextType {
     wouldRecommend?: boolean
   ) => void;
   deleteReview: (reviewId: string) => void;
+  deleteOwnReview: (reviewId: string) => void;
   reportReview: (reviewId: string, reason?: string) => void;
 
   // Enquiries
@@ -283,7 +286,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         clerkUser.primaryEmailAddress?.emailAddress || '',
       phone:
         clerkUser.primaryPhoneNumber?.phoneNumber || '',
-      role: 'seeker',
+      role: 'unassigned',
       joinedAt: new Date().toISOString(),
       avatar: clerkUser.imageUrl || '',
       savedPropertyIds: [],
@@ -307,8 +310,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     const clerkAvatar =
+      (clerkUser.hasImage ? clerkUser.imageUrl : '') ||
       googleAccount?.imageUrl ||
-      (clerkUser.hasImage ? clerkUser.imageUrl : '');
+      '';
 
     if (!clerkAvatar || currentUser.avatar === clerkAvatar) return;
 
@@ -325,6 +329,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
     );
   }, [isLoaded, isSignedIn, clerkUser, currentUser]);
+
   useEffect(() => {
     if (
       !isLoaded ||
@@ -332,6 +337,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       !isConvexAuthenticated ||
       !clerkUser ||
       !currentUser ||
+      currentUser.role === 'unassigned' ||
       !isConvexConfigured ||
       !convexClient
     ) {
@@ -358,12 +364,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           currentUser.phone;
 
         const clerkAvatar =
+          (clerkUser.hasImage ? clerkUser.imageUrl : '') ||
           googleAccount?.imageUrl ||
-          (clerkUser.hasImage ? clerkUser.imageUrl : currentUser.avatar);
+          currentUser.avatar;
 
         const correctedUser: UserAccount = {
           ...currentUser,
-          name: clerkName,
+          name: currentUser.name || clerkName,
           email: clerkEmail,
           phone: clerkPhone,
           avatar: clerkAvatar,
@@ -386,7 +393,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         await convexClient.mutation(api.users.upsertUser, {
           userId: clerkUser.id,
-          name: clerkName,
+          name: currentUser.name || clerkName,
           email: clerkEmail,
           phone: clerkPhone,
 
@@ -411,7 +418,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (
       !isLoaded ||
       !isSignedIn ||
-      !isConvexAuthenticated ||
+
       !clerkUser ||
       !isConvexConfigured ||
       !convexClient
@@ -602,21 +609,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [reviews, setReviews] = useState<PropertyReview[]>([]);
 
-  const [reports, setReports] = useState<PlatformReport[]>(() => {
-    const local = localStorage.getItem('makaohub_reports');
-    if (local) {
-      try {
-        const parsed: PlatformReport[] = JSON.parse(local);
-        const FAKE_REPORT_TARGETS = new Set(['prop-seasons-peak', 'rev-spam-01', 'user-flagged-09']);
-        const filtered = parsed.filter(r => !FAKE_REPORT_TARGETS.has(r.targetId));
-        return filtered.length > 0 ? filtered : INITIAL_REPORTS;
-      } catch {
-        return INITIAL_REPORTS;
-      }
-    }
-    return INITIAL_REPORTS;
-  });
-
+  const [reports, setReports] = useState<PlatformReport[]>([]);
   const [notifications, setNotifications] = useState<UserNotification[]>(() => {
     const local = localStorage.getItem('makaohub_notifications');
     if (local) {
@@ -802,6 +795,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubscribe();
     };
   }, [isConvexAuthenticated]);
+  // Live Convex admin reports listener
+  useEffect(() => {
+    if (
+      !isConvexAuthenticated ||
+      !convexClient ||
+      !currentUser ||
+      currentUser.role !== 'admin'
+    ) {
+      return;
+    }
+
+    const applyReports = (docs: any[]) => {
+      const liveReports: PlatformReport[] = docs.map((doc: any) => ({
+        id: doc._id.toString(),
+        type: doc.type,
+        targetId: doc.targetId,
+        targetTitle: doc.targetTitle,
+        targetSubtitle: doc.targetSubtitle,
+        reason: doc.reason,
+        reporterCount: doc.reporterCount,
+        status: doc.status,
+        createdAt: doc.createdAt,
+      }));
+
+      setReports(liveReports);
+    };
+
+    // Load existing reports immediately
+    convexClient
+      .query(api.reviews.listReportsForAdmin, {})
+      .then(applyReports)
+      .catch((error) => {
+        console.error('Failed to load admin reports from Convex:', error);
+      });
+
+    // Listen for future reports
+    const watch = convexClient.watchQuery(
+      api.reviews.listReportsForAdmin,
+      {}
+    );
+
+    const unsubscribe = watch.onUpdate(() => {
+      try {
+        const latestReports = watch.localQueryResult();
+
+        if (latestReports) {
+          applyReports(latestReports);
+        }
+      } catch (error) {
+        console.error('Failed to receive live report update:', error);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isConvexAuthenticated, convexClient, currentUser]);
   // Live Convex enquiries listener
   useEffect(() => {
     if (!isConvexAuthenticated || !convexClient || !currentUser) return;
@@ -942,9 +992,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem('makaohub_reviews', JSON.stringify(reviews));
   }, [reviews]);
 
-  useEffect(() => {
-    localStorage.setItem('makaohub_reports', JSON.stringify(reports));
-  }, [reports]);
 
   useEffect(() => {
     localStorage.setItem('makaohub_notifications', JSON.stringify(notifications));
@@ -1336,7 +1383,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       name: name || 'New User',
       email: email || 'user@makaohub.test',
       phone: phone || '+254 700 000 000',
-      role: 'seeker', // default until assigned
+      role: 'unassigned', // default until assigned
       joinedAt: new Date().toISOString(),
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
       savedPropertyIds: []
@@ -1501,14 +1548,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         name: formattedName || 'Makao User',
         email: emailStr.includes('@') ? emailStr : `${emailStr}@makaohub.test`,
         phone: '+254 700 000 000',
-        role: 'seeker',
+        role: 'unassigned',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
         joinedAt: new Date().toISOString(),
         savedPropertyIds: []
       };
       setUsers((prev) => [...prev, newUser]);
       setCurrentUser(newUser);
-      setCurrentView(targetView);
+      setCurrentView('role-selection');
     }
   };
 
@@ -1517,6 +1564,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setCurrentUser(null);
     setCurrentView('welcome');
+  };
+  const deleteAccount = async () => {
+    if (!clerkUser) {
+      throw new Error("No signed-in user.");
+    }
+
+    if (!isConvexConfigured || !convexClient) {
+      throw new Error("MakaoHub database is not available.");
+    }
+
+    // First clean/anonymise MakaoHub data and delete the Convex user record.
+    await convexClient.mutation(api.users.deleteMyAccount, {});
+
+    // Then permanently delete the Clerk authentication account.
+    await clerkUser.delete();
+    await signOut();
+
+    // Clear MakaoHub's local signed-in state.
+    setCurrentUser(null);
+    setCurrentView('welcome');
+  };
+  const updateCurrentUserName = async (name: string) => {
+    if (!currentUser) {
+      throw new Error('No signed-in user.');
+    }
+
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      throw new Error('Name cannot be empty.');
+    }
+
+    if (isConvexConfigured && convexClient) {
+      await convexClient.mutation(api.users.upsertUser, {
+        userId: currentUser.id,
+        name: trimmedName,
+      });
+    }
+
+    const updatedUser: UserAccount = {
+      ...currentUser,
+      name: trimmedName,
+    };
+
+    setCurrentUser(updatedUser);
+
+    setUsers((prev) =>
+      prev.map((user) =>
+        user.id === updatedUser.id ? updatedUser : user
+      )
+    );
   };
 
   // Mode switching — keep the same signed-in user
@@ -1788,6 +1886,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: propertyId,
           name: updatedData.name,
           type: updatedData.type,
+          status: updatedData.status,
           monthlyRent: updatedData.monthlyRent,
           deposit: updatedData.deposit,
           serviceCharge: updatedData.serviceCharge,
@@ -1837,14 +1936,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Notify lister of updated listing status
     const existing = properties.find((p) => p.id === propertyId);
+    const isResubmission =
+      existing?.status === 'Rejected' && updatedData.status === 'Pending';
     const recipientId = existing?.lister?.id || currentUser?.id || 'demo-lister-001';
     const nowIso = new Date().toISOString();
     const newNotif: UserNotification = {
       id: `notif-${Date.now()}`,
       recipientUserId: recipientId,
       userId: recipientId,
-      title: 'Listing Updated',
-      message: `Changes to "${updatedData.name || existing?.name || 'your property'}" have been saved successfully and are now live.`,
+      title: isResubmission
+        ? 'Listing Resubmitted for Review'
+        : 'Listing Updated',
+
+      message: isResubmission
+        ? `"${updatedData.name || existing?.name || 'Your property'}" has been resubmitted to MakaoHub for review and is pending admin approval.`
+        : `Changes to "${updatedData.name || existing?.name || 'your property'}" have been saved successfully and are now live.`,
       time: nowIso,
       createdAt: nowIso,
       read: false,
@@ -2193,17 +2299,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Moderation Reports
   const dismissReport = (reportId: string) => {
     const report = reports.find((r) => r.id === reportId);
+
+    // Update the screen immediately
     setReports((prev) =>
-      prev.map((r) => (r.id === reportId ? { ...r, status: 'dismissed' } : r))
+      prev.map((r) =>
+        r.id === reportId ? { ...r, status: 'dismissed' } : r
+      )
     );
+
+    // Save the dismissal permanently in Convex
+    if (isConvexConfigured && convexClient) {
+      void convexClient
+        .mutation(api.reviews.updateReportStatusByAdmin, {
+          reportId: reportId as any,
+          status: 'dismissed',
+        })
+        .catch((error) => {
+          console.error('Failed to dismiss report in Convex:', error);
+        });
+    }
+
     logAdminActivity({
       action: 'investigated',
       title: 'Report Dismissed',
-      details: `Dismissed report #${reportId} (${report?.targetTitle || 'Report'})`,
-      targetId: reportId
+      details: `Dismissed report #${reportId} (${report?.targetTitle || 'Unknown'})`,
+      targetId: reportId,
     });
   };
+  const removeReviewReport = (reportId: string, reviewId: string) => {
+    const report = reports.find((r) => r.id === reportId);
 
+    // Use existing local review deletion logic
+    deleteReview(reviewId);
+
+    // Mark the report as investigated immediately
+    setReports((prev) =>
+      prev.map((r) =>
+        r.id === reportId ? { ...r, status: 'investigated' } : r
+      )
+    );
+
+    if (isConvexConfigured && convexClient) {
+      void Promise.all([
+        convexClient.mutation(api.reviews.deleteReviewByAdmin, {
+          reviewId: reviewId as any,
+        }),
+        convexClient.mutation(api.reviews.updateReportStatusByAdmin, {
+          reportId: reportId as any,
+          status: 'investigated',
+        }),
+      ]).catch((error) => {
+        console.error('Failed to remove reported review:', error);
+      });
+    }
+
+    logAdminActivity({
+      action: 'investigated',
+      title: 'Reported Review Removed',
+      details: `Removed reported review from ${report?.targetTitle || 'review'}`,
+      targetId: reviewId,
+    });
+  };
   const hideListingReport = (reportId: string, propertyId: string) => {
     flagProperty(propertyId);
     setReports((prev) =>
@@ -2581,28 +2737,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       targetId: reviewId
     });
   };
+  const deleteOwnReview = (reviewId: string) => {
+    const targetReview = reviews.find((r) => r.id === reviewId);
+    if (!targetReview) return;
 
-  const reportReview = (reviewId: string, reason: string = 'Inappropriate content') => {
+    const remainingReviews = reviews.filter((r) => r.id !== reviewId);
+    setReviews(remainingReviews);
+
+    if (isConvexConfigured && convexClient) {
+      void convexClient
+        .mutation(api.reviews.deleteOwnReview, {
+          reviewId: reviewId as any,
+        })
+        .catch((error) => {
+          console.error('Failed to delete own review in Convex:', error);
+        });
+    }
+  };
+  const reportReview = (
+    reviewId: string,
+    reason: string = 'Inappropriate review content'
+  ) => {
     const targetRev = reviews.find((r) => r.id === reviewId);
     if (!targetRev) return;
-    const prop = properties.find((p) => p.id === targetRev.propertyId);
 
+    const prop = properties.find((p) => p.id === targetRev.propertyId);
+    const cleanReason =
+      reason.trim() || 'Inappropriate review content';
+
+    // Update immediately on the lister's screen
     setReviews((prev) =>
-      prev.map((r) => (r.id === reviewId ? { ...r, reported: true } : r))
+      prev.map((r) =>
+        r.id === reviewId ? { ...r, reported: true } : r
+      )
     );
 
-    // Create a platform report for Admin
+    // Save the report permanently to Convex.
+    // The Convex mutation also notifies every admin.
+    if (isConvexConfigured && convexClient) {
+      void convexClient
+        .mutation(api.reviews.reportReview, {
+          reviewId: reviewId as any,
+          reason: cleanReason,
+        })
+        .catch((error) => {
+          console.error('Failed to report review:', error);
+        });
+    }
+
+    // Keep the current local admin-report state updated too
     const newReport: PlatformReport = {
       id: `rep-${Date.now()}`,
       type: 'review',
       targetId: reviewId,
       targetTitle: `Review on ${prop?.name || 'Property'}`,
       targetSubtitle: `Author: ${targetRev.authorName}`,
-      reason: reason || 'Reported by user for moderation',
+      reason: cleanReason,
       reporterCount: 1,
       status: 'open',
-      createdAt: 'Just now'
+      createdAt: 'Just now',
     };
+
     setReports((prev) => [newReport, ...prev]);
   };
 
@@ -2986,6 +3181,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         assignListerSubtype,
         loginUser,
         logoutUser,
+        deleteAccount,
+        updateCurrentUserName,
         properties,
         availableProperties,
         filteredProperties,
@@ -3022,6 +3219,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         reinstateUserAccount,
         reports,
         dismissReport,
+        removeReviewReport,
         hideListingReport,
         suspendUserReport,
         reviews,
@@ -3033,6 +3231,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         editReviewReply,
         deleteReviewReply,
         deleteReview,
+        deleteOwnReview,
         reportReview,
         enquiries,
         sendEnquiry,

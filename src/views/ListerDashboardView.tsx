@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Building2,
   Key,
@@ -14,6 +14,8 @@ import {
   Star
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 export const ListerDashboardView: React.FC = () => {
   const {
@@ -26,6 +28,9 @@ export const ListerDashboardView: React.FC = () => {
     setTargetEnquiryId,
     setListerListingsFilter
   } = useApp();
+  const viewsThisMonth = useQuery(api.properties.getViewsThisMonth);
+  const viewsBreakdown = useQuery(api.properties.getViewsBreakdownThisMonth);
+  const [viewsBreakdownOpen, setViewsBreakdownOpen] = useState(false);
 
   // 1. ACTIVE LISTINGS: Calculate active/live listings belonging strictly to the logged-in lister
   const activeListings = useMemo(
@@ -162,10 +167,11 @@ export const ListerDashboardView: React.FC = () => {
           </button>
 
           {/* Tile 3: Views This Month (Disabled / Non-clickable until real analytics exist) */}
-          <div
+          <button
             id="lister-stat-views-month"
-            aria-disabled="true"
-            className="w-full text-left bg-white dark:bg-[#111111] opacity-80 p-5 rounded-2xl border border-neutral-200 dark:border-[#292929] shadow-xs space-y-2 cursor-default select-none"
+            type="button"
+            onClick={() => setViewsBreakdownOpen(true)}
+            className="w-full text-left bg-white dark:bg-[#111111] opacity-80 p-5 sm:p-6 rounded-2xl border border-neutral-200 dark:border-neutral-800"
           >
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-neutral-500 dark:text-[#8A8A8A] uppercase tracking-wider">
@@ -176,13 +182,71 @@ export const ListerDashboardView: React.FC = () => {
               </div>
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold text-neutral-950 dark:text-[#F5F5F5]">
-              —
+              {viewsThisMonth ?? '—'}
             </div>
             <p className="text-[11px] text-neutral-500 dark:text-[#8A8A8A]">
-              Analytics available after launch
+              Unique seeker views this month
             </p>
-          </div>
+          </button>
+          {viewsBreakdownOpen && (
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
+              onClick={() => setViewsBreakdownOpen(false)}
+            >
+              <div
+                className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-6 shadow-2xl dark:border-neutral-800 dark:bg-[#111111]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="mb-6 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-neutral-500">
+                      Views This Month
+                    </p>
 
+                    <p className="mt-1 text-3xl font-extrabold text-neutral-950 dark:text-white">
+                      {viewsThisMonth ?? 0}
+                    </p>
+
+                    <p className="mt-1 text-xs text-neutral-500">
+                      Unique seeker views
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setViewsBreakdownOpen(false)}
+                    className="text-sm font-medium text-neutral-500 hover:text-neutral-950 dark:hover:text-white"
+                  >
+                    Close
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {activeListings.map((property) => {
+                    const propertyViews =
+                      viewsBreakdown?.find(
+                        (item) => String(item.propertyId) === String(property.id)
+                      )?.views ?? 0;
+
+                    return (
+                      <div
+                        key={property.id}
+                        className="flex items-center justify-between gap-4 rounded-xl border border-neutral-200 px-4 py-3 dark:border-neutral-800"
+                      >
+                        <span className="text-sm font-semibold text-neutral-900 dark:text-white">
+                          {property.name}
+                        </span>
+
+                        <span className="text-sm font-bold text-neutral-700 dark:text-neutral-300">
+                          {propertyViews} {propertyViews === 1 ? 'view' : 'views'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
           {/* Tile 4: Seeker Enquiries (Clickable -> Enquiries) */}
           <button
             type="button"
@@ -284,6 +348,16 @@ export const ListerDashboardView: React.FC = () => {
                           <span className="text-[10px] bg-neutral-100 dark:bg-[#181818] text-neutral-800 dark:text-[#E0E0E0] font-semibold px-2 py-0.5 rounded shrink-0">
                             {prop.type}
                           </span>
+                          {prop.status === 'Rejected' && (
+                            <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-md bg-red-600 text-white">
+                              Rejected
+                            </span>
+                          )}
+                          {prop.status === 'Pending' && (
+                            <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-md bg-amber-500 text-black">
+                              Pending
+                            </span>
+                          )}
                         </div>
                         <p className="text-xs text-neutral-500 dark:text-[#8A8A8A] truncate">
                           {prop.location.estate}, {prop.location.subCounty}

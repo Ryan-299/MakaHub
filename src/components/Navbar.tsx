@@ -12,12 +12,14 @@ import {
   Check,
   ArrowRight
 } from 'lucide-react';
+import { useUser } from '@clerk/react';
 import { useApp } from '../context/AppContext';
 import { UserNotification } from '../types';
 import { SidebarDrawer } from './SidebarDrawer';
 import { formatRelativeTime } from '../utils/formatTime';
 
 export const Navbar: React.FC = () => {
+  const { user: clerkUser } = useUser();
   const [navError, setNavError] = React.useState<string | null>(null);
   const {
     currentUser,

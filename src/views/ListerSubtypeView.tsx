@@ -42,7 +42,7 @@ const LISTER_SUBTYPES: { title: ListerSubtype; description: string; icon: any }[
 ];
 
 export const ListerSubtypeView: React.FC = () => {
-  const { assignListerSubtype, setCurrentView, resolvedTheme, setTheme } = useApp();
+  const { currentUser, assignListerSubtype, setCurrentView, resolvedTheme, setTheme } = useApp();
   const isDark = resolvedTheme === 'dark';
   const [selectedSubtype, setSelectedSubtype] = useState<ListerSubtype>('Landlord / Property Owner');
   const [phone, setPhone] = useState('');
@@ -101,7 +101,13 @@ export const ListerSubtypeView: React.FC = () => {
         <button
           type="button"
           id="lister-subtype-back-btn"
-          onClick={() => setCurrentView('role-selection')}
+          onClick={() => {
+            if (currentUser?.role === 'seeker') {
+              setCurrentView('tenant-home');
+            } else {
+              setCurrentView('role-selection');
+            }
+          }}
           aria-label="Back to Role Selection"
           className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-all cursor-pointer ${isDark
             ? 'text-neutral-400 hover:text-white hover:bg-neutral-900'

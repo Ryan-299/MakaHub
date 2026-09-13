@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useSignUp, useSignIn } from '@clerk/react';
 import { Sun, Moon, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import darkLogo from '../assets/MAKAOHUB LOGO NO BACKGROUND (Dark Mode).png';
-import lightLogo from '../assets/official no white background image.png';
+import darkLogo from '../assets/RENTIKE NO BACKGROUND 2 (dark-theme).png';
+import lightLogo from '../assets/RENTIKE NO BACKGROUND 2 (light-theme).png';
 
 export const SignupView: React.FC = () => {
   const [acceptedLegal, setAcceptedLegal] = React.useState(false);
@@ -164,9 +164,9 @@ export const SignupView: React.FC = () => {
     setErrorMessage('');
 
     try {
-      const { error } = await signIn.sso({
+      const { error } = await signUp.sso({
         strategy: 'oauth_google',
-        redirectCallbackUrl: window.location.origin,
+        redirectCallbackUrl: `${window.location.origin}/sso-callback`,
         redirectUrl: window.location.origin,
       });
 
@@ -340,7 +340,7 @@ export const SignupView: React.FC = () => {
             fontFamily: "'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', Times, serif"
           }}
         >
-          Create MakaoHub Account
+
         </h1>
 
         {/* 3. Supporting Text */}
@@ -384,7 +384,7 @@ export const SignupView: React.FC = () => {
               className={`block text-xs font-semibold mb-1.5 ${isDark ? 'text-neutral-300' : 'text-neutral-700'
                 }`}
             >
-              Full Name
+              Name / Company
             </label>
             <input
               id="signup-full-name"
@@ -394,7 +394,7 @@ export const SignupView: React.FC = () => {
                 setFullName(e.target.value);
                 if (errorMessage) setErrorMessage('');
               }}
-              placeholder="e.g. Kevin Otieno"
+              placeholder="e.g. Kevin Otieno or Bishop Properties"
               required
               className={`w-full h-12 sm:h-[50px] px-4 rounded-2xl text-sm font-medium transition-colors border focus:outline-none ${isDark
                 ? 'bg-neutral-950 border-neutral-800 text-white placeholder:text-neutral-600 focus:border-white'
@@ -594,6 +594,7 @@ export const SignupView: React.FC = () => {
         </div>
 
         {/* Google Sign-in Action */}
+        <div id="clerk-captcha" />
         <button
           type="button"
           id="signup-google-btn"

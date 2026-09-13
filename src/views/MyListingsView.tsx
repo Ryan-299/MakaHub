@@ -130,11 +130,10 @@ export const MyListingsView: React.FC = () => {
               type="button"
               id="filter-tab-all"
               onClick={() => setListerListingsFilter('all')}
-              className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                listerListingsFilter === 'all'
+              className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${listerListingsFilter === 'all'
                   ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs'
                   : 'bg-neutral-100 dark:bg-[#181818] text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white border border-neutral-200 dark:border-[#292929]'
-              }`}
+                }`}
             >
               All Listings ({listerListings.length})
             </button>
@@ -143,11 +142,10 @@ export const MyListingsView: React.FC = () => {
               type="button"
               id="filter-tab-active"
               onClick={() => setListerListingsFilter('active')}
-              className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                listerListingsFilter === 'active'
+              className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${listerListingsFilter === 'active'
                   ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs'
                   : 'bg-neutral-100 dark:bg-[#181818] text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white border border-neutral-200 dark:border-[#292929]'
-              }`}
+                }`}
             >
               Active / Approved ({activeCount})
             </button>
@@ -156,11 +154,10 @@ export const MyListingsView: React.FC = () => {
               type="button"
               id="filter-tab-vacancies"
               onClick={() => setListerListingsFilter('vacancies')}
-              className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                listerListingsFilter === 'vacancies'
+              className={`px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${listerListingsFilter === 'vacancies'
                   ? 'bg-black text-white dark:bg-white dark:text-black shadow-xs'
                   : 'bg-neutral-100 dark:bg-[#181818] text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white border border-neutral-200 dark:border-[#292929]'
-              }`}
+                }`}
             >
               Has Vacancies ({vacantCount})
             </button>
@@ -270,6 +267,11 @@ export const MyListingsView: React.FC = () => {
                               Pending
                             </span>
                           )}
+                          {prop.status === 'Rejected' && (
+                            <span className="text-[9px] sm:text-[10px] font-bold uppercase px-2 py-1 rounded-md bg-red-600 text-white">
+                              Rejected
+                            </span>
+                          )}
                           {prop.status === 'Suspended' && (
                             <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-red-100 dark:bg-red-950/60 text-red-700 dark:text-red-400 border border-red-300 dark:border-red-900/60 px-1.5 sm:px-2 py-0.5 rounded shrink-0">
                               Suspended
@@ -294,9 +296,8 @@ export const MyListingsView: React.FC = () => {
                             Vacant
                           </span>
                           <span
-                            className={`text-xs sm:text-sm md:text-base font-extrabold ${
-                              isAvailable ? 'text-black dark:text-white font-bold' : 'text-neutral-400 dark:text-[#7D7D7D]'
-                            }`}
+                            className={`text-xs sm:text-sm md:text-base font-extrabold ${isAvailable ? 'text-black dark:text-white font-bold' : 'text-neutral-400 dark:text-[#7D7D7D]'
+                              }`}
                           >
                             {prop.vacancies}
                           </span>

@@ -95,8 +95,8 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
     ? currentUser.role === 'lister'
       ? currentUser.listerSubtype || 'Landlord / Property Owner'
       : currentUser.role === 'admin'
-      ? 'Administrator'
-      : 'Seeker'
+        ? 'Administrator'
+        : 'Seeker'
     : 'Seeker';
 
   return (
@@ -218,11 +218,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setAdminActiveTab('overview');
                         navigateTo('admin-dashboard');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'admin-dashboard' && adminActiveTab === 'overview'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'admin-dashboard' && adminActiveTab === 'overview'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <LayoutDashboard className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -238,11 +237,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setAdminActiveTab('pending-properties');
                         navigateTo('admin-dashboard');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'admin-dashboard' && adminActiveTab === 'pending-properties'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'admin-dashboard' && adminActiveTab === 'pending-properties'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <AlertTriangle className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -263,11 +261,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setAdminActiveTab('all-properties');
                         navigateTo('admin-dashboard');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'admin-dashboard' && adminActiveTab === 'all-properties'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'admin-dashboard' && adminActiveTab === 'all-properties'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Building2 className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -286,11 +283,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setAdminActiveTab('users');
                         navigateTo('admin-dashboard');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'admin-dashboard' && adminActiveTab === 'users'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'admin-dashboard' && adminActiveTab === 'users'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Users className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -309,11 +305,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setAdminActiveTab('reports');
                         navigateTo('admin-dashboard');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'admin-dashboard' && adminActiveTab === 'reports'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'admin-dashboard' && adminActiveTab === 'reports'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <ShieldAlert className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -334,11 +329,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setAdminActiveTab('locations');
                         navigateTo('admin-dashboard');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'admin-dashboard' && adminActiveTab === 'locations'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'admin-dashboard' && adminActiveTab === 'locations'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <MapPin className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -354,11 +348,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setAdminActiveTab('activity');
                         navigateTo('admin-dashboard');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'admin-dashboard' && adminActiveTab === 'activity'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'admin-dashboard' && adminActiveTab === 'activity'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Activity className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -374,11 +367,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setAdminActiveTab('settings');
                         navigateTo('admin-dashboard');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'admin-dashboard' && adminActiveTab === 'settings'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'admin-dashboard' && adminActiveTab === 'settings'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Settings className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -404,11 +396,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                       type="button"
                       id="sidebar-nav-home"
                       onClick={handleHomeClick}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'lister-dashboard'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'lister-dashboard'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Home className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -424,11 +415,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setListerListingsFilter('all');
                         navigateTo('my-listings');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'my-listings' || currentView === 'add-property'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'my-listings' || currentView === 'add-property'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Building2 className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -449,11 +439,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setTargetEnquiryId(null);
                         navigateTo('lister-enquiries');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'lister-enquiries'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'lister-enquiries'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Mail className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -474,11 +463,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setTargetEnquiryId(null);
                         navigateTo('lister-enquiries');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'lister-enquiries' && targetEnquiryId
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'lister-enquiries' && targetEnquiryId
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <MessageSquare className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -497,11 +485,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                       type="button"
                       id="sidebar-nav-home"
                       onClick={handleHomeClick}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'tenant-home'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'tenant-home'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Home className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -517,11 +504,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setSelectedPropertyId(null);
                         navigateTo('map-explore');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'map-explore'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'map-explore'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Map className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -534,11 +520,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                       type="button"
                       id="sidebar-nav-saved"
                       onClick={() => navigateTo('saved')}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'saved'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'saved'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Heart className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -559,11 +544,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setTargetEnquiryId(null);
                         navigateTo('seeker-enquiries');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'seeker-enquiries' || currentView === 'my-enquiries'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'seeker-enquiries' || currentView === 'my-enquiries'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Mail className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -614,11 +598,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setAdminActiveTab('activity');
                         navigateTo('admin-dashboard');
                       }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                        currentView === 'admin-dashboard' && adminActiveTab === 'activity'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'admin-dashboard' && adminActiveTab === 'activity'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Activity className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -633,12 +616,14 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                     <button
                       type="button"
                       id="sidebar-nav-billing"
-                      onClick={() => navigateTo('profile')}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer font-sans ${
-                        currentView === 'profile'
-                          ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                          : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                      }`}
+                      onClick={() => {
+                        sessionStorage.setItem('makaohub-profile-tab', 'billing');
+                        navigateTo('profile');
+                      }}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer font-sans ${currentView === 'profile'
+                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <CreditCard className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -661,11 +646,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                       <button
                         type="button"
                         onClick={() => handleThemeChange('light')}
-                        className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                          theme === 'light'
-                            ? 'bg-white text-black shadow-xs'
-                            : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
-                        }`}
+                        className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === 'light'
+                          ? 'bg-white text-black shadow-xs'
+                          : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+                          }`}
                         title="Light Mode"
                       >
                         <Sun className="w-3.5 h-3.5" />
@@ -675,11 +659,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                       <button
                         type="button"
                         onClick={() => handleThemeChange('dark')}
-                        className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                          theme === 'dark'
-                            ? 'bg-black text-white dark:bg-[#111111] shadow-xs'
-                            : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
-                        }`}
+                        className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === 'dark'
+                          ? 'bg-black text-white dark:bg-[#111111] shadow-xs'
+                          : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+                          }`}
                         title="Dark Mode"
                       >
                         <Moon className="w-3.5 h-3.5" />
@@ -689,11 +672,10 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                       <button
                         type="button"
                         onClick={() => handleThemeChange('system')}
-                        className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
-                          theme === 'system'
-                            ? 'bg-white dark:bg-[#111111] text-black dark:text-white shadow-xs'
-                            : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
-                        }`}
+                        className={`flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${theme === 'system'
+                          ? 'bg-white dark:bg-[#111111] text-black dark:text-white shadow-xs'
+                          : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+                          }`}
                         title="System Preference"
                       >
                         <Laptop className="w-3.5 h-3.5" />
@@ -711,15 +693,16 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                         setAdminActiveTab('settings');
                         navigateTo('admin-dashboard');
                       } else {
+                        sessionStorage.setItem('makaohub-profile-tab', 'settings');
                         navigateTo('profile');
+
                       }
                     }}
-                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${
-                      (currentView === 'profile' && !isListerMode && !isAdmin) ||
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${(currentView === 'profile' && !isListerMode && !isAdmin) ||
                       (isAdmin && currentView === 'admin-dashboard' && adminActiveTab === 'settings')
-                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                    }`}
+                      ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
+                      : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <Settings className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
@@ -836,8 +819,8 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                 )}
               </div>
             </div>
-          </aside>
-        </div>
+          </aside >
+        </div >
       )}
     </>
   );

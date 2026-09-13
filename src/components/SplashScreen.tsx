@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import mobileDarkSplash from '../assets/Opening Screen Dark mode.png';
-import mobileLightSplash from '../assets/Opening Screen Light mode.png';
-import desktopDarkSplash from '../assets/MakaoDarkDesktop.png';
-import desktopLightSplash from '../assets/MakaoLightDesktop.png';
+import mobileDarkSplash from '../assets/RentikeMobileViewDark.png';
+import mobileLightSplash from '../assets/RentikeMobileViewLight.png';
+import desktopDarkSplash from '../assets/Rentike Monochrome (DARK).png';
+import desktopLightSplash from '../assets/Rentike Monochrome (LIGHT).png';
 import { ResolvedTheme } from '../types';
 
 interface SplashScreenProps {
@@ -49,7 +49,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const mediaQuery = window.matchMedia('(min-width: 768px)');
-    
+
     const handler = (e: MediaQueryListEvent) => {
       setIsDesktop(e.matches);
     };
@@ -84,9 +84,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-          className={`fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center select-none overflow-hidden ${
-            isDark ? 'bg-[#000000]' : 'bg-white'
-          }`}
+          className={`fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center select-none overflow-hidden ${isDark ? 'bg-[#000000]' : 'bg-white'
+            }`}
           style={{
             backgroundColor: isDark ? '#000000' : '#FFFFFF'
           }}
@@ -103,9 +102,8 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
               <img
                 src={currentSplashImage}
                 alt={isDark ? 'MakaoHub Dark Splash Screen' : 'MakaoHub Light Splash Screen'}
-                className={`w-full h-full pointer-events-none select-none ${
-  isDesktop && !isDark ? 'object-cover' : 'object-contain'
-}`}
+                className={`w-full h-full pointer-events-none select-none ${isDesktop && !isDark ? 'object-cover' : 'object-contain'
+                  }`}
                 draggable={false}
               />
             </picture>

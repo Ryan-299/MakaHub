@@ -1,5 +1,6 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 
 export const getByUserId = query({
   args: { userId: v.string() },
@@ -123,7 +124,24 @@ export const upsertUser = mutation({
       return existing._id;
     }
 
-    return await ctx.db.insert("users", userData);
+    const newUserId = await ctx.db.insert("users", userData);
+
+
+    /*
+    await ctx.scheduler.runAfter(
+      0,
+      internal.emails.notifyNewUserWelcome,
+      {
+        userId: userData.userId,
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone,
+        role: userData.role,
+        joinedAt: userData.joinedAt,
+      }
+    );
+*/
+    return newUserId;
   },
 });
 
@@ -185,5 +203,216 @@ export const repairJoinedAt = mutation({
     }
 
     return { repaired };
+  },
+});
+export const deleteMyAccount = mutation({
+  args: {},
+
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("User must be signed in.");
+    }
+
+    const userId = identity.subject;
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .first();
+
+    if (!currentUser) {
+      throw new Error("User account not found.");
+    }
+
+    if (currentUser.role === "admin") {
+      throw new Error("Admin accounts cannot be deleted here.");
+    }
+    const seekerEnquiries = await ctx.db
+      .query("enquiries")
+      .withIndex("by_seeker", (q) => q.eq("seekerId", userId))
+      .collect();
+
+    for (const enquiry of seekerEnquiries) {
+      const anonymizedSeekerId = `deleted-${enquiry._id}`;
+
+      const anonymizedMessages = enquiry.messages?.map((message) =>
+        message.senderId === userId
+          ? {
+            ...message,
+            senderId: anonymizedSeekerId,
+            senderName: "Deleted User",
+            senderAvatar: undefined,
+          }
+          : message
+      );
+
+      await ctx.db.patch(enquiry._id, {
+        seekerId: anonymizedSeekerId,
+        seekerName: "Deleted User",
+        seekerPhone: "Deleted",
+        seekerEmail: undefined,
+        seekerAvatar: undefined,
+        messages: anonymizedMessages,
+      });
+    }
+    const userReviews = await ctx.db
+      .query("reviews")
+      .withIndex("by_author", (q) => q.eq("authorId", userId))
+      .collect();
+
+    for (const review of userReviews) {
+      await ctx.db.patch(review._id, {
+        authorId: undefined,
+        authorName: "Deleted User",
+        authorAvatar: undefined,
+      });
+
+    }
+    const userViews = await ctx.db
+      .query("propertyViews")
+      .withIndex("by_viewer_property_month", (q) =>
+        q.eq("viewerId", userId)
+      )
+      .collect();
+    for (const view of userViews) {
+      await ctx.db.patch(view._id, {
+        viewerId: `deleted-${view._id}`,
+      });
+    }
+    const userReports = await ctx.db
+      .query("reports")
+      .withIndex("by_reporter", (q) => q.eq("reporterUserId", userId))
+      .collect();
+
+    for (const report of userReports) {
+      await ctx.db.patch(report._id, {
+        reporterUserId: undefined,
+      });
+    }
+    const userNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_recipient", (q) =>
+        q.eq("recipientUserId", userId)
+      )
+      .collect();
+
+    for (const notification of userNotifications) {
+      await ctx.db.delete(notification._id);
+    }
+    const ownedProperties =
+      currentUser.role === "lister"
+        ? await ctx.db
+          .query("properties")
+          .withIndex("by_lister", (q) => q.eq("lister.id", userId))
+          .collect()
+        : [];
+    const listerEnquiries =
+      currentUser.role === "lister"
+        ? await ctx.db
+          .query("enquiries")
+          .withIndex("by_lister", (q) => q.eq("listerId", userId))
+          .collect()
+        : [];
+
+    for (const enquiry of listerEnquiries) {
+      const anonymizedListerId = `deleted-${enquiry._id}`;
+
+      const anonymizedMessages = enquiry.messages?.map((message) =>
+        message.senderId === userId
+          ? {
+            ...message,
+            senderId: anonymizedListerId,
+            senderName: "Deleted User",
+            senderAvatar: undefined,
+          }
+          : message
+      );
+
+      await ctx.db.patch(enquiry._id, {
+        listerId: anonymizedListerId,
+        messages: anonymizedMessages,
+      });
+    }
+    const ownedPropertyIds = new Set(
+      ownedProperties.map((property) => property._id.toString())
+    );
+
+    if (ownedPropertyIds.size > 0) {
+      const allUsers = await ctx.db.query("users").collect();
+
+      for (const user of allUsers) {
+        if (user._id === currentUser._id) continue;
+
+        const cleanedSavedPropertyIds = user.savedPropertyIds.filter(
+          (savedId) => !ownedPropertyIds.has(savedId)
+        );
+
+        if (cleanedSavedPropertyIds.length !== user.savedPropertyIds.length) {
+          await ctx.db.patch(user._id, {
+            savedPropertyIds: cleanedSavedPropertyIds,
+          });
+        }
+      }
+    }
+    for (const property of ownedProperties) {
+      const propertyReviews = await ctx.db
+        .query("reviews")
+        .withIndex("by_property", (q) =>
+          q.eq("propertyId", property._id.toString())
+        )
+        .collect();
+
+      for (const review of propertyReviews) {
+        await ctx.db.delete(review._id);
+      }
+
+      const propertyViews = await ctx.db
+        .query("propertyViews")
+        .withIndex("by_property_month", (q) =>
+          q.eq("propertyId", property._id)
+        )
+        .collect();
+
+      for (const view of propertyViews) {
+        await ctx.db.delete(view._id);
+      }
+
+      if (property.imageStorageIds) {
+        for (const storageId of property.imageStorageIds) {
+          try {
+            await ctx.storage.delete(storageId);
+          } catch {
+            // Ignore missing storage files
+          }
+        }
+      }
+
+      if (property.coverPhotoStorageId) {
+        try {
+          await ctx.storage.delete(property.coverPhotoStorageId);
+        } catch {
+          // Ignore missing storage file
+        }
+      }
+
+      if (property.videoStorageId) {
+        try {
+          await ctx.storage.delete(property.videoStorageId);
+        } catch {
+          // Ignore missing storage file
+        }
+      }
+
+      await ctx.db.delete(property._id);
+    }
+    await ctx.db.delete(currentUser._id);
+    return {
+
+      success: true,
+      userId,
+      role: currentUser.role,
+    };
   },
 });

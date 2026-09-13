@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSignIn } from '@clerk/react';
 import { Eye, EyeOff, ArrowLeft, Sun, Moon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import darkLogo from '../assets/MAKAOHUB LOGO NO BACKGROUND (Dark Mode).png';
-import lightLogo from '../assets/official no white background image.png';
-
+import darkLogo from '../assets/RENTIKE NO BACKGROUND 2 (dark-theme).png';
+import lightLogo from '../assets/RENTIKE NO BACKGROUND 2 (light-theme).png';
 export const LoginView: React.FC = () => {
   const { loginUser, setCurrentView, resolvedTheme, setTheme } = useApp();
   const { signIn, fetchStatus } = useSignIn();
@@ -97,18 +96,19 @@ export const LoginView: React.FC = () => {
 
   const handleGoogleClick = async () => {
     setErrorMessage('');
-
+    console.time('Google login start');
     try {
       const { error } = await signIn.sso({
         strategy: 'oauth_google',
         redirectCallbackUrl: window.location.origin,
         redirectUrl: window.location.origin,
       });
+      console.timeEnd('Google login start');
 
       if (error) {
         setErrorMessage(
           error.message ||
-          'Google sign-in could not be started. Please try again.'
+          'Google sign-in could not be started. Please try again'
         );
       }
     } catch (err: any) {
@@ -543,7 +543,7 @@ export const LoginView: React.FC = () => {
             fontFamily: "'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', Times, serif"
           }}
         >
-          Log In to MakaoHub
+          Log In to Rentike
         </h1>
 
         {/* 3. Supporting Text */}

@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import { ShieldCheck, MapPin } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import darkFooterLogo from '../assets/FOOTER DARKMODE.png';
-import lightFooterLogo from '../assets/FOOTER LIGHTMODE.png';
+import darkFooterLogo from '../assets/Rentike FOOTER DARKMODE (1).png';
+import lightFooterLogo from '../assets/Rentike FOOTER LIGHTMODE (2).png';
 import { HelpAndLegalModals, HelpLegalModalType } from './HelpAndLegalModals';
 
 export const Footer: React.FC = () => {
-  const { setCurrentView, setSelectedPropertyId, setFilters, resetFilters, resolvedTheme } = useApp();
+  const {
+    currentUser,
+    setCurrentView,
+    setSelectedPropertyId,
+    setFilters,
+    resetFilters,
+    resolvedTheme,
+  } = useApp();
   const [activeModal, setActiveModal] = useState<HelpLegalModalType>(null);
 
   const isDark = resolvedTheme === 'dark';
@@ -35,7 +42,7 @@ export const Footer: React.FC = () => {
         className="bg-[#F7F7F7] dark:bg-[#111111] text-[#111111] dark:text-[#F5F5F5] pt-4 sm:pt-5 pb-10 border-t border-[#E5E5E5] dark:border-[#262626] transition-colors"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 sm:gap-10 pb-10 sm:pb-12 border-b border-[#E5E5E5] dark:border-[#262626]">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {/* Brand Col */}
             <div className="lg:col-span-2 flex flex-col gap-1.5 sm:gap-2">
               <button
@@ -56,72 +63,13 @@ export const Footer: React.FC = () => {
               </button>
 
               <p className="font-manrope text-sm text-[#666666] dark:text-[#A0A0A0] max-w-md font-normal leading-[1.65] text-left md:text-justify tracking-normal">
-                Kenya’s premier rental-property discovery marketplace. Connecting property seekers with verified landlords, caretakers, and property managers across Nairobi and major Kenyan towns.
+                Kenya’s premier rental-property discovery marketplace. Connecting property seekers with verified landlords, caretakers, and property managers across major cities and towns in Kenya.
               </p>
 
-              <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 pt-2 text-xs text-[#555555] dark:text-[#A0A0A0]">
-                <span className="flex items-center gap-1.5 bg-white dark:bg-[#1C1C1C] px-3 py-1.5 rounded-full border border-[#E5E5E5] dark:border-[#2E2E2E] shadow-2xs font-medium">
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#111111] dark:text-white" /> Verified Listings
-                </span>
-                <span className="flex items-center gap-1.5 bg-white dark:bg-[#1C1C1C] px-3 py-1.5 rounded-full border border-[#E5E5E5] dark:border-[#2E2E2E] shadow-2xs font-medium">
-                  <MapPin className="w-3.5 h-3.5 text-[#111111] dark:text-white" /> Live Property Maps
-                </span>
-              </div>
+
             </div>
 
-            {/* Explore Areas (Renamed from Popular Estates) */}
-            <div>
-              <h4 className="font-manrope text-xs sm:text-sm font-semibold text-[#111111] dark:text-[#F5F5F5] uppercase tracking-wider mb-3.5 sm:mb-4">
-                Explore Areas
-              </h4>
-              <ul className="space-y-2.5 sm:space-y-3 font-manrope text-sm text-[#555555] dark:text-[#A0A0A0]">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleLocationClick('Seasons', 'Kasarani')}
-                    className="hover:text-[#111111] dark:hover:text-white transition-colors cursor-pointer text-left"
-                  >
-                    Seasons, Kasarani
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleLocationClick('TRM Drive', 'Roysambu')}
-                    className="hover:text-[#111111] dark:hover:text-white transition-colors cursor-pointer text-left"
-                  >
-                    Roysambu / TRM
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleLocationClick('Dennis Pritt Road', 'Kilimani')}
-                    className="hover:text-[#111111] dark:hover:text-white transition-colors cursor-pointer text-left"
-                  >
-                    Kilimani & Kileleshwa
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleLocationClick('Joyland', 'Kiambaa (Ruaka)')}
-                    className="hover:text-[#111111] dark:hover:text-white transition-colors cursor-pointer text-left"
-                  >
-                    Ruaka, Kiambu
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => handleLocationClick('Community Road', 'Mavoko')}
-                    className="hover:text-[#111111] dark:hover:text-white transition-colors cursor-pointer text-left"
-                  >
-                    Syokimau, Machakos
-                  </button>
-                </li>
-              </ul>
-            </div>
+
 
             {/* Explore */}
             <div>
@@ -170,7 +118,12 @@ export const Footer: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      setCurrentView('role-selection');
+                      if (currentUser?.role === 'lister') {
+                        setCurrentView('add-property');
+                      } else {
+                        setCurrentView('role-selection');
+                      }
+
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     className="hover:text-[#111111] dark:hover:text-white transition-colors cursor-pointer text-left"
@@ -238,7 +191,8 @@ export const Footer: React.FC = () => {
           {/* Bottom Credit Mandate */}
           <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#777777] dark:text-[#888888] font-manrope">
             <p className="font-medium text-[#444444] dark:text-[#AAAAAA]">
-              © 2026 MakaoHub. <span className="text-[#111111] dark:text-white font-semibold">Powered by SHEN Studios.</span>
+              © 2026 Rentike. Powered by{" "}
+              <span className="font-anurati tracking-[0.12em]">SHEN STUDIOS</span>
             </p>
             <div className="flex items-center gap-5 sm:gap-6 text-[#666666] dark:text-[#888888]">
               <span>Nakuru, Kenya</span>

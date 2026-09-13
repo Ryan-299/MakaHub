@@ -53,3 +53,51 @@ export const notifyAdminNewProperty = internalAction({
         return { success: true };
     },
 });
+export const notifyNewUserWelcome = internalAction({
+    args: {
+        userId: v.string(),
+        name: v.string(),
+        email: v.string(),
+        phone: v.string(),
+        role: v.string(),
+        joinedAt: v.string(),
+    },
+
+    handler: async (_ctx, args) => {
+        const apiKey = process.env.RESEND_API_KEY;
+
+        if (!apiKey) {
+            throw new Error("RESEND_API_KEY is not configured");
+        }
+
+
+
+
+        const resend = new Resend(apiKey);
+
+        const { error } = await resend.emails.send({
+            from: "Rentike <onboarding@resend.dev>",
+            to: args.email,
+            subject: "Welcome to Rentike",
+            html: `
+    <h2>Welcome to Rentike</h2>
+
+    <p>Hi ${args.name},</p>
+
+    <p>Your Rentike account has been created successfully.</p>
+
+    <p>You can now browse rental homes, save properties, send enquiries, or list a property depending on how you choose to use Rentike.</p>
+
+    <p>We're glad to have you with us.</p>
+
+    <p>— The Rentike Team</p>
+`,
+        });
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return { success: true };
+    },
+});

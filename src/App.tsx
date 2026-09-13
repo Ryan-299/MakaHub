@@ -1,11 +1,11 @@
-import React, { useEffect, useCallback } from 'react';
-import { useUser } from '@clerk/react';
+import React, { useEffect, useCallback, useRef } from 'react';
+import { useUser, AuthenticateWithRedirectCallback } from '@clerk/react';
 import { useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { FilterDrawer } from './components/FilterDrawer';
 import { SplashScreen } from './components/SplashScreen';
-
+import { SsoCallback } from './components/SsoCallback';
 // Views
 import { WelcomeView } from './views/WelcomeView';
 import { SignupView } from './views/SignupView';
@@ -26,6 +26,7 @@ import { SeekerEnquiriesView } from './views/SeekerEnquiriesView';
 import { ListerReviewsView } from './views/ListerReviewsView';
 import { AdminDashboardView } from './views/AdminDashboardView';
 import { NotificationsView } from './views/NotificationsView';
+
 export default function App() {
   const { isLoaded, isSignedIn } = useUser();
   const {
@@ -40,11 +41,16 @@ export default function App() {
     runAdminDemo,
     setAdminActiveTab
   } = useApp();
-
   // Listen for private admin route triggers (e.g. #admin, /admin, ?view=admin)
   useEffect(() => {
     const handleUrlRoute = () => {
       if (typeof window === 'undefined') return;
+      if (
+        typeof window !== 'undefined' &&
+        window.location.pathname === '/sso-callback'
+      ) {
+        return <AuthenticateWithRedirectCallback />;
+      }
       const hash = window.location.hash;
       const search = window.location.search;
       const pathname = window.location.pathname;
@@ -145,6 +151,12 @@ export default function App() {
     };
   }, [currentView]);
 
+  if (
+    typeof window !== 'undefined' &&
+    window.location.pathname === '/sso-callback'
+  ) {
+    return <SsoCallback />;
+  }
   const renderView = () => {
     switch (currentView) {
       case 'welcome':
@@ -202,6 +214,8 @@ export default function App() {
   const handleSplashComplete = useCallback(() => {
     setShowSplashScreen(false);
   }, [setShowSplashScreen]);
+
+
   if (!isLoaded || (isSignedIn && currentView === 'welcome')) {
     return (
       <div

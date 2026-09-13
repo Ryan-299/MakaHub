@@ -21,7 +21,8 @@ import {
   Check,
   Lock,
   Layers,
-  ArrowUpRight
+  ArrowUpRight,
+  Pencil,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SUBSCRIPTION_PLANS, DEFAULT_MARY_SUBSCRIPTION } from '../data/subscriptionPlans';
@@ -29,18 +30,95 @@ import { ListerSubscriptionPlan, SubscriptionTier, SubscriptionStatus } from '..
 import { SubscriptionCheckoutModal } from '../components/SubscriptionCheckoutModal';
 import { ContactPortfolioModal } from '../components/ContactPortfolioModal';
 import { CancelSubscriptionModal } from '../components/CancelSubscriptionModal';
-
-
+import { useUser, useSession } from '@clerk/react';
 export const UserProfileView: React.FC = () => {
+  const { user: clerkUser } = useUser();
+  const { session } = useSession();
   const {
     currentUser,
     switchUserMode,
     logoutUser,
+    deleteAccount,
+    updateCurrentUserName,
     setCurrentView,
     previousView,
     properties = [],
     listerListings = []
   } = useApp();
+  const handleDeleteAccount = () => {
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (!session) {
+      setDeleteVerificationError(
+        'Your session is unavailable. Please sign in again.'
+      );
+      return;
+    }
+
+    try {
+      setIsDeletingAccount(true);
+      setDeleteVerificationError('');
+
+      const verification = await session.startVerification({
+        level: 'first_factor',
+      });
+
+      const emailFactor = verification.supportedFirstFactors?.find(
+        (factor) => factor.strategy === 'email_code'
+      );
+
+      if (!emailFactor || !('emailAddressId' in emailFactor)) {
+        throw new Error('Email verification is not available for this account.');
+      }
+
+      await session.prepareFirstFactorVerification({
+        strategy: 'email_code',
+        emailAddressId: emailFactor.emailAddressId,
+      });
+
+      setDeleteModalOpen(false);
+      setDeleteVerificationOpen(true);
+    } catch (error) {
+      console.error('Failed to start deletion verification:', error);
+      setDeleteVerificationError(
+        'We could not send a verification code. Please try again.'
+      );
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+  const completeDeleteVerification = async () => {
+    if (!session) return;
+
+    if (!deleteVerificationCode.trim()) {
+      setDeleteVerificationError('Enter the verification code sent to your email.');
+      return;
+    }
+
+    try {
+      setIsDeletingAccount(true);
+      setDeleteVerificationError('');
+
+      const verificationResult = await session.attemptFirstFactorVerification({
+        strategy: 'email_code',
+        code: deleteVerificationCode.trim(),
+      });
+
+      if (verificationResult.status !== 'complete') {
+        throw new Error('Verification was not completed.');
+      }
+
+      await deleteAccount();
+    } catch (error) {
+      console.error('Account deletion verification failed:', error);
+      setDeleteVerificationError(
+        'The verification code is incorrect or has expired. Please try again.'
+      );
+      setIsDeletingAccount(false);
+    }
+  };
   const handleBack = () => {
     if (previousView && previousView !== 'profile') {
       setCurrentView(previousView);
@@ -56,14 +134,103 @@ export const UserProfileView: React.FC = () => {
     }
   };
 
-  const [activeTab, setActiveTab] = useState<'details' | 'billing' | 'settings'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'billing' | 'settings'>(() => {
+    const requestedTab = sessionStorage.getItem('makaohub-profile-tab');
+
+    sessionStorage.removeItem('makaohub-profile-tab');
+
+    return requestedTab === 'settings' || requestedTab === 'billing'
+      ? requestedTab
+      : 'details';
+  });
   const [subscription, setSubscription] = useState(DEFAULT_MARY_SUBSCRIPTION);
   const [selectedPlanForCheckout, setSelectedPlanForCheckout] = useState<ListerSubscriptionPlan | null>(null);
   const [portfolioModalOpen, setPortfolioModalOpen] = useState(false);
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [downgradeWarningPlan, setDowngradeWarningPlan] = useState<ListerSubscriptionPlan | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteVerificationOpen, setDeleteVerificationOpen] = useState(false);
+  const [deleteVerificationCode, setDeleteVerificationCode] = useState('');
+  const [deleteVerificationError, setDeleteVerificationError] = useState('');
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState(currentUser?.name || '');
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const handleAvatarChange = async (
 
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+
+    if (!file || !clerkUser) return;
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarError('Please choose an image file.');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError('Profile picture must be smaller than 5 MB.');
+      return;
+    }
+
+    try {
+      setIsUploadingAvatar(true);
+      setAvatarError(null);
+
+      await clerkUser.setProfileImage({ file });
+      await clerkUser.reload();
+    } catch (error) {
+      console.error('Failed to update profile picture:', error);
+      setAvatarError('Could not update profile picture. Please try again.');
+    } finally {
+      setIsUploadingAvatar(false);
+      e.target.value = '';
+    }
+  };
+  const handleSaveName = async () => {
+    const trimmedName = nameDraft.trim();
+
+    if (!trimmedName) {
+      setNameError('Name / company cannot be empty.');
+      return;
+    }
+
+    if (trimmedName.length > 80) {
+      setNameError('Name / company must be 80 characters or fewer.');
+      return;
+    }
+
+    if (trimmedName === currentUser?.name) {
+      setNameError(null);
+      setIsEditingName(false);
+      return;
+    }
+
+    try {
+      setIsSavingName(true);
+      setNameError(null);
+
+      await updateCurrentUserName(trimmedName);
+
+      setNameDraft(trimmedName);
+      setIsEditingName(false);
+    } catch (error) {
+      console.error('Failed to update name:', error);
+      setNameError(
+        error instanceof Error
+          ? error.message
+          : 'Could not update your name. Please try again.'
+      );
+    } finally {
+      setIsSavingName(false);
+    }
+  };
   // Dynamic calculation of active listings belonging to the current user
+
   const activeListingsCount = useMemo(() => {
     if (!currentUser) return 0;
     // Count listings authored by currentUser where status === 'Approved'
@@ -274,16 +441,100 @@ export const UserProfileView: React.FC = () => {
             <div className="bg-white dark:bg-[#111111] rounded-3xl p-6 sm:p-8 border border-neutral-200 dark:border-[#262626] shadow-xs space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                 <div className="flex items-center gap-5">
-                  <img
-                    src={currentUser.avatar}
-                    alt={currentUser.name}
-                    className="w-20 h-20 rounded-2xl object-cover border-2 border-neutral-100 dark:border-[#2A2A2A] shadow-xs"
-                  />
+                  <div className="relative shrink-0">
+                    <img
+                      src={clerkUser?.imageUrl || currentUser.avatar}
+                      alt={currentUser.name}
+                      className="w-20 h-20 rounded-2xl object-cover border-2 border-neutral-100 dark:border-neutral-800"
+                    />
+
+                    <input
+                      id="profile-avatar-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      disabled={isUploadingAvatar}
+                      className="hidden"
+                    />
+
+                    <label
+                      htmlFor="profile-avatar-upload"
+                      title="Change profile picture"
+                      className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 flex items-center justify-center shadow-md cursor-pointer hover:scale-110 transition-transform"
+                    >
+                      {isUploadingAvatar ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-neutral-900 dark:text-white" />
+                      ) : (
+                        <Pencil className="w-3.5 h-3.5 text-neutral-900 dark:text-white" />
+                      )}
+                    </label>
+                  </div>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <h2 className="text-xl sm:text-2xl font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5]">
-                        {currentUser.name}
-                      </h2>
+                      {isEditingName ? (
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={nameDraft}
+                              onChange={(e) => {
+                                setNameDraft(e.target.value);
+                                setNameError(null);
+                              }}
+                              maxLength={80}
+                              autoFocus
+                              className="px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[#181818] text-neutral-900 dark:text-white outline-none"
+                            />
+
+                            <button
+                              type="button"
+                              onClick={handleSaveName}
+                              disabled={isSavingName}
+                              className="px-3 py-2 rounded-lg bg-black dark:bg-white text-white dark:text-black text-xs font-bold disabled:opacity-50"
+                            >
+                              {isSavingName ? 'Saving...' : 'Save'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNameDraft(currentUser.name);
+                                setNameError(null);
+                                setIsEditingName(false);
+                              }}
+                              disabled={isSavingName}
+                              className="px-3 py-2 rounded-lg border border-neutral-300 dark:border-neutral-700 text-xs font-bold"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+
+                          {nameError && (
+                            <p className="text-xs text-red-600 dark:text-red-400">
+                              {nameError}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-xl sm:text-2xl font-editorial font-semibold text-neutral-950 dark:text-white">
+                            {currentUser.name}
+                          </h2>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNameDraft(currentUser.name);
+                              setNameError(null);
+                              setIsEditingName(true);
+                            }}
+                            title="Edit name / company"
+                            className="w-7 h-7 rounded-full flex items-center justify-center border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                       <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-900/50">
                         <CheckCircle2 className="w-3 h-3" />
                         Verified
@@ -378,10 +629,18 @@ export const UserProfileView: React.FC = () => {
                   </div>
                   <ArrowRight className="w-4 h-4 text-neutral-400 dark:text-[#7D7D7D]" />
                 </button>
-
                 <button
                   type="button"
-                  onClick={() => switchUserMode('lister')}
+                  onClick={() => {
+                    console.log('MANAGE PROPERTIES CLICKED', currentUser?.role);
+                    if (currentUser?.role === 'lister') {
+                      setCurrentView('add-property');
+                    } else {
+                      setCurrentView('role-selection');
+                    }
+
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
                   className={`p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${currentUser.role === 'lister'
                     ? 'bg-neutral-100 dark:bg-[#1C1C1C] border-black dark:border-white ring-1 ring-black dark:ring-white'
                     : 'bg-white dark:bg-[#151515] hover:bg-neutral-50 dark:hover:bg-[#1C1C1C] border-neutral-200 dark:border-[#2A2A2A]'
@@ -854,11 +1113,164 @@ export const UserProfileView: React.FC = () => {
                 <LogOut className="w-4 h-4" />
                 <span>Sign Out of MakaoHub</span>
               </button>
+              {currentUser?.role !== 'admin' && (
+                <div className="mt-6 pt-6 border-t border-red-200 dark:border-red-900/40">
+                  <div className="mb-4">
+                    <h3 className="text-base font-editorial font-semibold text-red-600 dark:text-red-400">
+                      Delete Account
+                    </h3>
+
+                    <p className="mt-1 text-xs text-neutral-500 dark:text-[#8A8A8A]">
+                      Permanently delete your MakaoHub account. This action cannot be undone.
+                      {currentUser?.role === 'lister' &&
+                        ' All property listings associated with your account will also be permanently deleted.'}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleDeleteAccount}
+                    className="w-full py-3.5 rounded-xl border border-red-600 text-red-600 dark:text-red-400 dark:border-red-500 font-medium hover:bg-red-600 hover:text-white transition-colors"
+                  >
+                    Delete Account
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
       </div>
 
+      {/* Delete Account Modal */}
+      {deleteModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            onClick={() => {
+              if (!isDeletingAccount) setDeleteModalOpen(false);
+            }}
+          />
+
+          <div className="relative w-full max-w-md rounded-2xl border border-red-900/60 bg-[#111111] p-6 shadow-2xl">
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-red-800 bg-red-950/70">
+              <AlertTriangle className="h-6 w-6 text-red-500" />
+            </div>
+
+            <h2 className="text-xl font-editorial font-semibold text-white">
+              Delete Account?
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-neutral-400">
+              This action is permanent and cannot be undone.
+            </p>
+
+            {currentUser?.role === 'lister' && (
+              <div className="mt-4 rounded-xl border border-red-900/50 bg-red-950/20 p-4">
+                <p className="text-sm leading-6 text-red-300">
+                  All property listings associated with your account will also be
+                  permanently deleted.
+                </p>
+              </div>
+            )}
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={() => setDeleteModalOpen(false)}
+                className="flex-1 rounded-xl border border-neutral-700 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={confirmDeleteAccount}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Account Deletion Verification Modal */}
+      {deleteVerificationOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+            onClick={() => {
+              if (!isDeletingAccount) {
+                setDeleteVerificationOpen(false);
+                setDeleteVerificationCode('');
+                setDeleteVerificationError('');
+              }
+            }}
+          />
+
+          <div className="relative w-full max-w-md rounded-2xl border border-red-900/60 bg-[#111111] p-6 shadow-2xl">
+            <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-red-800 bg-red-950/70">
+              <Lock className="h-6 w-6 text-red-500" />
+            </div>
+
+            <h2 className="text-xl font-editorial font-semibold text-white">
+              Verify Your Identity
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-neutral-400">
+              We sent a verification code to your email. Enter it below to continue
+              deleting your account.
+            </p>
+
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={deleteVerificationCode}
+              onChange={(e) => {
+                setDeleteVerificationCode(e.target.value);
+                setDeleteVerificationError('');
+              }}
+              placeholder="Enter verification code"
+              disabled={isDeletingAccount}
+              className="mt-5 w-full rounded-xl border border-neutral-700 bg-[#181818] px-4 py-3 text-white outline-none transition focus:border-red-500 disabled:opacity-50"
+            />
+
+            {deleteVerificationError && (
+              <p className="mt-3 text-sm text-red-400">
+                {deleteVerificationError}
+              </p>
+            )}
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={() => {
+                  setDeleteVerificationOpen(false);
+                  setDeleteVerificationCode('');
+                  setDeleteVerificationError('');
+                }}
+                className="flex-1 rounded-xl border border-neutral-700 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeletingAccount}
+                onClick={completeDeleteVerification}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-700 transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isDeletingAccount ? 'Verifying...' : 'Verify & Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Checkout Modal */}
       {selectedPlanForCheckout && (
         <SubscriptionCheckoutModal
@@ -871,27 +1283,33 @@ export const UserProfileView: React.FC = () => {
         />
       )}
 
+
+
       {/* Portfolio Enterprise Modal */}
-      {portfolioModalOpen && (
-        <ContactPortfolioModal
-          isOpen={portfolioModalOpen}
-          onClose={() => setPortfolioModalOpen(false)}
-          userName={currentUser.name}
-          userEmail={currentUser.email}
-          userPhone={currentUser.phone}
-        />
-      )}
+      {
+        portfolioModalOpen && (
+          <ContactPortfolioModal
+            isOpen={portfolioModalOpen}
+            onClose={() => setPortfolioModalOpen(false)}
+            userName={currentUser.name}
+            userEmail={currentUser.email}
+            userPhone={currentUser.phone}
+          />
+        )
+      }
 
       {/* Cancel Subscription Modal */}
-      {cancelModalOpen && (
-        <CancelSubscriptionModal
-          isOpen={cancelModalOpen}
-          onClose={() => setCancelModalOpen(false)}
-          planName={currentPlan.name}
-          renewalDate={subscription.renewalDate}
-          onConfirmCancel={handleConfirmCancel}
-        />
-      )}
-    </div>
+      {
+        cancelModalOpen && (
+          <CancelSubscriptionModal
+            isOpen={cancelModalOpen}
+            onClose={() => setCancelModalOpen(false)}
+            planName={currentPlan.name}
+            renewalDate={subscription.renewalDate}
+            onConfirmCancel={handleConfirmCancel}
+          />
+        )
+      }
+    </div >
   );
 };

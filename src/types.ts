@@ -1,4 +1,4 @@
-export type UserRole = 'seeker' | 'lister' | 'admin';
+export type UserRole = 'unassigned' | 'seeker' | 'lister' | 'admin';
 
 export type ListerSubtype =
   | 'Landlord / Property Owner'

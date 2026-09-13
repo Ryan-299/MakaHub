@@ -210,6 +210,7 @@ export const updateProperty = mutation({
     name: v.optional(v.string()),
     type: v.optional(v.string()),
     monthlyRent: v.optional(v.number()),
+    status: v.optional(v.string()),
     deposit: v.optional(v.number()),
     serviceCharge: v.optional(v.number()),
     agentFee: v.optional(v.number()),
@@ -269,7 +270,26 @@ export const updateProperty = mutation({
     const { id, ...updates } = args;
 
     await ctx.db.patch(doc._id, updates);
+    const isResubmission =
+      doc.status === "Rejected" && updates.status === "Pending";
 
+    if (isResubmission) {
+      const users = await ctx.db.query("users").collect();
+      const admins = users.filter((user) => user.role === "admin");
+
+      for (const admin of admins) {
+        await ctx.db.insert("notifications", {
+          recipientUserId: admin.userId,
+          userId: identity.subject,
+          title: "Listing Resubmitted for Approval",
+          message: `"${updates.name || doc.name}" was updated after rejection and has been resubmitted for admin review.`,
+          time: new Date().toISOString(),
+          type: "approval",
+          targetPropertyId: doc._id.toString(),
+          read: false,
+        });
+      }
+    }
     return doc._id;
   },
 });
@@ -342,9 +362,29 @@ export const updateVacancies = mutation({
 export const remove = mutation({
   args: { id: v.id("properties") },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("User must be signed in.");
+    }
+
+    const requester = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!requester) {
+      throw new Error("User account not found.");
+    }
     try {
       const doc = await ctx.db.get(args.id);
       if (doc) {
+        const isOwner = doc.lister.id === identity.subject;
+        const isAdmin = requester.role === "admin";
+
+        if (!isOwner && !isAdmin) {
+          throw new Error("You are not authorized to delete this property.");
+        }
         // Clean up storage items if present
         if (doc.imageStorageIds && Array.isArray(doc.imageStorageIds)) {
           for (const storageId of doc.imageStorageIds) {
@@ -371,8 +411,189 @@ export const remove = mutation({
         }
         await ctx.db.delete(doc._id);
       }
-    } catch {
-      // Handle gracefully
+    } catch (error) {
+      throw error;
     }
+  },
+});
+export const recordView = mutation({
+  args: {
+    propertyId: v.id("properties"),
+  },
+
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      return {
+        counted: false,
+        reason: "not-signed-in",
+      };
+    }
+
+    const viewer = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!viewer || viewer.role !== "seeker") {
+      return {
+        counted: false,
+        reason: "not-seeker",
+      };
+    }
+
+    const property = await ctx.db.get(args.propertyId);
+
+    if (!property) {
+      throw new Error("Property not found.");
+    }
+
+    // Never count the property owner's own views.
+    if (property.lister.id === identity.subject) {
+      return {
+        counted: false,
+        reason: "own-property",
+      };
+    }
+
+    // MakaoHub currently operates on Kenya time (UTC+3).
+    const kenyaNow = new Date(
+      Date.now() + 3 * 60 * 60 * 1000
+    );
+
+    const month = `${kenyaNow.getUTCFullYear()}-${String(
+      kenyaNow.getUTCMonth() + 1
+    ).padStart(2, "0")}`;
+
+    const existingView = await ctx.db
+      .query("propertyViews")
+      .withIndex("by_viewer_property_month", (q) =>
+        q
+          .eq("viewerId", identity.subject)
+          .eq("propertyId", args.propertyId)
+          .eq("month", month)
+      )
+      .first();
+
+    if (existingView) {
+      return {
+        counted: false,
+        reason: "already-viewed-this-month",
+      };
+    }
+
+    await ctx.db.insert("propertyViews", {
+      propertyId: args.propertyId,
+      listerId: property.lister.id,
+      viewerId: identity.subject,
+      month,
+      viewedAt: new Date().toISOString(),
+    });
+
+    return {
+      counted: true,
+      reason: "new-view",
+    };
+  },
+});
+export const getViewsThisMonth = query({
+  args: {},
+
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      return 0;
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!user || user.role !== "lister") {
+      return 0;
+    }
+
+    const kenyaNow = new Date(
+      Date.now() + 3 * 60 * 60 * 1000
+    );
+
+    const month = `${kenyaNow.getUTCFullYear()}-${String(
+      kenyaNow.getUTCMonth() + 1
+    ).padStart(2, "0")}`;
+
+    const views = await ctx.db
+      .query("propertyViews")
+      .withIndex("by_lister_month", (q) =>
+        q
+          .eq("listerId", identity.subject)
+          .eq("month", month)
+      )
+      .collect();
+
+    return views.length;
+  },
+});
+export const getViewsBreakdownThisMonth = query({
+  args: {},
+
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      return [];
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!user || user.role !== "lister") {
+      return [];
+    }
+
+    const kenyaNow = new Date(
+      Date.now() + 3 * 60 * 60 * 1000
+    );
+
+    const month = `${kenyaNow.getUTCFullYear()}-${String(
+      kenyaNow.getUTCMonth() + 1
+    ).padStart(2, "0")}`;
+
+    const views = await ctx.db
+      .query("propertyViews")
+      .withIndex("by_lister_month", (q) =>
+        q
+          .eq("listerId", identity.subject)
+          .eq("month", month)
+      )
+      .collect();
+
+    const counts = new Map<string, number>();
+
+    for (const view of views) {
+      const propertyId = String(view.propertyId);
+
+      counts.set(
+        propertyId,
+        (counts.get(propertyId) ?? 0) + 1
+      );
+    }
+
+    return Array.from(counts.entries()).map(
+      ([propertyId, views]) => ({
+        propertyId,
+        views,
+      })
+    );
   },
 });

@@ -25,6 +25,8 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { EstimatedMoveInCost } from '../components/EstimatedMoveInCost';
 import { ReviewList } from '../components/ReviewList';
 import { ContactListerModal } from '../components/ContactListerModal';
@@ -46,6 +48,7 @@ export const PropertyDetailView: React.FC = () => {
     setEditingPropertyId,
     deletePropertyListing
   } = useApp();
+  const recordView = useMutation(api.properties.recordView);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -61,6 +64,7 @@ export const PropertyDetailView: React.FC = () => {
     (!selectedPropertyId && properties.length > 0 ? properties[0] : null);
   const saveCount = property?.saveCount ?? 0;
   // Check if current user is the owner/lister of this property
+
   const isOwner = Boolean(
     currentUser &&
     currentUser.role === 'lister' &&
@@ -68,6 +72,19 @@ export const PropertyDetailView: React.FC = () => {
     currentUser.id === property.lister.id
   );
 
+  useEffect(() => {
+    if (!property?.id || currentUser?.role !== 'seeker') {
+      return;
+    }
+
+    void recordView({
+      propertyId: property.id as any,
+    }).catch((error) => {
+      console.error('Failed to record property view:', error);
+    });
+  }, [property?.id, currentUser?.id, currentUser?.role, recordView]);
+
+  // Reset video error state when property or video source changes
   // Reset video error state when property or video source changes
   useEffect(() => {
     setVideoLoadError(false);
@@ -275,49 +292,6 @@ export const PropertyDetailView: React.FC = () => {
           </button>
 
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            {/* Desktop Owner Action Shortcuts in the Top Bar */}
-            {isOwner && (
-              <div className="hidden sm:flex items-center gap-2 mr-1">
-                <button
-                  type="button"
-                  onClick={handleEditListing}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black text-xs font-bold font-sans transition-all shadow-xs cursor-pointer"
-                >
-                  <Edit className="w-3.5 h-3.5" />
-                  <span>Edit Listing</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleUpdateAvailability}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-300 dark:border-[#383838] hover:border-black dark:hover:border-white bg-white dark:bg-[#151515] text-neutral-800 dark:text-[#E5E5E5] hover:text-black dark:hover:text-white text-xs font-bold font-sans transition-all cursor-pointer shadow-2xs"
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                  <span>Update Availability</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleDeleteListingClick}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-[#292929] hover:border-red-300 dark:hover:border-red-500/60 hover:bg-red-50 dark:hover:bg-red-950/40 text-neutral-500 dark:text-[#999999] hover:text-red-600 dark:hover:text-red-400 text-xs font-bold font-sans transition-all cursor-pointer"
-                  title="Delete Listing"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Delete</span>
-                </button>
-
-                <div className="h-4 w-px bg-neutral-200 dark:bg-[#292929] mx-1"></div>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={handleShare}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-[#303030] hover:border-black dark:hover:border-white text-xs font-bold font-sans transition-all cursor-pointer bg-white dark:bg-[#151515] text-neutral-800 dark:text-[#E5E5E5] hover:text-black dark:hover:text-white"
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              <span>{copiedLink ? 'Link Copied!' : 'Share'}</span>
-            </button>
 
             {!isOwner && (
               <button
@@ -355,7 +329,9 @@ export const PropertyDetailView: React.FC = () => {
                 className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white dark:bg-[#F5F5F5] hover:bg-neutral-100 text-neutral-950 font-bold font-sans rounded-lg text-xs transition-all shadow-xs cursor-pointer"
               >
                 <Edit className="w-3.5 h-3.5 text-neutral-900" />
-                <span>Edit Listing</span>
+                <span>
+                  {property.status === 'Rejected' ? 'Edit & Resubmit' : 'Edit Listing'}
+                </span>
               </button>
 
               <button
@@ -381,12 +357,13 @@ export const PropertyDetailView: React.FC = () => {
 
         {/* Pending / Rejected Moderation Alert Banner */}
         {property.status === 'Pending' && (
-          <div className="bg-neutral-900 dark:bg-[#0D0D0D] text-white px-4 py-3 rounded-2xl border border-neutral-800 dark:border-[#262626] font-medium font-sans text-xs flex items-center justify-between gap-3 shadow-xs">
+          <div className="bg-amber-500/10 dark:bg-amber-500/10 text-amber-200 px-4 py-3 rounded-2xl border border-amber-500/30">
             <div className="flex items-center gap-2">
-              <span className="font-bold uppercase tracking-wider bg-neutral-800 dark:bg-[#1E1E1E] text-white border border-neutral-700 dark:border-[#333333] px-2 py-0.5 rounded text-[10px]">
+              <span className="font-bold uppercase tracking-wider bg-amber-500 text-black border border-amber-400 px-2 py-0.5 rounded text-[10px]">
                 Pending Admin Review
               </span>
-              <span className="text-neutral-300 dark:text-[#C5C5C5]">
+
+              <span className="text-amber-100">
                 This property's latest edits are currently in the admin moderation queue. Once approved by MakaoHub moderation, the updated details will be live across discovery search and map.
               </span>
             </div>
