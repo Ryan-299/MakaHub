@@ -455,24 +455,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                       )}
                     </button>
 
-                    {/* Messages */}
-                    <button
-                      type="button"
-                      id="sidebar-nav-messages"
-                      onClick={() => {
-                        setTargetEnquiryId(null);
-                        navigateTo('lister-enquiries');
-                      }}
-                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-colors cursor-pointer ${currentView === 'lister-enquiries' && targetEnquiryId
-                        ? 'bg-[#F0F0F0] dark:bg-[#181818] text-[#111111] dark:text-[#FFFFFF] font-extrabold shadow-2xs'
-                        : 'text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium'
-                        }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <MessageSquare className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
-                        <span>Messages</span>
-                      </div>
-                    </button>
+
                   </div>
                 ) : (
                   /* ==================================================
@@ -560,21 +543,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                       )}
                     </button>
 
-                    {/* Messages */}
-                    <button
-                      type="button"
-                      id="sidebar-nav-messages"
-                      onClick={() => {
-                        setTargetEnquiryId(null);
-                        navigateTo('seeker-enquiries');
-                      }}
-                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs text-[#555555] dark:text-[#A3A3A3] hover:bg-neutral-100 dark:hover:bg-[#161616] hover:text-[#111111] dark:hover:text-white font-medium transition-colors cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3">
-                        <MessageSquare className="w-4 h-4 text-neutral-600 dark:text-neutral-400" />
-                        <span>Messages</span>
-                      </div>
-                    </button>
+
                   </div>
                 )}
 

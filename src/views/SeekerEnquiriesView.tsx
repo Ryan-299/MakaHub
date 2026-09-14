@@ -1,3 +1,4 @@
+import { formatRelativeTime } from '../utils/formatTime';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
@@ -57,7 +58,22 @@ export const SeekerEnquiriesView: React.FC = () => {
       setSelectedEnquiryId(seekerEnquiries[0].id);
     }
   }, [targetEnquiryId, seekerEnquiries]);
+  const sortedEnquiries = [...seekerEnquiries].sort((a, b) => {
+    const aLastTime =
+      a.messages?.[a.messages.length - 1]?.createdAt ||
+      a.createdAt ||
+      a.date;
 
+    const bLastTime =
+      b.messages?.[b.messages.length - 1]?.createdAt ||
+      b.createdAt ||
+      b.date;
+
+    const aTime = Date.parse(aLastTime || '') || 0;
+    const bTime = Date.parse(bLastTime || '') || 0;
+
+    return bTime - aTime;
+  });
   // Find active enquiry
   const activeEnquiry = seekerEnquiries.find((e) => e.id === selectedEnquiryId) || seekerEnquiries[0] || null;
 
@@ -239,7 +255,7 @@ export const SeekerEnquiriesView: React.FC = () => {
               </div>
 
               <div className="space-y-2.5 max-h-[calc(100vh-14rem)] overflow-y-auto no-scrollbar pr-0.5">
-                {seekerEnquiries.map((enq) => {
+                {sortedEnquiries.map((enq) => {
                   const isSelected = enq.id === activeEnquiry?.id;
                   const prop = properties.find((p) => p.id === enq.propertyId);
                   const lastMsg = (enq.messages && enq.messages.length > 0)
@@ -284,7 +300,7 @@ export const SeekerEnquiriesView: React.FC = () => {
                         </div>
 
                         <span className="text-[10px] text-neutral-400 dark:text-[#7D7D7D] shrink-0 font-medium">
-                          {enq.date || 'Recently'}
+                          {formatRelativeTime(enq.date)}
                         </span>
                       </div>
 
@@ -525,7 +541,7 @@ export const SeekerEnquiriesView: React.FC = () => {
                                   : 'text-neutral-400 dark:text-[#7D7D7D]'
                                   }`}
                               >
-                                {msg.createdAt || 'Just now'}
+                                {formatRelativeTime(msg.createdAt)}
                               </span>
                             </div>
 

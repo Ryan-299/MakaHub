@@ -1,3 +1,4 @@
+import { formatRelativeTime } from '../utils/formatTime';
 import React, { useState, useEffect, useRef } from 'react';
 import {
   ArrowLeft,
@@ -69,12 +70,27 @@ export const ListerEnquiriesView: React.FC = () => {
       enq.message.toLowerCase().includes(q)
     );
   });
+  const sortedEnquiries = [...filteredEnquiries].sort((a, b) => {
+    const aLastTime =
+      a.messages?.[a.messages.length - 1]?.createdAt ||
+      a.createdAt ||
+      a.date;
 
+    const bLastTime =
+      b.messages?.[b.messages.length - 1]?.createdAt ||
+      b.createdAt ||
+      b.date;
+
+    const aTime = Date.parse(aLastTime || '') || 0;
+    const bTime = Date.parse(bLastTime || '') || 0;
+
+    return bTime - aTime;
+  });
   // Find active enquiry
   const activeEnquiry =
-    filteredEnquiries.find((e) => e.id === selectedEnquiryId) ||
+    sortedEnquiries.find((e) => e.id === selectedEnquiryId) ||
     listerEnquiries.find((e) => e.id === selectedEnquiryId) ||
-    filteredEnquiries[0] ||
+    sortedEnquiries[0] ||
     null;
 
   // Mark as read when active enquiry changes
@@ -265,7 +281,7 @@ export const ListerEnquiriesView: React.FC = () => {
               </div>
 
               <div className="space-y-2.5 max-h-[calc(100vh-16rem)] overflow-y-auto no-scrollbar pr-0.5">
-                {filteredEnquiries.map((enq) => {
+                {sortedEnquiries.map((enq) => {
                   const isSelected = enq.id === activeEnquiry?.id;
                   const prop = properties.find((p) => p.id === enq.propertyId);
                   const lastMsg =
@@ -303,7 +319,7 @@ export const ListerEnquiriesView: React.FC = () => {
                         </div>
 
                         <span className="text-[10px] text-neutral-400 dark:text-[#7D7D7D] shrink-0">
-                          {enq.date || 'Recently'}
+                          {formatRelativeTime(enq.date)}
                         </span>
                       </div>
 
@@ -514,7 +530,7 @@ export const ListerEnquiriesView: React.FC = () => {
                                 className={`${isLister ? 'text-neutral-400 dark:text-neutral-600' : 'text-neutral-400 dark:text-[#7D7D7D]'
                                   }`}
                               >
-                                {msg.createdAt || 'Just now'}
+                                {formatRelativeTime(msg.createdAt)}
                               </span>
                             </div>
 

@@ -2812,8 +2812,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const prop = properties.find((p) => p.id === propertyId);
     const seekerId = currentUser?.id || 'demo-seeker-001';
     const listerId = prop?.lister?.id || 'demo-lister-001';
-    const enquiryId = `enq-${Date.now()}`;
-    const nowStr = 'Just now';
+    let enquiryId = `enq-${Date.now()}`;
+    const nowStr = new Date().toISOString();
     const cleanMsg = message.trim();
 
     const initialMsg: EnquiryMessage = {
@@ -2848,7 +2848,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     if (isConvexConfigured && convexClient) {
       try {
-        await convexClient.mutation(api.enquiries.create, {
+        enquiryId = await convexClient.mutation(api.enquiries.create, {
           propertyId,
           propertyName: prop?.name || 'Property',
           seekerId,
@@ -2867,6 +2867,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         throw error;
       }
     }
+    newEnq.id = enquiryId;
+    initialMsg.enquiryId = enquiryId;
     setEnquiries((prev) => [newEnq, ...prev]);
 
     // Update property enquiriesCount
@@ -2928,7 +2930,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const senderRole: 'seeker' | 'lister' = isLister ? 'lister' : 'seeker';
     const senderAvatar = currentUser?.avatar || (isLister ? (prop?.lister?.avatar || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80') : enq.seekerAvatar);
 
-    const nowStr = 'Just now';
+    const nowStr = new Date().toISOString();
     const newMsg: EnquiryMessage = {
       id: `msg-${Date.now()}`,
       enquiryId,
