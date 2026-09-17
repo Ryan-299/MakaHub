@@ -5,6 +5,12 @@ import { internal } from "./_generated/api";
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in.");
+    }
+
     return await ctx.storage.generateUploadUrl();
   },
 });
@@ -65,8 +71,53 @@ async function resolvePropertyMedia(ctx: any, doc: any) {
 export const listAll = query({
   args: {},
   handler: async (ctx) => {
-    const docs = await ctx.db.query("properties").order("desc").collect();
-    return await Promise.all(docs.map((doc) => resolvePropertyMedia(ctx, doc)));
+    const identity = await ctx.auth.getUserIdentity();
+
+    const docs = await ctx.db
+      .query("properties")
+      .order("desc")
+      .collect();
+
+    // Not signed in: only public approved listings
+    if (!identity) {
+      const approvedDocs = docs.filter((doc) => doc.status === "Approved");
+
+      return await Promise.all(
+        approvedDocs.map((doc) => resolvePropertyMedia(ctx, doc))
+      );
+    }
+
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    // Admin can see everything
+    if (caller?.role === "admin") {
+      return await Promise.all(
+        docs.map((doc) => resolvePropertyMedia(ctx, doc))
+      );
+    }
+
+    // Lister can see public listings + all of their own listings
+    if (caller?.role === "lister") {
+      const visibleDocs = docs.filter(
+        (doc) =>
+          doc.status === "Approved" ||
+          doc.lister.id === identity.subject
+      );
+
+      return await Promise.all(
+        visibleDocs.map((doc) => resolvePropertyMedia(ctx, doc))
+      );
+    }
+
+    // Seekers and everyone else only see approved listings
+    const approvedDocs = docs.filter((doc) => doc.status === "Approved");
+
+    return await Promise.all(
+      approvedDocs.map((doc) => resolvePropertyMedia(ctx, doc))
+    );
   },
 });
 
@@ -85,9 +136,18 @@ export const listApproved = query({
 export const listByLister = query({
   args: { listerId: v.string() },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in.");
+    }
+
+    if (args.listerId !== identity.subject) {
+      throw new Error("You can only view your own listings.");
+    }
     const docs = await ctx.db
       .query("properties")
-      .withIndex("by_lister", (q) => q.eq("lister.id", args.listerId))
+      .withIndex("by_lister", (q) => q.eq("lister.id", identity.subject))
       .order("desc")
       .collect();
     return await Promise.all(docs.map((doc) => resolvePropertyMedia(ctx, doc)));
@@ -98,11 +158,41 @@ export const getById = query({
   args: { id: v.id("properties") },
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.id);
-    if (!doc) return null;
-    return await resolvePropertyMedia(ctx, doc);
+
+    if (!doc) {
+      return null;
+    }
+
+    // Approved properties are public
+    if (doc.status === "Approved") {
+      return await resolvePropertyMedia(ctx, doc);
+    }
+
+    const identity = await ctx.auth.getUserIdentity();
+
+    // Logged-out users cannot view private listings
+    if (!identity) {
+      return null;
+    }
+
+    // The lister can view their own Pending/Rejected property
+    if (doc.lister.id === identity.subject) {
+      return await resolvePropertyMedia(ctx, doc);
+    }
+
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    // Admin can view everything
+    if (caller?.role === "admin") {
+      return await resolvePropertyMedia(ctx, doc);
+    }
+
+    return null;
   },
 });
-
 export const add = mutation({
   args: {
     name: v.string(),
@@ -159,6 +249,15 @@ export const add = mutation({
     enquiriesCount: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in.");
+    }
+
+    if (args.lister.id !== identity.subject) {
+      throw new Error("You can only create listings as yourself.");
+    }
     const propertyId = await ctx.db.insert("properties", {
       ...args,
       agentFee: args.agentFee ?? 0,
@@ -169,37 +268,37 @@ export const add = mutation({
       electricityDeposit: args.electricityDeposit ?? 0,
       garbageFee: args.garbageFee ?? 0,
       otherFees: args.otherFees ?? 0,
-      status: args.status || "Pending",
+      status: "Pending",
     });
-    if ((args.status || "Pending") === "Pending") {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.emails.notifyAdminNewProperty,
-        {
-          propertyName: args.name,
-          propertyType: args.type,
-          monthlyRent: args.monthlyRent,
-          county: args.location.county,
-          subCounty: args.location.subCounty,
-          estate: args.location.estate,
-        }
-      );
-      const users = await ctx.db.query("users").collect();
-      const admins = users.filter((user) => user.role === "admin");
 
-      for (const admin of admins) {
-        await ctx.db.insert("notifications", {
-          recipientUserId: admin.userId,
-          userId: args.lister.id,
-          title: "New Property Awaiting Approval",
-          message: `"${args.name}" has been submitted and is waiting for your review.`,
-          time: new Date().toISOString(),
-          type: "approval",
-          targetPropertyId: propertyId.toString(),
-          read: false,
-        });
+    await ctx.scheduler.runAfter(
+      0,
+      internal.emails.notifyAdminNewProperty,
+      {
+        propertyName: args.name,
+        propertyType: args.type,
+        monthlyRent: args.monthlyRent,
+        county: args.location.county,
+        subCounty: args.location.subCounty,
+        estate: args.location.estate,
       }
+    );
+    const users = await ctx.db.query("users").collect();
+    const admins = users.filter((user) => user.role === "admin");
+
+    for (const admin of admins) {
+      await ctx.db.insert("notifications", {
+        recipientUserId: admin.userId,
+        userId: args.lister.id,
+        title: "New Property Awaiting Approval",
+        message: `"${args.name}" has been submitted and is waiting for your review.`,
+        time: new Date().toISOString(),
+        type: "approval",
+        targetPropertyId: propertyId.toString(),
+        read: false,
+      });
     }
+
     return propertyId;
   },
 });
@@ -301,6 +400,20 @@ export const updateStatus = mutation({
     rejectionReason: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in.");
+    }
+
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!caller || caller.role !== "admin") {
+      throw new Error("Admin access required.");
+    }
     try {
       const doc = await ctx.db.get(args.id as any);
       if (doc) {
@@ -323,6 +436,16 @@ export const updateVacancies = mutation({
     underRepair: v.number(),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in.");
+    }
+
+    const caller = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
     let doc = null;
     try {
       doc = await ctx.db.get(args.id as any);
@@ -334,7 +457,16 @@ export const updateVacancies = mutation({
       const all = await ctx.db.query("properties").collect();
       doc = all.find((d) => d._id === args.id || (d as any).id === args.id) || null;
     }
+    if (!doc) {
+      throw new Error("Property not found.");
+    }
 
+    const isOwner = doc.lister.id === identity.subject;
+    const isAdmin = caller?.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      throw new Error("You are not allowed to update this property's availability.");
+    }
     if (doc) {
       const sanitizedVacancies = Math.max(0, Math.floor(args.vacancies));
       const sanitizedOccupied = Math.max(0, Math.floor(args.occupied));

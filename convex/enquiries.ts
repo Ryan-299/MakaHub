@@ -99,6 +99,7 @@ export const create = mutation({
       seekerAvatar: seeker.avatar,
       listerId: property.lister.id,
       propertyName: property.name,
+      status: "New",
       readByLister: false,
       readBySeeker: true,
       messages: [],
@@ -154,16 +155,23 @@ export const sendMessage = mutation({
     }
 
     const actualRole = isLister ? "lister" : "seeker";
+    const sender = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
 
+    if (!sender) {
+      throw new Error("User profile not found.");
+    }
     const currentMessages = enquiry.messages || [];
 
     const newMessage = {
       id: `msg-${Date.now()}`,
       enquiryId: args.enquiryId,
       senderId: identity.subject,
-      senderName: args.senderName,
+      senderName: sender.name,
       senderRole: actualRole,
-      senderAvatar: args.senderAvatar,
+      senderAvatar: sender.avatar,
       message: args.message,
       createdAt: args.createdAt,
     };

@@ -46,7 +46,7 @@ export const TenantHomeView: React.FC = () => {
     let timeGreeting = 'Good morning';
     if (hour >= 12 && hour < 18) {
       timeGreeting = 'Good afternoon';
-    } else if (hour >= 18 || hour < 5) {
+    } else if (hour >= 18) {
       timeGreeting = 'Good evening';
     }
 
