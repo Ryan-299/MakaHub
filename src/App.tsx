@@ -330,6 +330,53 @@ export default function App() {
   ) {
     return <SsoCallback />;
   }
+  // Update the browser tab title whenever the active view changes.
+  useEffect(() => {
+    const pageTitles: Record<string, string> = {
+      // Authentication
+      'welcome': 'Welcome',
+      'signup': 'Sign Up',
+      'login': 'Sign In',
+      'role-selection': 'Choose Your Role',
+      'lister-subtype': 'Lister Setup',
+      'lister-phone': 'Phone Verification',
+
+      // Seeker
+      'tenant-home': 'Home',
+      'map-explore': 'Explore Map',
+      'property-detail': 'Property Details',
+      'public-lister-profile': 'Lister Profile',
+      'saved': 'Saved Properties',
+      'profile': 'My Profile',
+      'seeker-enquiries': 'Messages',
+      'my-enquiries': 'Messages',
+
+      // Lister
+      'my-profile': 'My Profile',
+      'lister-dashboard': 'Dashboard',
+      'my-listings': 'My Listings',
+      'add-property': 'Add New Listing',
+      'lister-enquiries': 'Enquiries',
+      'lister-reviews': 'Reviews',
+
+      // Shared
+      'notifications': 'Notifications',
+
+      // Administration
+      'admin-dashboard': 'Admin Dashboard',
+      'admin-properties': 'Admin Properties',
+      'admin-pending': 'Pending Listings',
+      'admin-users': 'Manage Users',
+      'admin-reports': 'Reports',
+      'admin-reviews': 'Manage Reviews',
+      'admin-locations': 'Manage Locations',
+      'admin-settings': 'Admin Settings',
+      'admin-activity': 'Admin Activity',
+    };
+
+    const pageName = pageTitles[currentView] || 'Home';
+    document.title = `${pageName} — Rentike`;
+  }, [currentView]);
   const renderView = () => {
     switch (currentView) {
       case 'welcome':
