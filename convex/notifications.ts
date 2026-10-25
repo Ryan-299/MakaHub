@@ -74,6 +74,7 @@ export const send = mutation({
   args: {
     recipientUserId: v.string(),
     userId: v.optional(v.string()),
+    actorUserId: v.optional(v.string()),
     title: v.string(),
     message: v.string(),
     time: v.string(),

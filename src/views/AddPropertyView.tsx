@@ -8,6 +8,7 @@ import {
   CheckSquare,
   Upload,
   Image as ImageIcon,
+  ImagePlus,
   CheckCircle2,
   Sparkles,
   Trash2,
@@ -16,7 +17,8 @@ import {
   AlertCircle,
   Video,
   FileVideo,
-  RefreshCw
+  RefreshCw,
+  ChevronDown
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PropertyType } from '../types';
@@ -28,23 +30,25 @@ import {
 } from '../utils/mediaRegistry';
 import { uploadFileToConvex } from '../lib/convexStorage';
 import { isConvexConfigured, convexClient } from '../lib/convex';
+import { api } from '../../convex/_generated/api';
+import type { Id } from '../../convex/_generated/dataModel';
 
 const PROPERTY_TYPES: PropertyType[] = [
   'Single Room',
+  'Double Room',
   'Bedsitter',
   '1 Bedroom',
   '2 Bedroom',
   '3 Bedroom',
   '4+ Bedroom',
   'Studio',
-  'Entire House',
-  'Own Compound House',
   'Commercial / Shop'
 ];
 
 const AMENITY_OPTIONS = [
   'Borehole Water / 24/7 Supply',
-  'Token Electricity (Prepaid KPLC)',
+  'Electricity (Prepaid)',
+  'Electricity (Postpaid)',
   'Fibre Internet Ready',
   'CCTV Surveillance & Guard Security',
   'Gated Compound',
@@ -59,8 +63,11 @@ const AMENITY_OPTIONS = [
 
 export const AddPropertyView: React.FC = () => {
   const {
+
     addPropertyListing,
+    currentUser,
     updatePropertyListing,
+
     editingPropertyId,
     setEditingPropertyId,
     properties,
@@ -74,24 +81,35 @@ export const AddPropertyView: React.FC = () => {
   const isEditMode = !!editingProperty;
 
   // 1. Basic Details
-  const [name, setName] = useState(() => editingProperty?.name || 'Sunset Ridge Heights');
+
+  const [name, setName] = useState(() => editingProperty?.name || '');
+
   const [type, setType] = useState<PropertyType>(() => editingProperty?.type || '1 Bedroom');
-  const [description, setDescription] = useState(
-    () =>
-      editingProperty?.description ||
-      'Spacious, well-ventilated apartment with ceramic tiling, abundant natural light, and modern kitchen cabinetry in a secure gated estate.'
+  const [propertyTypeDropdownOpen, setPropertyTypeDropdownOpen] = useState(false);
+  const [countyDropdownOpen, setCountyDropdownOpen] = useState(false);
+  const [subCountyDropdownOpen, setSubCountyDropdownOpen] = useState(false);
+  const [wardDropdownOpen, setWardDropdownOpen] = useState(false);
+  const [selectedUnitTypes, setSelectedUnitTypes] = useState<PropertyType[]>(
+    () => editingProperty?.type ? [editingProperty.type] : []
   );
+
+  const [description, setDescription] = useState(
+    () => editingProperty?.description || ''
+  );
+
 
   // 2. Location Details
   const [county, setCounty] = useState(() => editingProperty?.location?.county || 'Nairobi');
   const [subCounty, setSubCounty] = useState(() => editingProperty?.location?.subCounty || 'Kasarani');
   const [ward, setWard] = useState(() => editingProperty?.location?.ward || 'Clay City');
-  const [estate, setEstate] = useState(() => editingProperty?.location?.estate || 'Seasons');
+  const [estate, setEstate] = useState(() => editingProperty?.location?.estate || '');
+
   const [address, setAddress] = useState(
-    () => editingProperty?.location?.address || 'Near Seasons Supermarket, Kasarani'
+    () => editingProperty?.location?.address || ''
   );
-  const [lat, setLat] = useState(() => editingProperty?.location?.lat ?? -1.2185);
-  const [lng, setLng] = useState(() => editingProperty?.location?.lng ?? 36.9032);
+
+  const [lat, setLat] = useState<number | null>(() => editingProperty?.location?.lat ?? null);
+  const [lng, setLng] = useState<number | null>(() => editingProperty?.location?.lng ?? null);
 
   // 3. Pricing & Fees (All string-based to prevent leading zeros like "08000" and allow clean blanks)
   const [monthlyRent, setMonthlyRent] = useState<string>(() =>
@@ -115,6 +133,54 @@ export const AddPropertyView: React.FC = () => {
   const [viewingFee, setViewingFee] = useState<string>(() =>
     editingProperty?.viewingFee ? String(editingProperty.viewingFee) : ''
   );
+
+  // Mixed Units: independent pricing and availability for each unit type.
+  // Existing single-unit states remain unchanged.
+  type UnitDetails = {
+    monthlyRent: string;
+    deposit: string;
+    serviceCharge: string;
+    waterDeposit: string;
+    electricityDeposit: string;
+    agentFee: string;
+    viewingFee: string;
+    vacancies: string;
+    occupied: string;
+    underRepair: string;
+  };
+
+  const [mixedUnitDetails, setMixedUnitDetails] = useState<
+    Record<string, UnitDetails>
+  >({});
+
+  const [activeUnitType, setActiveUnitType] = useState<string>('');
+
+  const createEmptyUnitDetails = (): UnitDetails => ({
+    monthlyRent: '',
+    deposit: '',
+    serviceCharge: '',
+    waterDeposit: '',
+    electricityDeposit: '',
+    agentFee: '',
+    viewingFee: '',
+    vacancies: '',
+    occupied: '',
+    underRepair: ''
+  });
+
+  const updateMixedUnitDetail = (
+    unitType: string,
+    field: keyof UnitDetails,
+    value: string
+  ) => {
+    setMixedUnitDetails((previous) => ({
+      ...previous,
+      [unitType]: {
+        ...(previous[unitType] ?? createEmptyUnitDetails()),
+        [field]: value
+      }
+    }));
+  };
 
   // 4. Availability & Units Breakdown
   const [vacant, setVacant] = useState<string>(() =>
@@ -164,10 +230,30 @@ export const AddPropertyView: React.FC = () => {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const createdVideoUrlRef = useRef<string | null>(null);
 
+  type UnitMedia = {
+    images: string[];
+    photoFiles: (File | null)[];
+    videoUrl: string | null;
+    videoFile: File | null;
+  };
+
+  const createEmptyUnitMedia = (): UnitMedia => ({
+    images: [],
+    photoFiles: [],
+    videoUrl: null,
+    videoFile: null
+  });
+
+  const [mixedUnitMedia, setMixedUnitMedia] = useState<
+    Record<string, UnitMedia>
+  >({});
+
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const isSubmittedRef = useRef(false);
+  const createdPropertyIdRef = useRef<string | null>(null);
 
   // Helper for numeric inputs: allows empty strings and prevents leading zeros (e.g. 08000 -> 8000)
   const handleNumericChange =
@@ -289,15 +375,23 @@ export const AddPropertyView: React.FC = () => {
       return;
     }
 
-    const remainingSlots = 10 - images.length;
+
+    const maxPhotos = selectedUnitTypes.length > 1 ? 1 : 10;
+    const remainingSlots = maxPhotos - images.length;
+
     if (remainingSlots <= 0) {
-      setPhotoError('Maximum of 10 photos already reached for this property.');
+      setPhotoError(
+        `Maximum of ${maxPhotos} photo${maxPhotos === 1 ? '' : 's'} allowed.`
+      );
       return;
     }
 
     const filesToAdd = validFiles.slice(0, remainingSlots);
+
     if (validFiles.length > remainingSlots) {
-      setPhotoError(`Added ${remainingSlots} photo(s). Maximum 10 photos allowed per listing.`);
+      setPhotoError(
+        `Only ${remainingSlots} photo${remainingSlots === 1 ? '' : 's'} added. Maximum ${maxPhotos} allowed.`
+      );
     }
 
     const newUrls = filesToAdd.map((file) => {
@@ -312,6 +406,96 @@ export const AddPropertyView: React.FC = () => {
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+  };
+
+  const handleMixedUnitPhotosSelected = (
+    unitType: string,
+    files: FileList | null
+  ) => {
+    if (!files || files.length === 0) return;
+
+    const allowedTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp'
+    ];
+
+    const validFiles = Array.from(files).filter((file) => {
+      const extension = file.name.split('.').pop()?.toLowerCase();
+      return allowedTypes.includes(file.type.toLowerCase()) ||
+        ['jpg', 'jpeg', 'png', 'webp'].includes(extension || '');
+    });
+
+    if (validFiles.length === 0) {
+      setPhotoError('Please select JPG, JPEG, PNG or WebP images.');
+      return;
+    }
+
+    const existing = mixedUnitMedia[unitType] ?? createEmptyUnitMedia();
+    const remainingSlots = 10 - existing.images.length;
+
+    if (remainingSlots <= 0) {
+      setPhotoError(`Maximum 10 photos allowed for ${unitType}.`);
+      return;
+    }
+
+    const filesToAdd = validFiles.slice(0, remainingSlots);
+
+    const newUrls = filesToAdd.map((file) => {
+      const url = URL.createObjectURL(file);
+      createdObjectUrlsRef.current.add(url);
+      return url;
+    });
+
+    setMixedUnitMedia((previous) => {
+      const current = previous[unitType] ?? createEmptyUnitMedia();
+
+      return {
+        ...previous,
+        [unitType]: {
+          ...current,
+          images: [...current.images, ...newUrls],
+          photoFiles: [...current.photoFiles, ...filesToAdd]
+        }
+      };
+    });
+
+    setPhotoError(null);
+  };
+
+  const handleRemoveMixedUnitPhoto = (
+    unitType: string,
+    indexToRemove: number
+  ) => {
+    const current = mixedUnitMedia[unitType];
+    if (!current) return;
+
+    const urlToRemove = current.images[indexToRemove];
+    if (!urlToRemove) return;
+
+    if (createdObjectUrlsRef.current.has(urlToRemove)) {
+      URL.revokeObjectURL(urlToRemove);
+      createdObjectUrlsRef.current.delete(urlToRemove);
+    }
+
+    setMixedUnitMedia((previous) => {
+      const existing = previous[unitType];
+      if (!existing) return previous;
+
+      return {
+        ...previous,
+        [unitType]: {
+          ...existing,
+          images: existing.images.filter(
+            (_, index) => index !== indexToRemove
+          ),
+          photoFiles: existing.photoFiles.filter(
+            (_, index) => index !== indexToRemove
+          )
+        }
+      };
+    });
   };
 
   const handleRemovePhoto = (indexToRemove: number) => {
@@ -451,6 +635,50 @@ export const AddPropertyView: React.FC = () => {
     }
   };
 
+  const handleMixedUnitVideoSelected = (
+    unitType: string,
+    files: FileList | null
+  ) => {
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+
+    if (
+      !['mp4', 'webm'].includes(ext) ||
+      !['video/mp4', 'video/webm'].includes(file.type.toLowerCase())
+    ) {
+      setVideoError('Please select an MP4 or WebM video.');
+      return;
+    }
+
+    if (file.size > MAX_VIDEO_SIZE_BYTES) {
+      setVideoError('Video exceeds the 100 MB limit.');
+      return;
+    }
+
+    const previousUrl = mixedUnitMedia[unitType]?.videoUrl;
+
+    if (previousUrl?.startsWith('blob:')) {
+      URL.revokeObjectURL(previousUrl);
+      createdObjectUrlsRef.current.delete(previousUrl);
+    }
+
+    const newUrl = URL.createObjectURL(file);
+    createdObjectUrlsRef.current.add(newUrl);
+
+    setMixedUnitMedia((previous) => ({
+      ...previous,
+      [unitType]: {
+        ...(previous[unitType] ?? createEmptyUnitMedia()),
+        videoUrl: newUrl,
+        videoFile: file
+      }
+    }));
+
+    setVideoError(null);
+  };
+
   // Cascading Location logic from kenyaLocations
   const counties = useMemo(() => getCounties(), []);
   const availableSubCounties = useMemo(() => {
@@ -477,25 +705,304 @@ export const AddPropertyView: React.FC = () => {
     setWard(newWard);
   };
 
+
   const toggleAmenity = (item: string) => {
-    if (amenities.includes(item)) {
-      setAmenities(amenities.filter((a) => a !== item));
-    } else {
-      setAmenities([...amenities, item]);
-    }
+    const electricityOptions = [
+      'Electricity (Prepaid)',
+      'Electricity (Postpaid)'
+    ];
+
+    setAmenities((previous) => {
+      // Electricity options are mutually exclusive.
+      if (electricityOptions.includes(item)) {
+        return [
+          ...previous.filter(
+            (amenity) => !electricityOptions.includes(amenity)
+          ),
+          item
+        ];
+      }
+
+      // Other amenities retain their normal checkbox behaviour.
+      return previous.includes(item)
+        ? previous.filter((amenity) => amenity !== item)
+        : [...previous, item];
+    });
   };
+
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (images.length === 0) {
-      setPhotoError('Please add at least one property photo before submitting your listing.');
-      const photoSection = document.getElementById('property-photos-section');
-      if (photoSection) {
-        photoSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
+    if (isSubmitting) return;
+
+    if (selectedUnitTypes.length === 0) {
+      setPhotoError('Please select a property type.');
       return;
     }
+
+    // Save Mixed Units separately from the existing single-unit flow.
+    if (selectedUnitTypes.length > 1) {
+      if (isEditMode) {
+        setPhotoError(
+          'Editing Mixed Units is not enabled yet. No changes were saved.'
+        );
+        return;
+      }
+
+      if (!isConvexConfigured || !convexClient || !currentUser?.id) {
+        setPhotoError(
+          'Please sign in and connect to Convex before submitting Mixed Units.'
+        );
+        return;
+      }
+
+      if (images.length !== 1 || !photoFiles[0]) {
+        setPhotoError('Add exactly one new building cover photo.');
+        return;
+      }
+
+      if (!name.trim() || !county || !subCounty || !ward || !estate.trim()) {
+        setPhotoError('Complete the building name and location.');
+        return;
+      }
+
+      for (const unitType of selectedUnitTypes) {
+        const details = mixedUnitDetails[unitType];
+        const media = mixedUnitMedia[unitType];
+
+        if (
+          !details ||
+          !details.monthlyRent ||
+          Number(details.monthlyRent) <= 0 ||
+          details.vacancies.trim() === '' ||
+          !Number.isSafeInteger(Number(details.vacancies)) ||
+          !media ||
+          media.images.length === 0 ||
+          media.photoFiles.some((file) => !file)
+        ) {
+
+
+          setActiveUnitType(unitType);
+          setPhotoError(
+            `Please complete the monthly rent, available vacancies and photos for ${unitType}.`
+          );
+
+          requestAnimationFrame(() => {
+            document.getElementById('mixed-unit-pricing')?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+            });
+          });
+
+          return;
+
+
+        }
+      }
+
+      setIsSubmitting(true);
+      setPhotoError(null);
+
+      try {
+        setUploadProgressText('Uploading building cover...');
+        const buildingCoverId = await uploadFileToConvex(photoFiles[0]);
+
+        const unitTypes = [];
+
+        for (const unitType of selectedUnitTypes) {
+          const details = mixedUnitDetails[unitType];
+          const media = mixedUnitMedia[unitType];
+
+          setUploadProgressText(`Uploading ${unitType} media...`);
+
+          const imageIds: Id<'_storage'>[] = [];
+
+          for (const file of media.photoFiles) {
+            if (!file) {
+              throw new Error(`Missing original image for ${unitType}.`);
+            }
+
+            const storageId = await uploadFileToConvex(file);
+            imageIds.push(storageId as Id<'_storage'>);
+          }
+
+          const videoId = media.videoFile
+            ? await uploadFileToConvex(media.videoFile)
+            : undefined;
+
+          const numberValue = (value: string): number =>
+            value.trim() === '' ? 0 : Number(value);
+
+          unitTypes.push({
+            type: unitType,
+            monthlyRent: numberValue(details.monthlyRent),
+            deposit: numberValue(details.deposit),
+            serviceCharge: numberValue(details.serviceCharge),
+            waterDeposit: numberValue(details.waterDeposit),
+            electricityDeposit: numberValue(details.electricityDeposit),
+            agentFee: numberValue(details.agentFee),
+            viewingFee: numberValue(details.viewingFee),
+            vacancies: numberValue(details.vacancies),
+            occupied: numberValue(details.occupied),
+            underRepair: numberValue(details.underRepair),
+            amenities: [...amenities],
+            images: [] as string[],
+            imageStorageIds: imageIds,
+            coverPhotoStorageId: imageIds[0],
+            videoStorageId: videoId
+              ? (videoId as Id<'_storage'>)
+              : undefined,
+            videoName: media.videoFile?.name,
+            videoSize: media.videoFile?.size,
+          });
+        }
+
+        const values = unitTypes.flatMap((unit) => [
+          unit.monthlyRent,
+          unit.deposit,
+          unit.serviceCharge,
+          unit.waterDeposit,
+          unit.electricityDeposit,
+          unit.agentFee,
+          unit.viewingFee,
+          unit.vacancies,
+          unit.occupied,
+          unit.underRepair,
+        ]);
+
+        if (
+          values.some((value) => !Number.isFinite(value) || value < 0) ||
+          unitTypes.some(
+            (unit) =>
+              !Number.isSafeInteger(unit.vacancies) ||
+              !Number.isSafeInteger(unit.occupied) ||
+              !Number.isSafeInteger(unit.underRepair)
+          )
+        ) {
+          throw new Error(
+            'Prices and availability must be valid non-negative numbers.'
+          );
+        }
+
+        setUploadProgressText('Saving building and unit types...');
+
+        await convexClient.mutation(api.properties.addWithUnits, {
+          name: name.trim(),
+          type: 'Mixed Units',
+          description,
+          location: {
+            county,
+            subCounty,
+            ward,
+            estate,
+            address: address || undefined,
+            lat,
+            lng,
+            distanceMock: 1.2,
+          },
+          monthlyRent: Math.min(
+            ...unitTypes.map((unit) => unit.monthlyRent)
+          ),
+          deposit: Math.min(
+            ...unitTypes.map((unit) => unit.deposit)
+          ),
+          serviceCharge: 0,
+          agentFee: 0,
+          viewingFee: 0,
+          waterDeposit: 0,
+          electricityDeposit: 0,
+          garbageFee: 0,
+          otherFees: 0,
+          vacancies: unitTypes.reduce(
+            (total, unit) => total + unit.vacancies,
+            0
+          ),
+          occupied: unitTypes.reduce(
+            (total, unit) => total + unit.occupied,
+            0
+          ),
+          underRepair: unitTypes.reduce(
+            (total, unit) => total + unit.underRepair,
+            0
+          ),
+          amenities: [...amenities],
+          images: [],
+          imageStorageIds: [
+            buildingCoverId as Id<'_storage'>,
+          ],
+          coverPhotoStorageId: buildingCoverId as Id<'_storage'>,
+          rating: 0,
+          reviewCount: 0,
+          timePosted: 'Just now',
+          createdAt: new Date().toISOString(),
+          status: 'Pending',
+          lister: {
+            id: currentUser.id,
+            name: currentUser.name || 'Lister',
+            type: 'Landlord / Property Owner',
+            avatar: currentUser.avatar || '',
+            phone: currentUser.phone || undefined,
+            email: currentUser.email || undefined,
+            verified: true,
+          },
+          viewsCount: 0,
+          enquiriesCount: 0,
+          unitTypes,
+        });
+
+        isSubmittedRef.current = true;
+        setSubmitted(true);
+
+        setTimeout(() => {
+          setCurrentView('my-listings');
+        }, 1800);
+      } catch (error) {
+        console.error('Mixed Units submission failed:', error);
+
+        setPhotoError(
+          error instanceof Error
+            ? error.message
+            : 'Unable to save Mixed Units. Please try again.'
+        );
+      } finally {
+        setIsSubmitting(false);
+        setUploadProgressText('');
+      }
+
+      return;
+    }
+
+
+
+    const hasPropertyPhotos = images.length > 0;
+
+
+    const hasMixedUnitPhotos =
+      selectedUnitTypes.length > 1 &&
+      selectedUnitTypes.every(
+        (unitType) => (mixedUnitMedia[unitType]?.images.length ?? 0) > 0
+      );
+
+    if (!hasPropertyPhotos && !hasMixedUnitPhotos) {
+      setPhotoError(
+        'Please add at least one property photo before submitting your listing.'
+      );
+
+      const photoSection = document.getElementById('property-photos-section');
+
+      if (photoSection) {
+        photoSection.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        });
+      }
+
+      return;
+    }
+
 
     setIsSubmitting(true);
     setPhotoError(null);
@@ -589,7 +1096,7 @@ export const AddPropertyView: React.FC = () => {
         });
         setEditingPropertyId(null);
       } else {
-        await addPropertyListing({
+        const createdPropertyId = createdPropertyIdRef.current ?? await addPropertyListing({
           name,
           type,
           description,
@@ -623,6 +1130,7 @@ export const AddPropertyView: React.FC = () => {
           videoName: videoFile?.name,
           videoSize: videoFile?.size
         });
+        createdPropertyIdRef.current = createdPropertyId;
       }
 
       setSubmitted(true);
@@ -653,30 +1161,63 @@ export const AddPropertyView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-white dark:bg-[#000000] pb-24 text-neutral-900 dark:text-[#F5F5F5] font-sans transition-colors duration-200">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-neutral-200 dark:border-[#262626]">
-          <div className="flex items-center gap-3">
+
+    <div className="min-h-[calc(100vh-4rem)] bg-[#F7F3EC] dark:bg-[#0D0D0D] pb-24 text-[#242424] dark:text-[#F5F1E8] font-manrope transition-colors duration-200">
+
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-6 sm:pt-8 space-y-6 sm:space-y-8">
+
+
+        {/* Rentike Header */}
+        <div className="flex items-center justify-between gap-3 pb-5 border-b border-[#E5D6C5] dark:border-[#262626]">
+
+          <div className="flex items-center gap-3 min-w-0">
+
+            {/* Desktop and tablet back button */}
             <button
               type="button"
               onClick={handleCancelOrBack}
-              className="p-2 rounded-xl border border-neutral-200 dark:border-[#292929] hover:border-black dark:hover:border-white text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white transition-colors cursor-pointer"
+              aria-label="Go back"
+              className="
+            hidden md:flex
+            shrink-0 items-center justify-center
+            w-10 h-10 rounded-xl
+            bg-[#F7F3EC] dark:bg-[#202020]
+            border border-[#E2D3C2] dark:border-[#38322D]
+            text-[#946B46] dark:text-[#C49A6C]
+            shadow-[3px_3px_7px_rgba(0,0,0,0.08),-2px_-2px_6px_rgba(255,255,255,0.8)]
+            dark:shadow-[3px_3px_8px_rgba(0,0,0,0.45)]
+            hover:border-[#C49A6C]
+            active:scale-[0.97]
+            transition-all cursor-pointer
+          "
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] tracking-tight">
-                {isEditMode ? 'Edit Property' : 'List New Property'}
+
+            <div className="min-w-0">
+              <h1 className="font-editorial text-[30px] sm:text-[38px] lg:text-[42px] font-semibold leading-tight tracking-tight">
+                {isEditMode ? (
+                  <>
+                    <span className="text-[#242424] dark:text-[#F5F1E8]">Edit </span>
+                    <span className="text-[#946B46] dark:text-[#C49A6C]">Listing</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[#242424] dark:text-[#F5F1E8]">Add </span>
+                    <span className="text-[#946B46] dark:text-[#C49A6C]">New Listing</span>
+                  </>
+                )}
               </h1>
-              <p className="text-xs sm:text-sm text-neutral-500 dark:text-[#8A8A8A]">
+
+              <p className="mt-1 text-[11px] sm:text-sm leading-relaxed text-[#77716C] dark:text-[#A3A3A3]">
                 {isEditMode
-                  ? 'Update building specifications, pricing, amenities, photos, and video tour'
-                  : 'Provide building specifications, location coordinates, pricing, and availability'}
+                  ? 'Update your property details, pricing, location and photos.'
+                  : 'Tell us about your property and make it ready for review.'}
               </p>
             </div>
           </div>
         </div>
+
 
         {submitted ? (
           <div className="bg-white dark:bg-[#111111] rounded-3xl p-12 text-center border border-neutral-200 dark:border-[#292929] space-y-4 animate-in zoom-in-95">
@@ -694,413 +1235,1034 @@ export const AddPropertyView: React.FC = () => {
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Section 1: Basic Details */}
-            <div className="bg-white dark:bg-[#111111] rounded-3xl p-6 sm:p-8 border border-neutral-200 dark:border-[#292929] shadow-xs space-y-5">
-              <div className="flex items-center gap-2 pb-3 border-b border-neutral-100 dark:border-[#262626]">
-                <Building2 className="w-5 h-5 text-black dark:text-white" />
-                <h2 className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">1. Basic Details</h2>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Building / Property Name *
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Greenview Apartments"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                    required
+
+            {/* Property type */}
+            <div>
+              <label
+                id="property-type-label"
+                className="block text-lg font-bold text-[#242424] dark:text-[#F5F1E8] mb-3"
+              >
+                1. Property Type <span className="text-[#B4534C]">*</span>
+              </label>
+
+              <div className="relative">
+                <button
+                  type="button"
+                  aria-labelledby="property-type-label"
+                  aria-haspopup="listbox"
+                  aria-expanded={propertyTypeDropdownOpen}
+                  onClick={() => setPropertyTypeDropdownOpen((open) => !open)}
+                  className="
+        w-full min-w-0
+        flex items-center justify-between gap-2
+        px-3.5 py-3
+        rounded-xl
+        bg-[#F7F3EC] dark:bg-[#151515]
+        border border-[#E2D3C2] dark:border-[#40362E]
+        text-[#242424] dark:text-[#F5F1E8]
+        text-sm font-medium text-left
+        shadow-[inset_2px_2px_5px_rgba(104,73,43,0.06)]
+        dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.35)]
+        hover:border-[#C49A6C]
+        focus:outline-none
+        focus:ring-2 focus:ring-[#C49A6C]/20
+        transition-all cursor-pointer
+      "
+                >
+                  <span className="truncate">
+
+                    {selectedUnitTypes.length === 0
+                      ? 'Select Property Type'
+                      : selectedUnitTypes.length === 1
+                        ? selectedUnitTypes[0]
+                        : `${selectedUnitTypes[0]} + ${selectedUnitTypes.length - 1} more`}
+
+                  </span>
+
+                  <ChevronDown
+                    className={`w-4 h-4 shrink-0 text-[#946B46] dark:text-[#C49A6C] transition-transform duration-200 ${propertyTypeDropdownOpen ? 'rotate-180' : ''
+                      }`}
                   />
-                </div>
+                </button>
 
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Property Type *
-                  </label>
-                  <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value as PropertyType)}
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none cursor-pointer"
-                    required
+                {propertyTypeDropdownOpen && (
+                  <div
+                    role="listbox"
+                    aria-labelledby="property-type-label"
+                    className="
+          absolute left-0 right-0
+          top-[calc(100%+8px)]
+          z-50
+          max-h-64 overflow-y-auto
+          rounded-2xl
+          border border-[#E4D8C8] dark:border-[#38322D]
+          bg-[#FBF7F1] dark:bg-[#181818]
+          shadow-[0_14px_35px_rgba(0,0,0,0.16)]
+          dark:shadow-[0_14px_35px_rgba(0,0,0,0.55)]
+          py-1
+        "
                   >
-                    {PROPERTY_TYPES.map((t) => (
-                      <option key={t} value={t} className="bg-white dark:bg-[#181818] text-neutral-900 dark:text-[#F5F5F5]">
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                  Property Description *
-                </label>
-                <textarea
-                  rows={3}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe building amenities, proximity to roads/schools, security..."
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                  required
-                />
+                    <div className="px-3 py-2 text-[11px] font-medium text-[#946B46] dark:text-[#C49A6C] border-b border-[#E2D3C2] dark:border-[#40362E]">
+                      Select all that apply to this building
+                    </div>
+                    {PROPERTY_TYPES.map((t) => {
+                      const isSelected = selectedUnitTypes.includes(t);
+
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          onClick={() => {
+
+
+                            const next = isSelected
+                              ? selectedUnitTypes.filter((item) => item !== t)
+                              : [...selectedUnitTypes, t];
+
+                            // Preserve the final selection once one has been chosen.
+                            if (next.length === 0) return;
+
+                            setSelectedUnitTypes(next);
+
+                            // Preserve compatibility with existing single-unit listings.
+                            setType(next[0]);
+
+                            // Keep the active pricing tab aligned with selected unit types.
+                            setActiveUnitType((current) =>
+                              next.includes(current as PropertyType)
+                                ? current
+                                : next[0]
+                            );
+
+                            // Prepare pricing and availability for newly selected unit types.
+                            // Preserve existing entries when switching selections.
+                            setMixedUnitDetails((previous) => {
+                              const updated = { ...previous };
+
+                              next.forEach((unitType) => {
+                                if (!updated[unitType]) {
+                                  updated[unitType] = createEmptyUnitDetails();
+                                }
+                              });
+
+                              return updated;
+                            });
+                          }}
+
+                          className={`
+        w-full flex items-center gap-3
+        px-4 py-3 text-left text-sm
+        transition-colors cursor-pointer
+        ${isSelected
+                              ? 'bg-[#EAD7BF] dark:bg-[#493525] text-[#9A5E1F] dark:text-[#E8BE92] font-semibold'
+                              : 'text-neutral-800 dark:text-neutral-100 hover:bg-[#F2E7D8] dark:hover:bg-[#24201C]'
+                            }
+      `}
+                        >
+                          <span
+                            className={`
+          w-5 h-5 shrink-0 rounded-md
+          flex items-center justify-center
+          border-2 text-xs font-bold
+          ${isSelected
+                                ? 'bg-[#C49A6C] border-[#C49A6C] text-white'
+                                : 'bg-[#F7F3EC] dark:bg-[#202020] border-[#D8C5AE] dark:border-[#66513E]'
+                              }
+        `}
+                          >
+                            {isSelected ? '✓' : ''}
+                          </span>
+
+                          <span>{t}</span>
+                        </button>
+                      );
+                    })}
+
+                    {/* Confirm selected unit types */}
+                    <div className="p-2.5 bg-[#F7F3EC] dark:bg-[#181818] border-t border-[#E2D3C2] dark:border-[#40362E]">
+                      <button
+                        type="button"
+                        onClick={() => setPropertyTypeDropdownOpen(false)}
+                        className="
+      w-full flex items-center justify-center gap-2
+      px-4 py-2.5 rounded-xl
+      bg-[#C49A6C] hover:bg-[#B58959]
+      text-white text-xs font-bold
+      shadow-[3px_3px_8px_rgba(0,0,0,0.15)]
+      dark:shadow-[3px_3px_8px_rgba(0,0,0,0.5)]
+      active:scale-[0.98]
+      transition-all duration-200
+      cursor-pointer
+    "
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        Done ({selectedUnitTypes.length} selected)
+                      </button>
+                    </div>
+
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Section 2: Location Details with Interactive Pin Map */}
-            <div className="bg-white dark:bg-[#111111] rounded-3xl p-6 sm:p-8 border border-neutral-200 dark:border-[#292929] shadow-xs space-y-5">
-              <div className="flex items-center gap-2 pb-3 border-b border-neutral-100 dark:border-[#262626]">
-                <MapPin className="w-5 h-5 text-black dark:text-white" />
-                <h2 className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">2. Kenyan Location & Pin-Drop Map</h2>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* County */}
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">County *</label>
-                  <select
-                    value={county}
-                    onChange={(e) => handleCountyChange(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-xs font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none cursor-pointer"
-                    required
-                  >
-                    <option value="" className="bg-white dark:bg-[#181818] text-neutral-900 dark:text-[#F5F5F5]">Select County</option>
-                    {counties.map((c) => (
-                      <option key={c.code || c.name} value={c.name} className="bg-white dark:bg-[#181818] text-neutral-900 dark:text-[#F5F5F5]">
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Sub-County */}
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">Sub-County *</label>
-                  <select
-                    value={subCounty}
-                    onChange={(e) => handleSubCountyChange(e.target.value)}
-                    disabled={!county || availableSubCounties.length === 0}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-xs font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none cursor-pointer disabled:bg-neutral-100 dark:disabled:bg-[#151515] disabled:text-neutral-400 dark:disabled:text-[#666666]"
-                    required
-                  >
-                    <option value="" className="bg-white dark:bg-[#181818] text-neutral-900 dark:text-[#F5F5F5]">
-                      {!county ? 'Select County First' : availableSubCounties.length === 0 ? 'No Sub-Counties' : 'Select Sub-County'}
-                    </option>
-                    {availableSubCounties.map((s) => (
-                      <option key={s.code || s.name} value={s.name} className="bg-white dark:bg-[#181818] text-neutral-900 dark:text-[#F5F5F5]">
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Ward */}
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">Ward *</label>
-                  <select
-                    value={ward}
-                    onChange={(e) => handleWardChange(e.target.value)}
-                    disabled={!subCounty || availableWards.length === 0}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-xs font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none cursor-pointer disabled:bg-neutral-100 dark:disabled:bg-[#151515] disabled:text-neutral-400 dark:disabled:text-[#666666]"
-                    required
-                  >
-                    <option value="" className="bg-white dark:bg-[#181818] text-neutral-900 dark:text-[#F5F5F5]">
-                      {!subCounty ? 'Select Sub-County First' : availableWards.length === 0 ? 'No Wards' : 'Select Ward'}
-                    </option>
-                    {availableWards.map((w) => (
-                      <option key={w.code || w.name} value={w.name} className="bg-white dark:bg-[#181818] text-neutral-900 dark:text-[#F5F5F5]">
-                        {w.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Estate */}
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">Estate / Area *</label>
-                  <input
-                    type="text"
-                    value={estate}
-                    onChange={(e) => setEstate(e.target.value)}
-                    placeholder="e.g. Seasons / Mirema / Kilimani"
-                    className="w-full px-3 py-2 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-xs font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                    required
-                  />
-                </div>
-              </div>
-
+            {/* Property Name and Description */}
+            <div className="space-y-5">
               <div>
-                <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                  Street Address / Notable Landmark
+                <label
+                  htmlFor="property-name"
+                  className="block text-lg font-bold text-[#242424] dark:text-[#F5F1E8] mb-3"
+                >
+                  2. Property Name <span className="text-[#B4534C]">*</span>
                 </label>
                 <input
+                  id="property-name"
                   type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="e.g. Opposite Naivas Supermarket, Off Thika Road"
-                  className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Enter property name"
+                  required
+                  className="w-full px-4 py-3 rounded-xl bg-[#F7F3EC] dark:bg-[#151515] text-[#242424] dark:text-[#F5F1E8] border border-[#E2D3C2] dark:border-[#40362E] focus:outline-none focus:ring-2 focus:ring-[#C49A6C]/30"
                 />
               </div>
 
-              {/* Pin-Drop Location Map */}
               <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-bold text-neutral-800 dark:text-[#F5F5F5]">
-                    Interactive Building Pin-Drop Map
-                  </label>
-                  <span className="text-[11px] text-neutral-500 dark:text-[#8A8A8A]">
-                    Click anywhere on the map to set exact coordinates
-                  </span>
-                </div>
-
-                <div className="rounded-2xl border border-neutral-200 dark:border-[#292929] overflow-hidden">
-                  <PropertyLocationPickerMap
-                    county={county}
-                    subCounty={subCounty}
-                    ward={ward}
-                    estate={estate}
-                    selectedEstateName={
-                      estate
-                        ? `${estate}, ${ward || subCounty}`
-                        : ward
-                          ? `${ward}, ${subCounty}`
-                          : subCounty
-                            ? `${subCounty}, ${county}`
-                            : county
-                    }
-                    lat={lat}
-                    lng={lng}
-                    onChange={(newLat, newLng) => {
-                      setLat(newLat);
-                      setLng(newLng);
-                    }}
-                  />
-                </div>
+                <label
+                  htmlFor="property-description"
+                  className="block text-lg font-bold text-[#242424] dark:text-[#F5F1E8] mb-3"
+                >
+                  3. Property Description
+                </label>
+                <textarea
+                  id="property-description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Describe your property..."
+                  rows={5}
+                  className="w-full px-4 py-3 rounded-xl bg-[#F7F3EC] dark:bg-[#151515] text-[#242424] dark:text-[#F5F1E8] border border-[#E2D3C2] dark:border-[#40362E] focus:outline-none focus:ring-2 focus:ring-[#C49A6C]/30 resize-y"
+                />
               </div>
             </div>
 
-            {/* Section 3: Monthly Rent & Move-In Costs (KSh) */}
-            <div className="bg-white dark:bg-[#111111] rounded-3xl p-6 sm:p-8 border border-neutral-200 dark:border-[#292929] shadow-xs space-y-5">
-              <div className="flex items-center gap-2 pb-3 border-b border-neutral-100 dark:border-[#262626]">
-                <DollarSign className="w-5 h-5 text-black dark:text-white" />
-                <h2 className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">
-                  3. Monthly Rent & Move-In Costs (KSh)
+
+
+            {/* Section 2: Property Location */}
+            <div className="space-y-3">
+
+              {/* Heading outside the neumorphic card */}
+              <div className="flex items-center gap-2">
+
+                <h2 className="text-lg font-bold text-[#242424] dark:text-[#F5F1E8]">
+                  4. Property Location
+                  <span className="ml-1 text-[#B4534C] text-[#B4534C]">*</span>
                 </h2>
               </div>
 
-              {/* Row 1: Monthly Rent, Security Deposit, Service Charge */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Monthly Rent (KSh) *
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={monthlyRent}
-                    onChange={handleNumericChange(setMonthlyRent)}
-                    placeholder="e.g. 14000"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-base font-bold focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                    required
-                  />
+              {/* Neumorphic location card */}
+              <div
+                className="
+      rounded-2xl
+      p-4 sm:p-6
+      space-y-5
+      bg-[#F7F3EC] dark:bg-[#181818]
+      border border-[#E2D3C2] dark:border-[#40362E]
+      shadow-[4px_4px_12px_rgba(104,73,43,0.10),-3px_-3px_10px_rgba(255,255,255,0.85)]
+      dark:shadow-[5px_5px_14px_rgba(0,0,0,0.55),-2px_-2px_8px_rgba(255,255,255,0.025)]
+    "
+              >
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                  {/* County */}
+                  <div className="relative">
+                    <label
+                      id="county-label"
+                      className="block text-xs font-bold text-[#66513F] dark:text-[#D4C2B0] mb-1.5"
+                    >
+                      County *
+                    </label>
+
+                    <button
+                      type="button"
+                      aria-labelledby="county-label"
+                      aria-haspopup="listbox"
+                      aria-expanded={countyDropdownOpen}
+                      onClick={() => setCountyDropdownOpen((open) => !open)}
+                      className="
+      w-full flex items-center justify-between gap-2
+      px-3.5 py-3 rounded-xl
+      bg-[#F7F3EC] dark:bg-[#151515]
+      text-[#242424] dark:text-[#F5F1E8]
+      border border-[#E2D3C2] dark:border-[#40362E]
+      shadow-[inset_2px_2px_5px_rgba(104,73,43,0.06)]
+      dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.35)]
+      text-xs font-medium text-left
+      focus:outline-none focus:ring-2 focus:ring-[#C49A6C]/30
+      transition-all cursor-pointer
+    "
+                    >
+                      <span className="truncate">
+                        {county || 'Select County'}
+                      </span>
+
+                      <ChevronDown
+                        className={`w-4 h-4 shrink-0 text-[#946B46] dark:text-[#C49A6C] transition-transform duration-200 ${countyDropdownOpen ? 'rotate-180' : ''
+                          }`}
+                      />
+                    </button>
+
+                    {countyDropdownOpen && (
+                      <div
+                        role="listbox"
+                        aria-labelledby="county-label"
+                        className="
+        absolute left-0 right-0 top-[calc(100%+6px)]
+        z-50 max-h-56 overflow-y-auto
+        rounded-xl
+        bg-[#F7F3EC] dark:bg-[#181818]
+        border border-[#E2D3C2] dark:border-[#40362E]
+        shadow-[0_12px_30px_rgba(0,0,0,0.16)]
+        dark:shadow-[0_14px_35px_rgba(0,0,0,0.55)]
+      "
+                      >
+                        {counties.map((c) => {
+                          const isSelected = county === c.name;
+
+                          return (
+                            <button
+                              key={c.code || c.name}
+                              type="button"
+                              role="option"
+                              aria-selected={isSelected}
+                              onClick={() => {
+                                handleCountyChange(c.name);
+                                setCountyDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between gap-2 px-3.5 py-3 text-left text-xs transition-colors cursor-pointer ${isSelected
+                                ? 'bg-[#EAD7BF] dark:bg-[#493525] text-[#946B46] dark:text-[#E8BE92] font-bold'
+                                : 'text-[#242424] dark:text-[#F5F1E8] hover:bg-[#F0E5D8] dark:hover:bg-[#24201C]'
+                                }`}
+                            >
+                              <span>{c.name}</span>
+                              {isSelected && (
+                                <CheckCircle2 className="w-4 h-4 shrink-0 text-[#C49A6C]" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+
+                  {/* Sub-County */}
+                  <div className="relative">
+                    <label
+                      id="subcounty-label"
+                      className="block text-xs font-bold text-[#66513F] dark:text-[#D4C2B0] mb-1.5"
+                    >
+                      Sub-County *
+                    </label>
+
+                    <button
+                      type="button"
+                      aria-labelledby="subcounty-label"
+                      aria-haspopup="listbox"
+                      aria-expanded={subCountyDropdownOpen}
+                      disabled={!county || availableSubCounties.length === 0}
+                      onClick={() => {
+                        setCountyDropdownOpen(false);
+                        setSubCountyDropdownOpen((open) => !open);
+                      }}
+                      className="
+      w-full flex items-center justify-between gap-2
+      px-3.5 py-3 rounded-xl
+      bg-[#F7F3EC] dark:bg-[#151515]
+      text-[#242424] dark:text-[#F5F1E8]
+      border border-[#E2D3C2] dark:border-[#40362E]
+      shadow-[inset_2px_2px_5px_rgba(104,73,43,0.06)]
+      dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.35)]
+      text-xs font-medium text-left
+      focus:outline-none focus:ring-2 focus:ring-[#C49A6C]/30
+      disabled:opacity-50 disabled:cursor-not-allowed
+      transition-all cursor-pointer
+    "
+                    >
+                      <span className="truncate">
+                        {subCounty ||
+                          (!county
+                            ? 'Select County First'
+                            : availableSubCounties.length === 0
+                              ? 'No Sub-Counties'
+                              : 'Select Sub-County')}
+                      </span>
+
+                      <ChevronDown
+                        className={`w-4 h-4 shrink-0 text-[#946B46] dark:text-[#C49A6C] transition-transform duration-200 ${subCountyDropdownOpen ? 'rotate-180' : ''
+                          }`}
+                      />
+                    </button>
+
+                    {subCountyDropdownOpen &&
+                      county &&
+                      availableSubCounties.length > 0 && (
+                        <div
+                          role="listbox"
+                          aria-labelledby="subcounty-label"
+                          className="
+          absolute left-0 right-0 top-[calc(100%+6px)]
+          z-50 max-h-56 overflow-y-auto
+          rounded-xl
+          bg-[#F7F3EC] dark:bg-[#181818]
+          border border-[#E2D3C2] dark:border-[#40362E]
+          shadow-[0_12px_30px_rgba(0,0,0,0.16)]
+          dark:shadow-[0_14px_35px_rgba(0,0,0,0.55)]
+        "
+                        >
+                          {availableSubCounties.map((s) => {
+                            const isSelected = subCounty === s.name;
+
+                            return (
+                              <button
+                                key={s.code || s.name}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => {
+                                  handleSubCountyChange(s.name);
+                                  setSubCountyDropdownOpen(false);
+                                }}
+                                className={`w-full flex items-center justify-between gap-2 px-3.5 py-3 text-left text-xs transition-colors cursor-pointer ${isSelected
+                                  ? 'bg-[#EAD7BF] dark:bg-[#493525] text-[#946B46] dark:text-[#E8BE92] font-bold'
+                                  : 'text-[#242424] dark:text-[#F5F1E8] hover:bg-[#F0E5D8] dark:hover:bg-[#24201C]'
+                                  }`}
+                              >
+                                <span>{s.name}</span>
+
+                                {isSelected && (
+                                  <CheckCircle2 className="w-4 h-4 shrink-0 text-[#C49A6C]" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                  </div>
+
+                  {/* Ward */}
+                  <div className="relative">
+                    <label
+                      id="ward-label"
+                      className="block text-xs font-bold text-[#66513F] dark:text-[#D4C2B0] mb-1.5"
+                    >
+                      Ward *
+                    </label>
+
+                    <button
+                      type="button"
+                      aria-labelledby="ward-label"
+                      aria-haspopup="listbox"
+                      aria-expanded={wardDropdownOpen}
+                      disabled={!subCounty || availableWards.length === 0}
+                      onClick={() => {
+                        setCountyDropdownOpen(false);
+                        setSubCountyDropdownOpen(false);
+                        setWardDropdownOpen((open) => !open);
+                      }}
+                      className="
+      w-full flex items-center justify-between gap-2
+      px-3.5 py-3 rounded-xl
+      bg-[#F7F3EC] dark:bg-[#151515]
+      text-[#242424] dark:text-[#F5F1E8]
+      border border-[#E2D3C2] dark:border-[#40362E]
+      shadow-[inset_2px_2px_5px_rgba(104,73,43,0.06)]
+      dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.35)]
+      text-xs font-medium text-left
+      focus:outline-none focus:ring-2 focus:ring-[#C49A6C]/30
+      disabled:opacity-50 disabled:cursor-not-allowed
+      transition-all cursor-pointer
+    "
+                    >
+                      <span className="truncate">
+                        {ward ||
+                          (!subCounty
+                            ? 'Select Sub-County First'
+                            : availableWards.length === 0
+                              ? 'No Wards'
+                              : 'Select Ward')}
+                      </span>
+
+                      <ChevronDown
+                        className={`w-4 h-4 shrink-0 text-[#946B46] dark:text-[#C49A6C] transition-transform duration-200 ${wardDropdownOpen ? 'rotate-180' : ''
+                          }`}
+                      />
+                    </button>
+
+                    {wardDropdownOpen &&
+                      subCounty &&
+                      availableWards.length > 0 && (
+                        <div
+                          role="listbox"
+                          aria-labelledby="ward-label"
+                          className="
+          absolute left-0 right-0 top-[calc(100%+6px)]
+          z-50 max-h-56 overflow-y-auto rounded-xl
+          bg-[#F7F3EC] dark:bg-[#181818]
+          border border-[#E2D3C2] dark:border-[#40362E]
+          shadow-[0_12px_30px_rgba(0,0,0,0.16)]
+          dark:shadow-[0_14px_35px_rgba(0,0,0,0.55)]
+        "
+                        >
+                          {availableWards.map((w) => {
+                            const isSelected = ward === w.name;
+
+                            return (
+                              <button
+                                key={w.code || w.name}
+                                type="button"
+                                role="option"
+                                aria-selected={isSelected}
+                                onClick={() => {
+                                  handleWardChange(w.name);
+                                  setWardDropdownOpen(false);
+                                }}
+                                className={`
+                w-full flex items-center justify-between gap-2
+                px-3.5 py-3 text-left text-xs
+                transition-colors cursor-pointer
+                ${isSelected
+                                    ? 'bg-[#EAD7BF] dark:bg-[#493525] text-[#946B46] dark:text-[#E8BE92] font-bold'
+                                    : 'text-[#242424] dark:text-[#F5F1E8] hover:bg-[#F0E5D8] dark:hover:bg-[#24201C]'
+                                  }
+              `}
+                              >
+                                <span>{w.name}</span>
+
+                                {isSelected && (
+                                  <CheckCircle2 className="w-4 h-4 shrink-0 text-[#C49A6C]" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                  </div>
+
+                  {/* Estate */}
+                  <div>
+                    <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">Estate / Area *</label>
+                    <input
+                      type="text"
+                      value={estate}
+                      onChange={(e) => setEstate(e.target.value)}
+                      placeholder="e.g. Seasons / Mirema / Kilimani"
+                      className="
+    w-full px-3.5 py-3 rounded-xl
+    bg-[#F7F3EC] dark:bg-[#151515]
+    text-[#242424] dark:text-[#F5F1E8]
+    placeholder:text-[#9A8B7A] dark:placeholder:text-[#85796E]
+    border border-[#E2D3C2] dark:border-[#40362E]
+    shadow-[inset_2px_2px_5px_rgba(104,73,43,0.06)]
+    dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.35)]
+    text-xs font-medium
+    focus:outline-none focus:ring-2 focus:ring-[#C49A6C]/30
+    transition-all
+  "
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Security Deposit (KSh)
+                    Street Address / Notable Landmark
                   </label>
                   <input
                     type="text"
-                    inputMode="numeric"
-                    value={deposit}
-                    onChange={handleNumericChange(setDeposit)}
-                    placeholder="e.g. 14000"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-base font-bold focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="e.g. Opposite Naivas Supermarket, Off Thika Road"
+                    className="
+    w-full px-3.5 py-3 rounded-xl
+    bg-[#F7F3EC] dark:bg-[#151515]
+    text-[#242424] dark:text-[#F5F1E8]
+    placeholder:text-[#9A8B7A] dark:placeholder:text-[#85796E]
+    border border-[#E2D3C2] dark:border-[#40362E]
+    shadow-[inset_2px_2px_5px_rgba(104,73,43,0.06)]
+    dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.35)]
+    text-xs font-medium
+    focus:outline-none focus:ring-2 focus:ring-[#C49A6C]/30
+    transition-all
+  "
                   />
                 </div>
 
+                {/* Pin-Drop Location Map */}
                 <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Service Charge (KSh/mo)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={serviceCharge}
-                    onChange={handleNumericChange(setServiceCharge)}
-                    placeholder="e.g. 1000"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-base font-bold focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                  />
+
+
+                  <div className="rounded-2xl border border-neutral-200 dark:border-[#292929] overflow-hidden">
+                    <PropertyLocationPickerMap
+                      unitTypeLabel={
+                        selectedUnitTypes.length > 1
+                          ? 'Mixed Units'
+                          : selectedUnitTypes[0] || type
+                      }
+                      county={county}
+                      subCounty={subCounty}
+                      ward={ward}
+                      estate={estate}
+                      selectedEstateName={
+                        estate
+                          ? `${estate}, ${ward || subCounty}`
+                          : ward
+                            ? `${ward}, ${subCounty}`
+                            : subCounty
+                              ? `${subCounty}, ${county}`
+                              : county
+                      }
+                      lat={lat}
+                      lng={lng}
+                      onChange={(newLat, newLng) => {
+                        setLat(newLat);
+                        setLng(newLng);
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
+            </div> {/* End of Property Location wrapper */}
 
-              {/* Row 2: Water Deposit, Electricity Deposit */}
-              <div className="grid grid-cols-1 sm:grid-cols-2gap-4 pt-2 border-t border-neutral-100 dark:border-[#262626]">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Water Deposit (KSh)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={waterDeposit}
-                    onChange={handleNumericChange(setWaterDeposit)}
-                    placeholder="e.g. 1500"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                  />
+            {/* Section 5: Monthly Rent & Move-In Costs (KSh) */}
+
+            <h2 className="text-lg font-bold text-[#242424] dark:text-[#F5F1E8] mb-4">
+              5. Monthly Rent & Move-In Costs (KSh)
+              <span className="text-[#B4534C]"> *</span>
+            </h2>
+
+            <div className="rounded-2xl border border-[#E2D3C2] bg-[#F8F5EF] p-6 sm:p-8 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.04)] dark:bg-[#151515] dark:border-neutral-800">
+
+
+              {selectedUnitTypes.length <= 1 ? (
+                <>
+
+                  {/* Row 1: Monthly Rent, Security Deposit, Service Charge */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
+                        Monthly Rent (KSh) *
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={monthlyRent}
+                        onChange={handleNumericChange(setMonthlyRent)}
+                        placeholder="e.g. 14000"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-base font-bold focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
+                        Security Deposit (KSh)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={deposit}
+                        onChange={handleNumericChange(setDeposit)}
+                        placeholder="e.g. 14000"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-base font-bold focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
+                        Service Charge (KSh/mo)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={serviceCharge}
+                        onChange={handleNumericChange(setServiceCharge)}
+                        placeholder="e.g. 1000"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-base font-bold focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 2: Water Deposit, Electricity Deposit */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2gap-4 pt-2 border-t border-neutral-100 dark:border-[#262626]">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
+                        Water Deposit (KSh)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={waterDeposit}
+                        onChange={handleNumericChange(setWaterDeposit)}
+                        placeholder="e.g. 1500"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
+                        Electricity Deposit (KSh)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={electricityDeposit}
+                        onChange={handleNumericChange(setElectricityDeposit)}
+                        placeholder="e.g. 1500"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                      />
+                    </div>
+
+
+
+                  </div>
+                  {/* Row 3: Agency Fee, Viewing Fee */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-neutral-100 dark:border-[#262626]">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
+                        Agency Fee (KSh)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={agentFee}
+                        onChange={handleNumericChange(setAgentFee)}
+                        placeholder="Optional (defaults to 0)"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
+                        Viewing Fee (KSh)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={viewingFee}
+                        onChange={handleNumericChange(setViewingFee)}
+                        placeholder="Optional (defaults to 0)"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                      />
+
+
+
+                    </div>
+                  </div>
+                </>
+              ) : (
+
+                <div className="space-y-5">
+                  {/* Horizontally scrollable unit-type tabs */}
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {selectedUnitTypes.map((unitType) => {
+                      const isActive =
+                        (activeUnitType || selectedUnitTypes[0]) === unitType;
+
+                      return (
+                        <button
+                          key={unitType}
+                          type="button"
+                          onClick={() => setActiveUnitType(unitType)}
+                          className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${isActive
+                            ? 'bg-[#C49A6C] text-white'
+                            : 'bg-[#F7F3EC] text-[#8B6B43] border border-[#E2D3C2]'
+                            }`}
+                        >
+                          {unitType}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Pricing fields for the selected unit type */}
+                  {selectedUnitTypes
+                    .filter(
+                      (unitType) =>
+                        unitType === (activeUnitType || selectedUnitTypes[0])
+                    )
+                    .map((unitType) => {
+                      const details =
+                        mixedUnitDetails[unitType] ?? createEmptyUnitDetails();
+
+                      const fields: {
+                        key: keyof UnitDetails;
+                        label: string;
+                        required?: boolean;
+                      }[] = [
+                          { key: 'monthlyRent', label: 'Monthly Rent (KSh)', required: true },
+                          { key: 'deposit', label: 'Security Deposit (KSh)' },
+                          { key: 'serviceCharge', label: 'Service Charge (KSh/mo)' },
+                          { key: 'waterDeposit', label: 'Water Deposit (KSh)' },
+                          { key: 'electricityDeposit', label: 'Electricity Deposit (KSh)' },
+                          { key: 'agentFee', label: 'Agent Fee (KSh)' },
+                          { key: 'viewingFee', label: 'Viewing Fee (KSh)' }
+                        ];
+
+                      return (
+
+
+                        <div
+                          key={unitType}
+                          id="mixed-unit-pricing"
+                          className="w-full scroll-mt-24"
+                        >
+
+
+
+                          <h3 className="mb-5 text-base font-semibold text-[#242424] dark:text-white">
+                            {unitType} Pricing
+                          </h3>
+
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            {fields.map((field) => (
+                              <div key={field.key}>
+                                <label className="mb-1 block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3]">
+                                  {field.label}
+                                  {field.required && <span className="text-red-500"> *</span>}
+                                </label>
+
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={details[field.key]}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (/^\d*$/.test(value)) {
+                                      updateMixedUnitDetail(unitType, field.key, value);
+                                    }
+                                  }}
+                                  placeholder="e.g. 14000"
+                                  className="w-full rounded-xl border border-neutral-300 bg-white px-3.5 py-2.5 text-sm text-neutral-900 outline-none transition-all focus:border-[#C49A6C] dark:border-[#393939] dark:bg-[#242424] dark:text-white"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Electricity Deposit (KSh)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={electricityDeposit}
-                    onChange={handleNumericChange(setElectricityDeposit)}
-                    placeholder="e.g. 1500"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                  />
-                </div>
-
-
-
-              </div>
-              {/* Row 3: Agency Fee, Viewing Fee */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-neutral-100 dark:border-[#262626]">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Agency Fee (KSh)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={agentFee}
-                    onChange={handleNumericChange(setAgentFee)}
-                    placeholder="Optional (defaults to 0)"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Viewing Fee (KSh)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={viewingFee}
-                    onChange={handleNumericChange(setViewingFee)}
-                    placeholder="Optional (defaults to 0)"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                  />
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Section 4: Availability & Units Breakdown */}
-            <div className="bg-white dark:bg-[#111111] rounded-3xl p-6 sm:p-8 border border-neutral-200 dark:border-[#292929] shadow-xs space-y-5">
-              <div className="flex items-center gap-2 pb-3 border-b border-neutral-100 dark:border-[#262626]">
-                <Key className="w-5 h-5 text-black dark:text-white" />
-                <h2 className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">4. Availability & Units Breakdown</h2>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Vacant Units (Available) *
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={vacant}
-                    onChange={handleNumericChange(setVacant)}
-                    placeholder="0"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] rounded-xl text-base font-bold focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none text-emerald-700 dark:text-emerald-400"
-                    required
-                  />
-                  <p className="text-[11px] text-neutral-400 dark:text-[#7D7D7D] mt-1">Ready for tenant move-in</p>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Occupied Units (Tenanted)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={occupied}
-                    onChange={handleNumericChange(setOccupied)}
-                    placeholder="0"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-base font-bold focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                  />
-                </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
-                    Under Repair / Renovation
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={underRepair}
-                    onChange={handleNumericChange(setUnderRepair)}
-                    placeholder="0"
-                    className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-base font-bold focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                  />
+            {/* Section 6: Availability & Units Breakdown */}
+
+            <h2 className="text-lg font-bold text-[#242424] dark:text-[#F5F1E8] mb-4">
+              6. Availability & Units Breakdown
+              <span className="text-[#B4534C]"> *</span>
+            </h2>
+
+            <div className="rounded-2xl border border-[#E2D3C2] bg-[#F8F5EF] p-6 sm:p-8 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.04)] dark:bg-[#151515] dark:border-neutral-800">
+
+
+              {selectedUnitTypes.length <= 1 ? (
+                <>
+
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
+                        Vacant Units (Available) *
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={vacant}
+                        onChange={handleNumericChange(setVacant)}
+                        placeholder="0"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] rounded-xl text-base font-bold focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none text-emerald-700 dark:text-emerald-400"
+                        required
+                      />
+                      <p className="text-[11px] text-neutral-400 dark:text-[#7D7D7D] mt-1">Ready for tenant move-in</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
+                        Occupied Units (Tenanted)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={occupied}
+                        onChange={handleNumericChange(setOccupied)}
+                        placeholder="0"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-base font-bold focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3] mb-1">
+                        Under Repair / Renovation
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={underRepair}
+                        onChange={handleNumericChange(setUnderRepair)}
+                        placeholder="0"
+                        className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-base font-bold focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                </>
+              ) : (
+                <div className="space-y-5">
+                  {/* Unit-type tabs */}
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {selectedUnitTypes.map((unitType) => {
+                      const isActive =
+                        (activeUnitType || selectedUnitTypes[0]) === unitType;
+
+                      return (
+                        <button
+                          key={unitType}
+                          type="button"
+                          onClick={() => setActiveUnitType(unitType)}
+                          className={`shrink-0 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${isActive
+                            ? 'bg-[#C49A6C] text-white'
+                            : 'border border-[#E2D3C2] bg-[#F7F3EC] text-[#8B6B43]'
+                            }`}
+                        >
+                          {unitType}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Availability for active unit type */}
+                  {selectedUnitTypes
+                    .filter(
+                      (unitType) =>
+                        unitType === (activeUnitType || selectedUnitTypes[0])
+                    )
+                    .map((unitType) => {
+                      const details =
+                        mixedUnitDetails[unitType] ?? createEmptyUnitDetails();
+
+                      const fields: {
+                        key: 'vacancies' | 'occupied' | 'underRepair';
+                        label: string;
+                      }[] = [
+                          { key: 'vacancies', label: 'Vacant Units (Available)' },
+                          { key: 'occupied', label: 'Occupied Units (Tenanted)' },
+                          { key: 'underRepair', label: 'Under Repair / Renovation' }
+                        ];
+
+                      return (
+                        <div key={unitType} className="w-full">
+                          <h3 className="mb-5 text-base font-semibold text-[#242424] dark:text-white">
+                            {unitType} Availability
+                          </h3>
+
+                          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            {fields.map((field) => (
+                              <div key={field.key}>
+                                <label className="mb-1 block text-xs font-bold text-neutral-700 dark:text-[#A3A3A3]">
+                                  {field.label}
+                                  {field.key === 'vacancies' && (
+                                    <span className="text-red-500"> *</span>
+                                  )}
+                                </label>
+
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={details[field.key]}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (/^\d*$/.test(value)) {
+                                      updateMixedUnitDetail(
+                                        unitType,
+                                        field.key,
+                                        value
+                                      );
+                                    }
+                                  }}
+                                  placeholder="0"
+                                  className="w-full rounded-xl border border-[#E2D3C2] bg-[#F8F5EF] px-3.5 py-2.5 text-sm text-[#242424] outline-none transition-all focus:border-[#C49A6C] dark:border-[#393939] dark:bg-[#242424] dark:text-white"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
-              </div>
+              )}
             </div>
 
-            {/* Section 5: Amenities Checkboxes */}
-            <div className="bg-white dark:bg-[#111111] rounded-3xl p-6 sm:p-8 border border-neutral-200 dark:border-[#292929] shadow-xs space-y-5">
-              <div className="flex items-center gap-2 pb-3 border-b border-neutral-100 dark:border-[#262626]">
-                <CheckSquare className="w-5 h-5 text-black dark:text-white" />
-                <h2 className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">5. Amenities & Facilities</h2>
-              </div>
+
+
+            {/* Section 7: Amenities & Facilities */}
+
+            <h2 className="text-lg font-bold text-[#242424] dark:text-[#F5F1E8] mb-4">
+              7. Amenities & Facilities
+              <span className="text-[#B4534C]"> *</span>
+            </h2>
+
+            <div className="rounded-2xl border border-[#E2D3C2] bg-[#F8F5EF] p-6 sm:p-8 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.04)] dark:bg-[#151515] dark:border-neutral-800">
+
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {AMENITY_OPTIONS.map((item) => {
                   const isChecked = amenities.includes(item);
                   return (
+
                     <button
                       key={item}
                       type="button"
                       onClick={() => toggleAmenity(item)}
                       className={`p-3 rounded-xl border text-left text-xs font-semibold transition-all cursor-pointer flex items-center gap-2.5 ${isChecked
-                        ? 'bg-neutral-900 dark:bg-white text-white dark:text-black border-neutral-900 dark:border-white shadow-2xs'
-                        : 'bg-neutral-50 dark:bg-[#151515] hover:bg-neutral-100 dark:hover:bg-[#1E1E1E] text-neutral-700 dark:text-[#CCCCCC] border-neutral-200 dark:border-[#292929]'
+                        ? 'bg-[#F0E8DC] border-[#C49A6C] text-[#8B6B43] shadow-[inset_2px_2px_4px_rgba(139,107,67,0.12),inset_-2px_-2px_4px_rgba(255,255,255,0.65)] dark:bg-[#302820] dark:border-[#C49A6C] dark:text-[#D8B38A]'
+                        : 'bg-[#F8F5EF] border-[#E2D3C2] text-[#242424] hover:border-[#C49A6C] shadow-[2px_2px_5px_rgba(139,107,67,0.05),-2px_-2px_5px_rgba(255,255,255,0.6)] dark:bg-[#242424] dark:border-[#393939] dark:text-[#F5F1E8]'
                         }`}
                     >
                       <div
-                        className={`w-4 h-4 rounded flex items-center justify-center text-[10px] ${isChecked
-                          ? 'bg-white dark:bg-black text-black dark:text-white'
-                          : 'border border-neutral-400 dark:border-[#555555] bg-white dark:bg-[#181818]'
+                        className={`w-4 h-4 shrink-0 rounded flex items-center justify-center text-[10px] ${isChecked
+                          ? 'bg-[#C49A6C] text-white'
+                          : 'border border-[#C49A6C] bg-[#F8F5EF] dark:bg-[#181818]'
                           }`}
                       >
                         {isChecked && '✓'}
                       </div>
                       <span>{item}</span>
                     </button>
+
                   );
                 })}
               </div>
             </div>
 
             {/* Section 6: Property Photos */}
+
             <div
               id="property-photos-section"
-              className="bg-white dark:bg-[#111111] rounded-3xl p-6 sm:p-8 border border-neutral-200 dark:border-[#292929] shadow-xs space-y-5"
+              className="rounded-2xl border border-[#E2D3C2] bg-[#F8F5EF] p-6 sm:p-8 shadow-[inset_2px_2px_5px_rgba(139,107,67,0.05),inset_-2px_-2px_5px_rgba(255,255,255,0.6)] dark:border-[#393939] dark:bg-[#181818] dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.25)]"
             >
+
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-neutral-100 dark:border-[#262626] gap-2">
                 <div className="flex items-center gap-2">
                   <ImageIcon className="w-5 h-5 text-black dark:text-white" />
                   <h2 className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">
-                    6. Property Photos <span className="text-red-500">*</span>
+                    8. Cover Photo <span className="text-red-500">*</span>
                   </h2>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1110,15 +2272,15 @@ export const AddPropertyView: React.FC = () => {
                       : 'bg-neutral-100 dark:bg-[#181818] text-neutral-600 dark:text-[#A3A3A3]'
                       }`}
                   >
-                    Property Photos ({images.length}/10)
+                    {selectedUnitTypes.length > 1 ? 'Cover Photo' : 'Property Photos'} ({images.length}/{selectedUnitTypes.length > 1 ? 1 : 10})
                   </span>
                 </div>
               </div>
 
               <p className="text-xs text-neutral-500 dark:text-[#8A8A8A]">
-                Upload up to 10 photos of your property. Formats supported:{' '}
-                <strong>JPG, JPEG, PNG, WebP</strong>. The first photo will automatically be used as
-                the primary <strong>Cover Photo</strong>.
+                {selectedUnitTypes.length > 1
+                  ? 'Upload one cover photo of the building. JPG, JPEG, PNG or WebP.'
+                  : 'Upload up to 10 property photos. JPG, JPEG, PNG or WebP. The first photo will be used as the cover.'}
               </p>
 
               {/* Error Alert */}
@@ -1157,7 +2319,7 @@ export const AddPropertyView: React.FC = () => {
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
                   className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all ${isDragging
-                    ? 'border-black dark:border-white bg-neutral-100/90 dark:bg-[#1E1E1E] scale-[0.99]'
+                    ? 'border-[#C49A6C] dark:border-[#C49A6C] bg-[#F8F5EF] dark:bg-[#242424] scale-[0.99]'
                     : 'border-neutral-300 dark:border-[#333333] hover:border-neutral-800 dark:hover:border-neutral-400 bg-neutral-50/60 dark:bg-[#151515]/60 hover:bg-neutral-50 dark:hover:bg-[#181818]'
                     }`}
                 >
@@ -1170,7 +2332,7 @@ export const AddPropertyView: React.FC = () => {
                         Click to upload or drag and drop
                       </p>
                       <p className="text-xs text-neutral-500 dark:text-[#8A8A8A]">
-                        JPG, JPEG, PNG or WebP (max 10 photos)
+                        JPG, JPEG, PNG or WebP (max {selectedUnitTypes.length > 1 ? '1 photo' : '10 photos'})
                       </p>
                     </div>
                     <button
@@ -1179,10 +2341,10 @@ export const AddPropertyView: React.FC = () => {
                         e.stopPropagation();
                         fileInputRef.current?.click();
                       }}
-                      className="px-5 py-2.5 bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 text-xs font-bold rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-xs"
+                      className="px-5 py-2.5 bg-[#C49A6C] dark:bg-[#C49A6C] text-white dark:text-white hover:bg-[#AD8255] dark:hover:bg-neutral-200 text-xs font-bold rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-xs"
                     >
                       <Plus className="w-4 h-4" />
-                      <span>Add Property Photos</span>
+                      <span>{selectedUnitTypes.length > 1 ? 'Add Cover Photo' : 'Add Property Photos'}</span>
                     </button>
                   </div>
                 </div>
@@ -1269,7 +2431,7 @@ export const AddPropertyView: React.FC = () => {
                     })}
 
                     {/* Quick Add More Card in Grid if under 10 */}
-                    {images.length < 10 && (
+                    {images.length < (selectedUnitTypes.length > 1 ? 1 : 10) && (
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
@@ -1285,156 +2447,331 @@ export const AddPropertyView: React.FC = () => {
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* Section 7: Property Video (Optional) */}
-            <div
-              id="property-video-section"
-              className="bg-white dark:bg-[#111111] rounded-3xl p-6 sm:p-8 border border-neutral-200 dark:border-[#292929] shadow-xs space-y-5"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-neutral-100 dark:border-[#262626] gap-2">
-                <div className="flex items-center gap-2">
-                  <Video className="w-5 h-5 text-black dark:text-white" />
-                  <h2 className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">
-                    7. Property Video
-                  </h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 text-xs font-bold rounded-full bg-neutral-100 dark:bg-[#181818] text-neutral-600 dark:text-[#A3A3A3]">
-                    Optional
-                  </span>
-                  {videoUrl && (
-                    <span className="px-3 py-1 text-xs font-bold rounded-full bg-neutral-900 dark:bg-white text-white dark:text-black">
-                      1/1 Video Added
-                    </span>
-                  )}
-                </div>
-              </div>
 
-              <p className="text-xs text-neutral-500 dark:text-[#8A8A8A]">
-                Add an optional video tour or walkthrough of your property. Supported formats:{' '}
-                <strong>MP4, WebM</strong> (Max 1 video, up to 100 MB).
-              </p>
+              {selectedUnitTypes.length > 1 && (
+                <div className="mt-6 border-t border-[#E2D3C2] pt-6">
+                  <h3 className="mb-2 text-base font-semibold text-[#242424] dark:text-white">
+                    Unit Photos
+                  </h3>
 
-              {/* Video Error Alert */}
-              {videoError && (
-                <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-red-950/40 border border-neutral-300 dark:border-red-900/60 flex items-start justify-between gap-3 text-xs text-neutral-900 dark:text-red-200 animate-in fade-in duration-200">
-                  <div className="flex items-start gap-2.5">
-                    <AlertCircle className="w-4 h-4 text-neutral-800 dark:text-red-400 shrink-0 mt-0.5" />
-                    <span>{videoError}</span>
+                  <p className="mb-4 text-xs text-[#8B6B43] dark:text-[#D8B38A]">
+                    Upload up to 10 photos for each selected unit type.
+                  </p>
+
+                  <div className="mb-5 flex gap-2 overflow-x-auto pb-2">
+                    {selectedUnitTypes.map((unitType) => {
+                      const isActive =
+                        (activeUnitType || selectedUnitTypes[0]) === unitType;
+
+                      return (
+                        <button
+                          key={unitType}
+                          type="button"
+                          onClick={() => setActiveUnitType(unitType)}
+                          className={`shrink-0 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${isActive
+                            ? 'border-[#C49A6C] bg-[#C49A6C] text-white'
+                            : 'border-[#E2D3C2] bg-[#F8F5EF] text-[#8B6B43] dark:border-[#393939] dark:bg-[#242424] dark:text-[#D8B38A]'
+                            }`}
+                        >
+                          {unitType}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setVideoError(null)}
-                    className="text-neutral-400 hover:text-black dark:hover:text-white font-bold text-sm leading-none cursor-pointer"
-                  >
-                    ×
-                  </button>
+
+                  {selectedUnitTypes
+                    .filter(
+                      (unitType) =>
+                        unitType === (activeUnitType || selectedUnitTypes[0])
+                    )
+                    .map((unitType) => {
+                      const media =
+                        mixedUnitMedia[unitType] ?? createEmptyUnitMedia();
+
+                      return (
+                        <div key={unitType} className="space-y-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="text-sm font-semibold text-[#242424] dark:text-white">
+                              {unitType} Photos
+                            </h4>
+                            <span className="text-xs text-[#8B6B43]">
+                              {media.images.length}/10
+                            </span>
+                          </div>
+
+                          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#E2D3C2] bg-[#F8F5EF] px-4 py-8 text-center hover:border-[#C49A6C] dark:border-[#393939] dark:bg-[#242424]">
+                            <ImagePlus className="h-6 w-6 text-[#C49A6C]" />
+                            <span className="text-sm font-semibold text-[#242424] dark:text-white">
+                              Add {unitType} Photos
+                            </span>
+                            <span className="text-xs text-[#8B6B43]">
+                              JPG, PNG or WebP · Maximum 10 photos
+                            </span>
+
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              multiple
+                              className="hidden"
+                              disabled={media.images.length >= 10}
+                              onChange={(e) => {
+                                handleMixedUnitPhotosSelected(unitType, e.target.files);
+                                e.target.value = '';
+                              }}
+                            />
+                          </label>
+
+                          {media.images.length > 0 && (
+                            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                              {media.images.map((image, index) => (
+                                <div
+                                  key={`${unitType}-${index}`}
+                                  className="relative overflow-hidden rounded-xl border border-[#E2D3C2]"
+                                >
+                                  <img
+                                    src={image}
+                                    alt={`${unitType} photo ${index + 1}`}
+                                    className="aspect-square w-full object-cover"
+                                  />
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleRemoveMixedUnitPhoto(unitType, index)
+                                    }
+                                    className="absolute right-2 top-2 rounded-lg bg-white/95 p-2 text-red-600 shadow-sm"
+                                    title="Remove photo"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="mt-5 border-t border-[#E2D3C2] pt-5">
+                            <h4 className="mb-3 text-sm font-semibold text-[#242424] dark:text-white">
+                              House Tour
+                              <span className="ml-2 text-xs font-normal text-[#8B6B43]">
+                                Optional
+                              </span>
+                            </h4>
+
+                            {media.videoUrl ? (
+                              <div className="space-y-3">
+                                <video
+                                  src={media.videoUrl}
+                                  controls
+                                  playsInline
+                                  className="w-full rounded-xl"
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const oldUrl = media.videoUrl;
+
+                                    if (oldUrl?.startsWith('blob:')) {
+                                      URL.revokeObjectURL(oldUrl);
+                                      createdObjectUrlsRef.current.delete(oldUrl);
+                                    }
+
+                                    setMixedUnitMedia((previous) => ({
+                                      ...previous,
+                                      [unitType]: {
+                                        ...(previous[unitType] ?? createEmptyUnitMedia()),
+                                        videoUrl: null,
+                                        videoFile: null
+                                      }
+                                    }));
+                                  }}
+                                  className="rounded-xl border border-[#E2D3C2] px-4 py-2 text-xs font-medium text-red-600"
+                                >
+                                  Remove Video
+                                </button>
+                              </div>
+                            ) : (
+                              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#E2D3C2] p-6 text-center hover:border-[#C49A6C]">
+                                <Video className="h-6 w-6 text-[#C49A6C]" />
+
+                                <span className="text-sm font-medium text-[#242424] dark:text-white">
+                                  Add {unitType} House Tour
+                                </span>
+
+                                <span className="text-xs text-[#8B6B43]">
+                                  MP4 or WebM · Max 100 MB
+                                </span>
+
+                                <input
+                                  type="file"
+                                  accept="video/mp4,video/webm"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    handleMixedUnitVideoSelected(unitType, e.target.files);
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                            )}
+                          </div>
+
+                        </div>
+                      );
+                    })}
                 </div>
               )}
+            </div>
+            {/* Section 7: Property Video (Optional) */}
+            {selectedUnitTypes.length <= 1 && (
+              <div
+                id="property-video-section"
+                className="rounded-2xl border border-[#E2D3C2] bg-[#F8F5EF] p-6 sm:p-8 shadow-[inset_2px_2px_5px_rgba(139,107,67,0.05),inset_-2px_-2px_5px_rgba(255,255,255,0.6)] dark:border-[#393939] dark:bg-[#181818] dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.25)]"
+              >
 
-              {/* Hidden video file input */}
-              <input
-                ref={videoInputRef}
-                type="file"
-                accept="video/mp4,video/webm"
-                onChange={(e) => handleVideoSelected(e.target.files)}
-                className="hidden"
-                id="property-video-file-input"
-              />
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-3 border-b border-neutral-100 dark:border-[#262626] gap-2">
+                  <div className="flex items-center gap-2">
+                    <Video className="w-5 h-5 text-black dark:text-white" />
+                    <h2 className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">
+                      7. Property Video
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 text-xs font-bold rounded-full bg-neutral-100 dark:bg-[#181818] text-neutral-600 dark:text-[#A3A3A3]">
+                      Optional
+                    </span>
+                    {videoUrl && (
+                      <span className="px-3 py-1 text-xs font-bold rounded-full bg-neutral-900 dark:bg-white text-white dark:text-black">
+                        1/1 Video Added
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-              {/* If NO video selected: Upload Area */}
-              {!videoUrl ? (
-                <div
-                  onDragOver={handleVideoDragOver}
-                  onDragLeave={handleVideoDragLeave}
-                  onDrop={handleVideoDrop}
-                  onClick={() => videoInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all ${isVideoDragging
-                    ? 'border-black dark:border-white bg-neutral-100/90 dark:bg-[#1E1E1E] scale-[0.99]'
-                    : 'border-neutral-300 dark:border-[#333333] hover:border-neutral-800 dark:hover:border-neutral-400 bg-neutral-50/60 dark:bg-[#151515]/60 hover:bg-neutral-50 dark:hover:bg-[#181818]'
-                    }`}
-                >
-                  <div className="flex flex-col items-center justify-center space-y-3">
-                    <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#181818] border border-neutral-200 dark:border-[#292929] flex items-center justify-center shadow-xs text-neutral-800 dark:text-[#F5F5F5]">
-                      <Video className="w-5 h-5" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5]">
-                        Click to upload property video or drag and drop
-                      </p>
-                      <p className="text-xs text-neutral-500 dark:text-[#8A8A8A]">
-                        MP4 or WebM (max 100 MB, 1 video per listing)
-                      </p>
+                <p className="text-xs text-neutral-500 dark:text-[#8A8A8A]">
+                  Add an optional video tour or walkthrough of your property. Supported formats:{' '}
+                  <strong>MP4, WebM</strong> (Max 1 video, up to 100 MB).
+                </p>
+
+                {/* Video Error Alert */}
+                {videoError && (
+                  <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-red-950/40 border border-neutral-300 dark:border-red-900/60 flex items-start justify-between gap-3 text-xs text-neutral-900 dark:text-red-200 animate-in fade-in duration-200">
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle className="w-4 h-4 text-neutral-800 dark:text-red-400 shrink-0 mt-0.5" />
+                      <span>{videoError}</span>
                     </div>
                     <button
                       type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        videoInputRef.current?.click();
-                      }}
-                      className="px-5 py-2.5 bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 text-xs font-bold rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-xs"
+                      onClick={() => setVideoError(null)}
+                      className="text-neutral-400 hover:text-black dark:hover:text-white font-bold text-sm leading-none cursor-pointer"
                     >
-                      <Plus className="w-4 h-4" />
-                      <span>Add Property Video</span>
+                      ×
                     </button>
                   </div>
-                </div>
-              ) : (
-                /* If video IS selected: Video Preview Card */
-                <div className="space-y-4 animate-in fade-in duration-200">
-                  {/* Video Player */}
-                  <div className="relative rounded-2xl overflow-hidden bg-black border border-neutral-200 dark:border-[#292929] aspect-video max-h-96 w-full flex items-center justify-center shadow-xs">
-                    <video
-                      src={videoUrl}
-                      controls
-                      autoPlay={false}
-                      playsInline
-                      preload="metadata"
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
+                )}
 
-                  {/* File Details & Action Controls */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-neutral-50 dark:bg-[#151515] rounded-2xl border border-neutral-200 dark:border-[#292929]">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#181818] border border-neutral-200 dark:border-[#292929] flex items-center justify-center shrink-0 text-neutral-800 dark:text-[#F5F5F5]">
-                        <FileVideo className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-neutral-900 dark:text-[#F5F5F5] truncate max-w-[220px] sm:max-w-md">
-                          {videoFile?.name || 'Property Walkthrough Video'}
-                        </p>
-                        <p className="text-[11px] text-neutral-500 dark:text-[#8A8A8A] mt-0.5">
-                          {videoFile?.size ? formatVideoSize(videoFile.size) : 'Ready to submit'} • MP4/WebM Video
-                        </p>
-                      </div>
-                    </div>
+                {/* Hidden video file input */}
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm"
+                  onChange={(e) => handleVideoSelected(e.target.files)}
+                  className="hidden"
+                  id="property-video-file-input"
+                />
 
-                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                {/* If NO video selected: Upload Area */}
+                {!videoUrl ? (
+                  <div
+                    onDragOver={handleVideoDragOver}
+                    onDragLeave={handleVideoDragLeave}
+                    onDrop={handleVideoDrop}
+                    onClick={() => videoInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-2xl p-6 sm:p-8 text-center cursor-pointer transition-all ${isVideoDragging
+                      ? 'border-black dark:border-white bg-neutral-100/90 dark:bg-[#1E1E1E] scale-[0.99]'
+                      : 'border-neutral-300 dark:border-[#333333] hover:border-neutral-800 dark:hover:border-neutral-400 bg-neutral-50/60 dark:bg-[#151515]/60 hover:bg-neutral-50 dark:hover:bg-[#181818]'
+                      }`}
+                  >
+                    <div className="flex flex-col items-center justify-center space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-white dark:bg-[#181818] border border-neutral-200 dark:border-[#292929] flex items-center justify-center shadow-xs text-neutral-800 dark:text-[#F5F5F5]">
+                        <Video className="w-5 h-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5]">
+                          Click to upload property video or drag and drop
+                        </p>
+                        <p className="text-xs text-neutral-500 dark:text-[#8A8A8A]">
+                          MP4 or WebM (max 100 MB, 1 video per listing)
+                        </p>
+                      </div>
                       <button
                         type="button"
-                        onClick={() => videoInputRef.current?.click()}
-                        className="px-3.5 py-2 bg-white dark:bg-[#181818] hover:bg-neutral-100 dark:hover:bg-[#222222] text-neutral-800 dark:text-[#F5F5F5] text-xs font-bold rounded-xl border border-neutral-300 dark:border-[#333333] transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          videoInputRef.current?.click();
+                        }}
+                        className="px-5 py-2.5 bg-[#C49A6C] dark:bg-[#C49A6C] text-white dark:text-white hover:bg-[#AD8255] dark:hover:bg-neutral-200 text-xs font-bold rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-xs"
                       >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>Replace Video</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleRemoveVideo}
-                        className="px-3.5 py-2 bg-white dark:bg-[#181818] hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 text-red-600 dark:text-red-400 text-xs font-bold rounded-xl border border-neutral-200 dark:border-[#333333] transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Remove Video</span>
+                        <Plus className="w-4 h-4" />
+                        <span>Add Property Video</span>
                       </button>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
+                ) : (
+                  /* If video IS selected: Video Preview Card */
+                  <div className="space-y-4 animate-in fade-in duration-200">
+                    {/* Video Player */}
+                    <div className="relative rounded-2xl overflow-hidden bg-black border border-neutral-200 dark:border-[#292929] aspect-video max-h-96 w-full flex items-center justify-center shadow-xs">
+                      <video
+                        src={videoUrl}
+                        controls
+                        autoPlay={false}
+                        playsInline
+                        preload="metadata"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
 
+                    {/* File Details & Action Controls */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-neutral-50 dark:bg-[#151515] rounded-2xl border border-neutral-200 dark:border-[#292929]">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-white dark:bg-[#181818] border border-neutral-200 dark:border-[#292929] flex items-center justify-center shrink-0 text-neutral-800 dark:text-[#F5F5F5]">
+                          <FileVideo className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-neutral-900 dark:text-[#F5F5F5] truncate max-w-[220px] sm:max-w-md">
+                            {videoFile?.name || 'Property Walkthrough Video'}
+                          </p>
+                          <p className="text-[11px] text-neutral-500 dark:text-[#8A8A8A] mt-0.5">
+                            {videoFile?.size ? formatVideoSize(videoFile.size) : 'Ready to submit'} • MP4/WebM Video
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => videoInputRef.current?.click()}
+                          className="px-3.5 py-2 bg-white dark:bg-[#181818] hover:bg-neutral-100 dark:hover:bg-[#222222] text-neutral-800 dark:text-[#F5F5F5] text-xs font-bold rounded-xl border border-neutral-300 dark:border-[#333333] transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          <span>Replace Video</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleRemoveVideo}
+                          className="px-3.5 py-2 bg-white dark:bg-[#181818] hover:bg-red-50 dark:hover:bg-red-950/40 hover:border-red-300 text-red-600 dark:text-red-400 text-xs font-bold rounded-xl border border-neutral-200 dark:border-[#333333] transition-all inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Remove Video</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             {/* Submit Button */}
             <div className="pt-4 flex items-center justify-end gap-3">
               <button
@@ -1467,6 +2804,6 @@ export const AddPropertyView: React.FC = () => {
           </form>
         )}
       </div>
-    </div>
+    </div >
   );
 };

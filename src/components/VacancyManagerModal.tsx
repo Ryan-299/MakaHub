@@ -1,5 +1,16 @@
+
 import React, { useState } from 'react';
-import { X, CheckCircle2, AlertTriangle, Save, Loader2 } from 'lucide-react';
+import {
+  X,
+  CheckCircle2,
+  AlertTriangle,
+  Save,
+  Loader2,
+  Home,
+  KeyRound,
+  Wrench,
+  Building2
+} from 'lucide-react';
 import { PropertyListing } from '../types';
 import { useApp } from '../context/AppContext';
 
@@ -13,9 +24,11 @@ export const VacancyManagerModal: React.FC<VacancyManagerModalProps> = ({
   onClose
 }) => {
   const { updatePropertyVacancies } = useApp();
+
   const [vacant, setVacant] = useState(property.vacancies);
   const [occupied, setOccupied] = useState(property.occupied);
   const [underRepair, setUnderRepair] = useState(property.underRepair);
+
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -33,145 +46,332 @@ export const VacancyManagerModal: React.FC<VacancyManagerModalProps> = ({
       const r = Math.max(0, parseInt(String(underRepair), 10) || 0);
 
       await updatePropertyVacancies(property.id, v, o, r);
+
       setSaved(true);
+
       setTimeout(() => {
         onClose();
       }, 1200);
     } catch (err: any) {
       console.error('Failed to save availability:', err);
-      setErrorMsg(err?.message || 'Failed to update availability. Please try again.');
+      setErrorMsg(
+        err?.message ||
+        'Failed to update availability. Please try again.'
+      );
     } finally {
       setIsSaving(false);
     }
   };
 
+  const inputClassName = `
+    w-full min-w-0
+    rounded-xl
+    px-3 py-2.5
+    bg-[#F7F3EC] dark:bg-[#151515]
+    border border-[#E2D3C2] dark:border-[#40362E]
+    text-[#242424] dark:text-[#F5F1E8]
+    text-base font-extrabold
+    shadow-[inset_2px_2px_5px_rgba(104,73,43,0.08)]
+    dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.35)]
+    focus:outline-none
+    focus:border-[#C49A6C]
+    focus:ring-2 focus:ring-[#C49A6C]/25
+    transition-all
+    disabled:opacity-50
+  `;
+
+  const fieldClassName = `
+    rounded-2xl
+    p-3 sm:p-3.5
+    bg-[#F7F3EC] dark:bg-[#202020]
+    border border-[#E9DCCE] dark:border-[#38322D]
+    shadow-[3px_3px_8px_rgba(0,0,0,0.06),-2px_-2px_7px_rgba(255,255,255,0.85)]
+    dark:shadow-[3px_3px_9px_rgba(0,0,0,0.4)]
+  `;
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs font-sans">
-      <div className="bg-white dark:bg-[#111111] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-neutral-200 dark:border-[#292929] animate-in zoom-in-95 duration-150 text-neutral-900 dark:text-[#F5F5F5]">
-        <div className="flex items-center justify-between pb-4 border-b border-neutral-200 dark:border-[#262626]">
-          <div>
-            <h3 className="text-xl font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] tracking-tight">
-              Update Vacancy & Units
+    <div
+      className="
+        fixed inset-0 z-50
+        flex items-center justify-center
+        overflow-y-auto
+        p-3 sm:p-5
+        bg-black/65 backdrop-blur-sm
+        font-manrope
+      "
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="vacancy-modal-title"
+        className="
+          w-full max-w-md
+          max-h-[calc(100dvh-1.5rem)]
+          overflow-y-auto
+          rounded-[24px]
+          bg-[#F7F3EC] dark:bg-[#181818]
+          text-[#242424] dark:text-[#F5F1E8]
+          border border-[#E5D6C5] dark:border-[#39312A]
+          shadow-[0_24px_70px_rgba(0,0,0,0.25)]
+          dark:shadow-[0_24px_70px_rgba(0,0,0,0.65)]
+          p-4 sm:p-6
+          animate-in zoom-in-95 duration-150
+        "
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 pb-4 border-b border-[#E5D6C5] dark:border-[#38322D]">
+          <div className="min-w-0">
+            <h3
+              id="vacancy-modal-title"
+              className="
+                text-2xl sm:text-[28px]
+                font-editorial font-semibold
+                leading-tight
+                text-[#242424] dark:text-[#F5F1E8]
+              "
+            >
+              Update <span className="text-[#946B46] dark:text-[#C49A6C]">Availability</span>
             </h3>
-            <p className="text-xs text-neutral-500 dark:text-[#8A8A8A] font-sans">{property.name} ({property.type})</p>
+
+            <p className="mt-1 text-[11px] sm:text-xs text-[#77716C] dark:text-[#A3A3A3] truncate">
+              {property.name} · {property.type}
+            </p>
           </div>
+
           <button
             type="button"
             onClick={onClose}
             disabled={isSaving}
-            className="w-8 h-8 rounded-full hover:bg-neutral-100 dark:hover:bg-[#1E1E1E] flex items-center justify-center text-neutral-400 hover:text-neutral-900 dark:hover:text-white cursor-pointer disabled:opacity-50"
+            aria-label="Close availability editor"
+            className="
+              shrink-0
+              w-9 h-9
+              flex items-center justify-center
+              rounded-full
+              bg-[#F7F3EC] dark:bg-[#242424]
+              border border-[#E2D3C2] dark:border-[#40362E]
+              text-[#77716C] dark:text-[#A3A3A3]
+              hover:text-[#242424] dark:hover:text-white
+              shadow-[2px_2px_6px_rgba(0,0,0,0.08),-2px_-2px_6px_rgba(255,255,255,0.8)]
+              dark:shadow-[2px_2px_6px_rgba(0,0,0,0.4)]
+              transition-all cursor-pointer
+              disabled:opacity-50
+            "
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {saved ? (
-          <div className="py-8 text-center space-y-2 font-sans">
-            <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto animate-bounce" />
-            <h4 className="text-2xl font-editorial font-semibold text-neutral-900 dark:text-[#F5F5F5]">Unit Counts Updated!</h4>
-            <p className="text-xs text-neutral-500 dark:text-[#8A8A8A]">
+          /* Success state */
+          <div className="py-10 text-center space-y-3">
+            <div className="w-16 h-16 rounded-full bg-[#E3F3E8] dark:bg-[#173B2B] flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-8 h-8 text-[#267147] dark:text-[#79D6A2]" />
+            </div>
+
+            <h4 className="text-2xl font-editorial font-semibold">
+              Availability Updated!
+            </h4>
+
+            <p className="text-xs leading-relaxed text-[#77716C] dark:text-[#A3A3A3] max-w-xs mx-auto">
               {vacant === 0
                 ? 'Status is now "Fully Occupied" (hidden from public tenant map).'
                 : `Active with ${vacant} units available for rent.`}
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSave} className="space-y-4 pt-4 font-sans">
+          <form onSubmit={handleSave} className="space-y-3.5 pt-4">
+
             {errorMsg && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+              <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-300 text-xs flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
                 <span>{errorMsg}</span>
               </div>
             )}
 
-            {/* Vacant Count */}
-            <div>
-              <label className="block text-xs font-bold text-neutral-800 dark:text-[#E0E0E0] mb-1">
-                Vacant Units (Available for Rent)
+            {/* Vacant units */}
+            <div className={fieldClassName}>
+              <label
+                htmlFor="vacant-units"
+                className="flex items-center gap-2 mb-2 text-xs font-bold text-[#242424] dark:text-[#F5F1E8]"
+              >
+                <Home className="w-4 h-4 text-[#267147] dark:text-[#79D6A2]" />
+                Vacant Units
               </label>
+
               <input
+                id="vacant-units"
                 type="number"
                 min="0"
                 value={vacant}
-                onChange={(e) => setVacant(Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-full px-3.5 py-2.5 bg-white dark:bg-[#151515] border border-neutral-300 dark:border-[#383838] rounded-xl text-base font-bold text-neutral-900 dark:text-[#F5F5F5] focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                onChange={(e) =>
+                  setVacant(Math.max(0, parseInt(e.target.value) || 0))
+                }
+                className={inputClassName}
                 required
                 disabled={isSaving}
               />
-              <p className="text-[11px] text-neutral-500 dark:text-[#8A8A8A] mt-1">
-                When set to 0, property automatically becomes <strong>Fully Occupied</strong> and disappears from public search results.
+
+              <p className="text-[10px] mt-2 text-[#77716C] dark:text-[#A3A3A3]">
+                Available for rent
               </p>
             </div>
 
-            {/* Occupied Count */}
-            <div>
-              <label className="block text-xs font-bold text-neutral-800 dark:text-[#E0E0E0] mb-1">
-                Occupied Units (Tenanted)
+            {/* Occupied units */}
+            <div className={fieldClassName}>
+              <label
+                htmlFor="occupied-units"
+                className="flex items-center gap-2 mb-2 text-xs font-bold text-[#242424] dark:text-[#F5F1E8]"
+              >
+                <KeyRound className="w-4 h-4 text-[#946B46] dark:text-[#C49A6C]" />
+                Occupied Units
               </label>
+
               <input
+                id="occupied-units"
                 type="number"
                 min="0"
                 value={occupied}
-                onChange={(e) => setOccupied(Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-full px-3.5 py-2.5 bg-white dark:bg-[#151515] border border-neutral-300 dark:border-[#383838] rounded-xl text-base font-bold text-neutral-900 dark:text-[#F5F5F5] focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                onChange={(e) =>
+                  setOccupied(Math.max(0, parseInt(e.target.value) || 0))
+                }
+                className={inputClassName}
                 required
                 disabled={isSaving}
               />
+
+              <p className="text-[10px] mt-2 text-[#77716C] dark:text-[#A3A3A3]">
+                Currently rented
+              </p>
             </div>
 
-            {/* Under Repair Count */}
-            <div>
-              <label className="block text-xs font-bold text-neutral-800 dark:text-[#E0E0E0] mb-1">
-                Units Under Repair / Maintenance
+            {/* Units under repair */}
+            <div className={fieldClassName}>
+              <label
+                htmlFor="repair-units"
+                className="flex items-center gap-2 mb-2 text-xs font-bold text-[#242424] dark:text-[#F5F1E8]"
+              >
+                <Wrench className="w-4 h-4 text-[#77716C] dark:text-[#A3A3A3]" />
+                Under Repair
               </label>
+
               <input
+                id="repair-units"
                 type="number"
                 min="0"
                 value={underRepair}
-                onChange={(e) => setUnderRepair(Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-full px-3.5 py-2.5 bg-white dark:bg-[#151515] border border-neutral-300 dark:border-[#383838] rounded-xl text-base font-bold text-neutral-900 dark:text-[#F5F5F5] focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                onChange={(e) =>
+                  setUnderRepair(
+                    Math.max(0, parseInt(e.target.value) || 0)
+                  )
+                }
+                className={inputClassName}
                 required
                 disabled={isSaving}
               />
+
+              <p className="text-[10px] mt-2 text-[#77716C] dark:text-[#A3A3A3]">
+                Under maintenance or unavailable
+              </p>
             </div>
 
-            {/* Summary Box */}
-            <div className="bg-neutral-100 dark:bg-[#181818] border border-neutral-200 dark:border-[#292929] p-3.5 rounded-xl flex items-center justify-between text-xs font-semibold">
-              <span className="text-neutral-600 dark:text-[#A3A3A3]">Total Building Capacity:</span>
-              <span className="text-sm font-bold text-black dark:text-white">{totalUnits} Units</span>
+            {/* Total capacity */}
+            <div
+              className="
+                flex items-center justify-between gap-3
+                px-3.5 py-3
+                rounded-xl
+                bg-[#EBDFD0] dark:bg-[#352A21]
+                border border-[#D8BFA5] dark:border-[#57402D]
+              "
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Building2 className="w-4 h-4 shrink-0 text-[#946B46] dark:text-[#C49A6C]" />
+                <span className="text-xs font-semibold text-[#65513F] dark:text-[#D9C1A8]">
+                  Total Property Capacity
+                </span>
+              </div>
+
+              <span className="text-sm font-extrabold text-[#946B46] dark:text-[#C49A6C] whitespace-nowrap">
+                {totalUnits} Units
+              </span>
             </div>
 
+            {/* Fully occupied warning */}
             {vacant === 0 && (
-              <div className="bg-neutral-50 dark:bg-[#181818] border border-neutral-300 dark:border-[#383838] text-neutral-900 dark:text-[#F5F5F5] p-3 rounded-xl flex items-center gap-2.5 text-xs">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div
+                className="
+                  flex items-start gap-2.5
+                  p-3 rounded-xl
+                  bg-[#FFF0D4] dark:bg-[#3C2D16]
+                  border border-[#F0DBB4] dark:border-[#66502B]
+                  text-[#986615] dark:text-[#E8BE75]
+                  text-[11px] leading-relaxed
+                "
+              >
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+
                 <span>
-                  Notice: Setting Vacant to 0 marks this listing as <strong>Fully Occupied</strong>.
+                  Setting vacant units to 0 marks this property as{' '}
+                  <strong>Fully Occupied</strong> and removes it from
+                  public search results.
                 </span>
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-neutral-100 dark:border-[#262626]">
+            {/* Footer actions */}
+            <div className="grid grid-cols-3 gap-2.5 pt-4 border-t border-[#E5D6C5] dark:border-[#38322D]">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSaving}
-                className="px-4 py-2 text-xs font-bold text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                className="
+                  col-span-1
+                  rounded-xl
+                  px-3 py-2.5
+                  bg-[#F7F3EC] dark:bg-[#242424]
+                  text-[#65513F] dark:text-[#D9C1A8]
+                  border border-[#E2D3C2] dark:border-[#40362E]
+                  shadow-[3px_3px_7px_rgba(0,0,0,0.07),-2px_-2px_6px_rgba(255,255,255,0.8)]
+                  dark:shadow-[3px_3px_8px_rgba(0,0,0,0.4)]
+                  text-xs font-bold
+                  hover:border-[#C49A6C]
+                  transition-all cursor-pointer
+                  disabled:opacity-50
+                "
               >
                 Cancel
               </button>
+
               <button
                 type="submit"
                 disabled={isSaving}
-                className="px-5 py-2.5 text-xs font-bold bg-black dark:bg-white text-white dark:text-black rounded-xl hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-60"
+                className="
+                  col-span-2
+                  flex items-center justify-center gap-2
+                  rounded-xl
+                  px-3 py-2.5
+                 bg-[#946B46] dark:bg-[#805B3B]
+text-white dark:text-white
+                  border border-[#805B3B] dark:border-[#C49A6C]
+                  shadow-[3px_4px_9px_rgba(104,73,43,0.22)]
+                  dark:shadow-[3px_4px_9px_rgba(0,0,0,0.45)]
+                  hover:bg-[#805B3B] dark:hover:bg-[#946B46]
+                  active:scale-[0.98]
+                  transition-all
+                  text-xs font-bold
+                  cursor-pointer
+                  disabled:opacity-60
+                "
               >
                 {isSaving ? (
                   <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Saving to Convex...</span>
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                    <span>Saving...</span>
                   </>
                 ) : (
                   <>
-                    <Save className="w-3.5 h-3.5" />
+                    <Save className="w-4 h-4 shrink-0" />
                     <span>Save Availability</span>
                   </>
                 )}

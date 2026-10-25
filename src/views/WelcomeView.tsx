@@ -3,8 +3,8 @@ import { Sun, Moon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import darkLogo from '../assets/MAKAOHUB LOGO NO BACKGROUND (Dark Mode).png';
 import lightLogo from '../assets/official no white background image.png';
-import rentikeWordmarkDark from "../assets/RENTIKE NO BACKGROUND 2 (dark-theme).png";
-import rentikeWordmarkLight from "../assets/RENTIKE NO BACKGROUND 2 (light-theme).png";
+import rentikeDarkThemeIcon from "../assets/rentike(light).png";
+import rentikeLightThemeIcon from "../assets/rentike(dark).png";
 
 export const WelcomeView: React.FC = () => {
   const { setCurrentView, resolvedTheme, setTheme } = useApp();
@@ -21,14 +21,16 @@ export const WelcomeView: React.FC = () => {
   return (
     <main
       id="makaohub-auth-welcome"
-      className={`min-h-screen w-full flex flex-col justify-between items-center px-6 py-6 sm:py-10 select-none transition-colors duration-300 relative ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
+      className={`min-h-screen w-full flex flex-col justify-center items-center px-6 py-6 sm:py-10 select-none transition-colors duration-300 relative ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
         }`}
       style={{
-        backgroundColor: isDark ? '#000000' : '#FFFFFF'
+        minHeight: '100dvh',
+        width: '100%',
+        backgroundColor: isDark ? '#000000' : '#F7F5F1',
       }}
     >
       {/* Top Bar with small Theme Switcher on the right */}
-      <header className="w-full max-w-5xl mx-auto flex items-center justify-end z-20">
+      <header className="absolute top-0 left-0 right-0 w-full max-w-5xl mx-auto flex items-center justify-end p-5 sm:p-6 z-20">
         <button
           type="button"
           id="welcome-theme-toggle-btn"
@@ -47,94 +49,116 @@ export const WelcomeView: React.FC = () => {
           )}
         </button>
       </header>
+      <div
+        className="w-[calc(100%-32px)] sm:w-full max-w-[560px] mx-auto flex flex-col items-center rounded-[28px] px-6 sm:px-10 py-8 sm:py-10 border"
+        style={{
+          backgroundColor: isDark ? '#0D0D0D' : '#FCFAF7',
+          borderColor: isDark
+            ? 'rgba(196, 154, 108, 0.65)'
+            : 'rgba(196, 154, 108, 0.45)',
+          boxShadow: isDark
+            ? '0 18px 50px rgba(0, 0, 0, 0.35)'
+            : '0 18px 50px rgba(28, 22, 16, 0.08)',
+        }}
+      >
+        <div className="w-full max-w-[460px] mx-auto flex flex-col items-center text-center">
 
-      {/* Main Centered Authentication Column (Max width 440px - 480px on desktop) */}
-      <div className="w-full max-w-[460px] mx-auto flex flex-col items-center text-center">
+          <div className="mt-3 flex flex-col items-center">
+            <img
+              src={isDark ? rentikeDarkThemeIcon : rentikeLightThemeIcon}
+              alt="Rentike"
+              draggable={false}
+              className="w-20 sm:w-24 h-auto object-contain"
+            />
 
-        <div className="mt-3 flex justify-center">
-          <img
-            src={rentikeWordmarkDark}
-            alt="Rentike"
-            draggable={false}
-            className="hidden dark:block w-40 sm:w-48 md:w-52 h-auto object-contain"
-          />
-
-          <img
-            src={rentikeWordmarkLight}
-            alt="Rentike"
-            draggable={false}
-            className="block dark:hidden w-40 sm:w-48 md:w-52 h-auto object-contain"
-          />
-        </div>
-        {/* 2. Headline with Cormorant Garamond / refined editorial serif */}
-        <h1
-          className={`font-editorial text-3xl sm:text-4xl md:text-[42px] font-normal leading-[1.18] sm:leading-[1.16] tracking-tight mb-3 sm:mb-4 ${isDark ? 'text-white' : 'text-neutral-950'
-            }`}
-          style={{
-            fontFamily: "'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', Times, serif"
-          }}
-        >
-          Find a place you'll call home.
-        </h1>
-
-        {/* 3. Supporting Sentence with Manrope font */}
-        <p
-          className={`font-body text-sm sm:text-base font-normal leading-relaxed max-w-[340px] sm:max-w-[380px] mb-8 sm:mb-10 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
-            }`}
-          style={{
-            fontFamily: "'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif"
-          }}
-        >
-          Discover available rental homes across Kenya.
-        </p>
-
-        {/* 4. Action Buttons Container */}
-        <div
-          className="w-full space-y-3 sm:space-y-3.5"
-          style={{
-            fontFamily: "'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif"
-          }}
-        >
-          {/* Primary Action: CREATE ACCOUNT */}
-          <button
-            type="button"
-            id="auth-create-account-btn"
-            onClick={() => setCurrentView('signup')}
-            className={`w-full h-[52px] sm:h-14 rounded-2xl text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 ${isDark
-              ? 'bg-white hover:bg-neutral-100 active:bg-neutral-200 text-black focus:ring-white focus:ring-offset-black'
-              : 'bg-black hover:bg-neutral-800 active:bg-neutral-900 text-white focus:ring-black focus:ring-offset-white'
-              }`}
+            <div
+              className="mt-3"
+              style={{
+                fontFamily: "'Anurati', sans-serif",
+                fontSize: '1.45rem',
+                letterSpacing: '0.16em',
+                color: isDark ? '#F7F5F1' : '#111111',
+              }}
+            >
+              RENTIKE
+            </div>
+          </div>
+          {/* 2. Headline with Cormorant Garamond / refined editorial serif */}
+          <h1
+            className="mt-5 text-[30px] sm:text-[36px] md:text-[40px] font-medium leading-[1.08] tracking-[-0.02em] text-center"
+            style={{
+              fontFamily: "'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', serif",
+              color: isDark ? '#F7F5F1' : '#171512',
+            }}
           >
-            <span>Create Account</span>
-          </button>
+            Find a place you'll call home.
+          </h1>
 
-          {/* Secondary Action: LOG IN */}
-          <button
-            type="button"
-            id="auth-login-btn"
-            onClick={() => setCurrentView('login')}
-            className={`w-full h-[52px] sm:h-14 rounded-2xl text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer border focus:outline-none focus:ring-2 focus:ring-offset-2 ${isDark
-              ? 'bg-transparent hover:bg-white/5 active:bg-white/10 border-neutral-700 hover:border-neutral-500 text-white focus:ring-white focus:ring-offset-black'
-              : 'bg-transparent hover:bg-neutral-50 active:bg-neutral-100 border-neutral-300 hover:border-black text-neutral-950 focus:ring-black focus:ring-offset-white'
-              }`}
+          {/* 3. Supporting Sentence with Manrope font */}
+          <p
+            className="mt-3 text-[13px] sm:text-[15px] font-normal leading-[1.6] text-center"
+            style={{
+              fontFamily: "'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif",
+              color: isDark ? '#A39D96' : '#6F6A63',
+            }}
           >
-            <span>Log In</span>
-          </button>
+            Discover available rental homes across Kenya.
+          </p>
+
+          {/* 4. Action Buttons Container */}
+          <div
+            className="w-full mt-5 sm:mt-6 space-y-3 sm:space-y-3.5"
+            style={{
+              fontFamily: "'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif"
+            }}
+          >
+            {/* Primary Action: CREATE ACCOUNT */}
+            <button
+              type="button"
+              id="auth-create-account-btn"
+              onClick={() => setCurrentView('signup')}
+              className="w-full h-[52px] sm:h-14 rounded-2xl text-sm sm:text-base font-semibold transition-all duration-200 hover:opacity-90 active:scale-[0.99]"
+              style={{
+                backgroundColor: '#C49A6C',
+                color: '#111111',
+                border: '1px solid #C49A6C',
+              }}
+            >
+              <span>Create Account</span>
+            </button>
+
+            <button
+              type="button"
+              id="auth-login-btn"
+              onClick={() => setCurrentView('login')}
+              className="w-full h-[52px] sm:h-14 rounded-2xl text-sm sm:text-base font-semibold transition-all duration-200 hover:opacity-80 active:scale-[0.99]"
+              style={{
+                backgroundColor: 'transparent',
+                color: isDark ? '#F7F5F1' : '#171512',
+                border: isDark
+                  ? '1px solid rgba(196, 154, 108, 0.8)'
+                  : '1px solid rgba(196, 154, 108, 0.7)',
+              }}
+            >
+              <span>Log In</span>
+            </button>
+
+          </div>
         </div>
+
+        {/* 5. Bottom Tagline: FIND · CONNECT · MOVE IN */}
+        <footer className="w-full mt-5 sm:mt-6 pb-2 flex justify-center">
+          <span
+            className={`font-body text-[11px] sm:text-xs font-semibold tracking-[0.24em] sm:tracking-[0.28em] uppercase ${isDark ? 'text-neutral-500' : 'text-neutral-400'
+              }`}
+            style={{
+              fontFamily: "'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif"
+            }}
+          >
+            FIND &middot; CONNECT &middot; MOVE IN
+          </span>
+        </footer>
       </div>
-
-      {/* 5. Bottom Tagline: FIND · CONNECT · MOVE IN */}
-      <footer className="w-full pb-2 sm:pb-4 flex justify-center">
-        <span
-          className={`font-body text-[11px] sm:text-xs font-semibold tracking-[0.24em] sm:tracking-[0.28em] uppercase ${isDark ? 'text-neutral-500' : 'text-neutral-400'
-            }`}
-          style={{
-            fontFamily: "'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif"
-          }}
-        >
-          FIND &middot; CONNECT &middot; MOVE IN
-        </span>
-      </footer>
     </main >
   );
 };

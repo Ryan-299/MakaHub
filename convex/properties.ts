@@ -302,6 +302,180 @@ export const add = mutation({
     return propertyId;
   },
 });
+
+
+export const addWithUnits = mutation({
+  args: {
+    name: v.string(),
+    type: v.string(),
+    monthlyRent: v.number(),
+    deposit: v.number(),
+    serviceCharge: v.number(),
+    agentFee: v.number(),
+    viewingFee: v.optional(v.number()),
+    waterDeposit: v.number(),
+    electricityDeposit: v.optional(v.number()),
+    garbageFee: v.optional(v.number()),
+    otherFees: v.number(),
+    location: v.object({
+      county: v.string(),
+      subCounty: v.string(),
+      ward: v.string(),
+      estate: v.string(),
+      address: v.optional(v.string()),
+      lat: v.number(),
+      lng: v.number(),
+      distanceMock: v.optional(v.number()),
+    }),
+    vacancies: v.number(),
+    occupied: v.number(),
+    underRepair: v.number(),
+    amenities: v.array(v.string()),
+    rating: v.number(),
+    reviewCount: v.number(),
+    timePosted: v.string(),
+    images: v.array(v.string()),
+    coverPhoto: v.optional(v.string()),
+    video: v.optional(v.string()),
+    videoName: v.optional(v.string()),
+    videoSize: v.optional(v.number()),
+    imageStorageIds: v.optional(v.array(v.id("_storage"))),
+    coverPhotoStorageId: v.optional(v.id("_storage")),
+    videoStorageId: v.optional(v.id("_storage")),
+    description: v.string(),
+    lister: v.object({
+      id: v.string(),
+      name: v.string(),
+      type: v.string(),
+      avatar: v.string(),
+      phone: v.optional(v.string()),
+      email: v.optional(v.string()),
+      verified: v.boolean(),
+    }),
+    status: v.string(),
+    rejectionReason: v.optional(v.string()),
+    featured: v.optional(v.boolean()),
+    createdAt: v.string(),
+    viewsCount: v.optional(v.number()),
+    enquiriesCount: v.optional(v.number()),
+    unitTypes: v.array(v.object({
+      type: v.string(),
+      monthlyRent: v.number(),
+      deposit: v.number(),
+      serviceCharge: v.number(),
+      waterDeposit: v.number(),
+      electricityDeposit: v.number(),
+      agentFee: v.number(),
+      viewingFee: v.number(),
+      vacancies: v.number(),
+      occupied: v.number(),
+      underRepair: v.number(),
+      amenities: v.array(v.string()),
+      images: v.array(v.string()),
+      imageStorageIds: v.array(v.id("_storage")),
+      coverPhotoStorageId: v.id("_storage"),
+      videoStorageId: v.optional(v.id("_storage")),
+      videoName: v.optional(v.string()),
+      videoSize: v.optional(v.number()),
+    })),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity || args.lister.id !== identity.subject) {
+      throw new Error("You must be signed in as the listing owner.");
+    }
+
+    if (args.unitTypes.length < 2) {
+      throw new Error("Select at least two unit types.");
+    }
+
+    if (new Set(args.unitTypes.map((unit) => unit.type)).size !== args.unitTypes.length) {
+      throw new Error("Duplicate unit types are not allowed.");
+    }
+
+    if (!args.coverPhotoStorageId) {
+      throw new Error("A building cover photo is required.");
+    }
+
+    for (const unit of args.unitTypes) {
+      const prices = [
+        unit.monthlyRent,
+        unit.deposit,
+        unit.serviceCharge,
+        unit.waterDeposit,
+        unit.electricityDeposit,
+        unit.agentFee,
+        unit.viewingFee,
+      ];
+
+      const counts = [
+        unit.vacancies,
+        unit.occupied,
+        unit.underRepair,
+      ];
+
+      if (
+        unit.monthlyRent <= 0 ||
+        prices.some((value) => !Number.isFinite(value) || value < 0) ||
+        counts.some((value) => !Number.isSafeInteger(value) || value < 0) ||
+        unit.imageStorageIds.length === 0 ||
+        unit.imageStorageIds.length > 10 ||
+        (unit.videoSize !== undefined &&
+          (unit.videoSize < 0 || !Number.isSafeInteger(unit.videoSize)))
+      ) {
+        throw new Error(`Invalid pricing, availability or media for ${unit.type}.`);
+      }
+    }
+
+    const { unitTypes, ...building } = args;
+
+    const propertyId = await ctx.db.insert("properties", {
+      ...building,
+      status: "Pending",
+    });
+
+    for (const unit of unitTypes) {
+      await ctx.db.insert("propertyUnitTypes", {
+        propertyId,
+        ...unit,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.emails.notifyAdminNewProperty,
+      {
+        propertyName: args.name,
+        propertyType: args.type,
+        monthlyRent: args.monthlyRent,
+        county: args.location.county,
+        subCounty: args.location.subCounty,
+        estate: args.location.estate,
+      }
+    );
+
+    const admins = (await ctx.db.query("users").collect()).filter(
+      (user) => user.role === "admin"
+    );
+
+    for (const admin of admins) {
+      await ctx.db.insert("notifications", {
+        recipientUserId: admin.userId,
+        userId: args.lister.id,
+        title: "New Property Awaiting Approval",
+        message: `"${args.name}" has been submitted and is waiting for your review.`,
+        time: new Date().toISOString(),
+        type: "approval",
+        targetPropertyId: propertyId.toString(),
+        read: false,
+      });
+    }
+
+    return propertyId;
+  },
+});
 export const updateProperty = mutation({
   args: {
     id: v.id("properties"),

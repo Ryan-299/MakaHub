@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { SearchBar } from '../components/SearchBar';
 import { PropertyCard } from '../components/PropertyCard';
 import { useApp } from '../context/AppContext';
-import { Map, SlidersHorizontal, ArrowRight, X } from 'lucide-react';
+import { Map, SlidersHorizontal, ArrowRight, X, Sun, Moon } from 'lucide-react';
 const calculateDistanceKm = (
   lat1: number,
   lng1: number,
@@ -28,17 +28,42 @@ const calculateDistanceKm = (
 
   return earthRadiusKm * c;
 };
+const PropertyCardSkeleton = () => (
+  <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950 animate-pulse">
+    {/* Image */}
+    <div className="aspect-[4/3] bg-neutral-200 dark:bg-neutral-800" />
+
+    {/* Property details */}
+    <div className="p-3 space-y-2">
+      <div className="h-3 w-3/4 rounded bg-neutral-200 dark:bg-neutral-800" />
+
+      <div className="h-4 w-1/2 rounded bg-neutral-200 dark:bg-neutral-800" />
+
+      <div className="h-3 w-2/3 rounded bg-neutral-200 dark:bg-neutral-800" />
+
+      <div className="flex gap-2 pt-1">
+        <div className="h-5 w-12 rounded-full bg-neutral-200 dark:bg-neutral-800" />
+        <div className="h-5 w-14 rounded-full bg-neutral-200 dark:bg-neutral-800" />
+        <div className="h-5 w-12 rounded-full bg-neutral-200 dark:bg-neutral-800" />
+      </div>
+    </div>
+  </div>
+);
 export const TenantHomeView: React.FC = () => {
   const {
     currentUser,
     filteredProperties,
+    isPropertiesLoading,
     filters,
     resetFilters,
     isFilterActive,
     setCurrentView,
     setSelectedPropertyId,
     seekerLocation,
+    resolvedTheme,
+    toggleTheme,
   } = useApp();
+  const isDark = resolvedTheme === 'dark';
 
   // 5. Dynamic Greeting Calculation based on device/local time
   const dynamicGreeting = useMemo(() => {
@@ -87,36 +112,70 @@ export const TenantHomeView: React.FC = () => {
       .map((item) => item.property);
   }, [filteredProperties, seekerLocation]);
   return (
-    <div className="min-h-screen bg-white dark:bg-black pb-24 text-neutral-900 dark:text-neutral-100 transition-colors">
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-8 sm:pt-12 space-y-10 sm:space-y-14">
+    <div className="min-h-screen w-full max-w-full min-w-0 overflow-x-clip overscroll-x-none touch-pan-y pb-24 text-neutral-900 dark:text-neutral-100 transition-colors">
+      <main className="w-full min-w-0 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-8 sm:pt-12 space-y-2 sm:space-y-3">
         {/* 4. CLEAN TEXT-BASED INTRODUCTION (No giant photographic background) */}
-        <section id="seeker-hero-intro" className="space-y-3 sm:space-y-4 max-w-3xl">
+
+        <section
+          id="seeker-hero-intro"
+          className="
+    sticky top-0 z-40
+    w-full
+    space-y-3 sm:space-y-4
+    bg-[var(--rentike-bg)]
+    py-3
+    border-b border-transparent
+  "
+        >
+
           {/* 5. Dynamic Greeting (Subtle charcoal / medium grey, no gold/brown) */}
-          <div
-            id="seeker-dynamic-greeting"
-            className="text-xs sm:text-sm font-semibold tracking-wide text-neutral-600 dark:text-neutral-400 uppercase"
-          >
-            {dynamicGreeting}
+          <div className="flex items-center justify-between gap-3">
+            <div
+              id="seeker-dynamic-greeting"
+              className="text-sm font-medium text-neutral-600 dark:text-neutral-400"
+            >
+              {dynamicGreeting}
+            </div>
+
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="sm:hidden flex items-center rounded-full border border-[#E2D3C2] dark:border-neutral-700 bg-[#F7F3EC] dark:bg-[#181818] p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+            >
+              <span
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${!isDark
+                  ? 'bg-white text-neutral-600 shadow-sm'
+                  : 'text-neutral-500'
+                  }`}
+              >
+                <Sun className="w-4 h-4" />
+              </span>
+
+              <span
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark
+                  ? 'bg-[#C49A6C] text-white shadow-sm'
+                  : 'text-[#B8792B]'
+                  }`}
+              >
+                <Moon className="w-4 h-4" />
+              </span>
+            </button>
           </div>
 
           {/* 6. Main Heading (Cormorant Garamond editorial font) */}
           <h1
             id="seeker-main-heading"
-            className="font-editorial font-serif text-3xl sm:text-4xl md:text-5xl lg:text-5xl font-normal text-neutral-950 dark:text-white tracking-tight leading-[1.15]"
+            className="font-editorial font-serif text-3xl sm:text-4xl lg:text-[44px] leading-[1.05] tracking-[-0.02em] font-normal"
           >
-            Find a place you'll call home.
+            Find your <span className="text-[var(--rentike-bronze)] font-bold">Next Home</span>
           </h1>
 
-          {/* 7. Supporting Text (Restrained & subtle) */}
-          <p
-            id="seeker-supporting-text"
-            className="text-sm sm:text-base text-neutral-600 dark:text-neutral-400 font-normal leading-relaxed max-w-xl"
-          >
-            Discover available rental homes across Kenya.
-          </p>
+
+
 
           {/* 8. Search + Filter Area (Slim, elegant, 46-50px height) */}
-          <div className="pt-2 sm:pt-3 w-full max-w-2xl">
+          <div className="mt-5 w-full max-w-5xl">
             <SearchBar
               showFiltersButton={true}
               placeholder="Search by location or property name"
@@ -126,6 +185,7 @@ export const TenantHomeView: React.FC = () => {
             />
           </div>
         </section>
+
 
         {/* Active Filters Notification Pill */}
         {isFilterActive && (
@@ -169,40 +229,41 @@ export const TenantHomeView: React.FC = () => {
             </div>
           </div>
         )}
-        <div className="flex items-end justify-between gap-4 pb-2 border-b border-neutral-200 dark:border-neutral-800">
+        <div className="flex items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl sm:text-2xl font-bold text-neutral-950 dark:text-white">
                 Properties Near You
               </h2>
 
-              <span className="text-[10px] font-bold uppercase tracking-wide bg-neutral-100 dark:bg-neutral-800 text-neutral-700 dark:text-neutral-300 px-2 py-1 rounded-md">
-                Nearby
-              </span>
+
             </div>
 
-            <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-              Available vacancies arranged by proximity to your current location
-            </p>
-          </div>
 
+          </div>
           <button
             type="button"
-            id="nearby-view-map-btn"
-            onClick={() => {
-              setSelectedPropertyId(null);
-              setCurrentView('map-explore');
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 dark:bg-neutral-900 rounded-xl text-xs font-bold"
+            aria-label="View all nearby properties"
+            className="w-8 h-8 flex items-center justify-center rounded-full text-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C] transition-all"
           >
-            <Map className="w-3.5 h-3.5" />
-            <span>Live Map</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
+
+
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-          {propertiesNearYou.length > 0 ? (
+        <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-2 md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 md:gap-5 md:overflow-visible md:snap-none md:pb-0">
+          {isPropertiesLoading ? (
+            Array.from({ length: 4 }).map((_, index) => (
+              <PropertyCardSkeleton key={`near-skeleton-${index}`} />
+            ))
+          ) : propertiesNearYou.length > 0 ? (
             propertiesNearYou.map((prop) => (
-              <PropertyCard key={`near-${prop.id}`} property={prop} />
+              <div
+                key={`near-${prop.id}`}
+                className="flex-none w-[64%] sm:w-[280px] snap-start md:w-auto md:min-w-0 md:snap-none"
+              >
+                <PropertyCard property={prop} />
+              </div>
             ))
           ) : (
             <div className="col-span-full py-10 text-center">
@@ -210,7 +271,7 @@ export const TenantHomeView: React.FC = () => {
                 No properties within 50 km of your current location.
               </p>
               <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-500">
-                Try exploring the map or searching another area.
+                Try exploring the map or enable location access to see nearby rentals.
               </p>
             </div>
           )}
@@ -222,11 +283,7 @@ export const TenantHomeView: React.FC = () => {
               <h2 className="text-xl sm:text-2xl font-bold text-neutral-950 dark:text-white tracking-tight">
                 {isFilterActive ? 'Filtered Results' : 'Newly Listed'}
               </h2>
-              <p className="text-xs sm:text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-                {isFilterActive
-                  ? 'Homes matching your criteria'
-                  : 'Fresh verified rental options across Kenya'}
-              </p>
+
             </div>
 
             <button
@@ -238,8 +295,8 @@ export const TenantHomeView: React.FC = () => {
               }}
               className="flex items-center gap-1.5 text-xs font-bold text-neutral-900 dark:text-neutral-100 hover:text-black dark:hover:text-white cursor-pointer group"
             >
-              <span>Explore Map</span>
-              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+
+              <ArrowRight className="w-3.5 h-3.5 text-[var(--rentike-bronze)] group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
 
@@ -261,10 +318,26 @@ export const TenantHomeView: React.FC = () => {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
-              {newlyListed.map((prop) => (
-                <PropertyCard key={prop.id} property={prop} />
-              ))}
+            <div className="flex gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pb-2">
+              {isPropertiesLoading ? (
+                Array.from({ length: 4 }).map((_, index) => (
+                  <div
+
+                    className="flex-none w-[64%] sm:w-[280px] snap-start"
+                  >
+                    <PropertyCardSkeleton />
+                  </div>
+                ))
+              ) : (
+                newlyListed.map((prop) => (
+                  <div
+                    key={prop.id}
+                    className="flex-none w-[64%] sm:w-[280px] snap-start"
+                  >
+                    <PropertyCard property={prop} />
+                  </div>
+                ))
+              )}
             </div>
           )}
         </section>

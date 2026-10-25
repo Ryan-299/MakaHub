@@ -50,6 +50,7 @@ export const ReviewList: React.FC<ReviewListProps> = ({ property }) => {
   } = useApp();
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(false);
   const [highlightedReviewId, setHighlightedReviewId] = useState<string | null>(null);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [editReviewText, setEditReviewText] = useState('');
@@ -65,24 +66,67 @@ export const ReviewList: React.FC<ReviewListProps> = ({ property }) => {
   const [reportReason, setReportReason] = useState<string>('');
 
   const reviews = getPropertyReviews(property.id);
+  const currentUserReview = currentUser
+    ? reviews.find((review) => review.authorId === currentUser.id)
+    : undefined;
 
-  // Dynamic calculated average rating directly from actual review records
-  const { averageRating, ratingCount, recommendationPercentage } = useMemo(() => {
-    if (!reviews || reviews.length === 0) {
-      return { averageRating: 0, ratingCount: 0, recommendationPercentage: 0 };
+  const [hoveredQuickRating, setHoveredQuickRating] = useState<number | null>(null);
+  const [pendingQuickRating, setPendingQuickRating] = useState<number | null>(null);
+
+  const quickRatingValue =
+    hoveredQuickRating ??
+    pendingQuickRating ??
+    currentUserReview?.rating ??
+    0;
+
+  const handleQuickRating = (newRating: number) => {
+    if (!currentUser) return;
+
+    setPendingQuickRating(newRating);
+  };
+
+  const handleSaveQuickRating = () => {
+    if (!currentUser || pendingQuickRating === null) return;
+
+    if (currentUserReview) {
+      editReview(
+        currentUserReview.id,
+        pendingQuickRating,
+        currentUserReview.comment ?? '',
+        currentUserReview.wouldRecommend
+      );
+    } else {
+      addReview(property.id, {
+        authorId: currentUser.id,
+        authorName: currentUser.name || 'Resident',
+        authorAvatar: currentUser.avatar || '',
+        rating: pendingQuickRating,
+        comment: undefined,
+        wouldRecommend: undefined,
+      });
     }
-    const sum = reviews.reduce((acc, rev) => acc + (rev.rating || 0), 0);
-    const avg = Math.round((sum / reviews.length) * 10) / 10;
 
-    const recReviews = reviews.filter((r) => typeof r.wouldRecommend === 'boolean');
-    const yesRecs = recReviews.filter((r) => r.wouldRecommend === true).length;
-    const recPct =
-      recReviews.length > 0 ? Math.round((yesRecs / recReviews.length) * 100) : 0;
+    setPendingQuickRating(null);
+  };
+  // Dynamic calculated average rating directly from actual review records
+  const { averageRating, ratingCount } = useMemo(() => {
+    const ratedReviews = reviews.filter(
+      (review) => typeof review.rating === 'number'
+    );
+
+    const sum = ratedReviews.reduce(
+      (acc, review) => acc + (review.rating ?? 0),
+      0
+    );
+
+    const avg =
+      ratedReviews.length > 0
+        ? Math.round((sum / ratedReviews.length) * 10) / 10
+        : 0;
 
     return {
       averageRating: avg,
-      ratingCount: reviews.length,
-      recommendationPercentage: recPct
+      ratingCount: ratedReviews.length,
     };
   }, [reviews]);
 
@@ -174,45 +218,115 @@ export const ReviewList: React.FC<ReviewListProps> = ({ property }) => {
   };
 
   return (
-    <div id="tenant-ratings-section" className="space-y-6">
-      {/* Header & General Property Rating */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-neutral-200 dark:border-[#262626]">
-        <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-[#8A8A8A] font-sans block mb-1">
-            Tenant Ratings
-          </span>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 bg-black dark:bg-white text-white dark:text-black px-3 py-1.5 rounded-xl text-base font-extrabold font-sans shadow-2xs">
+    <div
+      id="tenant-ratings-section"
+      className="bg-[#F7F3EC] dark:bg-[#151515] rounded-2xl border border-[#E7DED2] dark:border-neutral-800 p-5 sm:p-6 shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)] space-y-5"
+    >
+      {/* Header */}
+      <div>
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--rentike-bronze)] font-sans">
+          Tenant Ratings
+        </span>
+
+        <h2 className="mt-1 text-2xl sm:text-[28px] font-editorial font-semibold tracking-tight text-neutral-950 dark:text-[#F5F5F5]">
+          Reviews <span className="text-[var(--rentike-bronze)]">& Ratings</span>
+        </h2>
+
+        <p className="mt-1 text-xs sm:text-sm text-neutral-500 dark:text-[#8A8A8A] font-sans">
+          What previous tenants say about this property
+        </p>
+      </div>
+
+      {/* Rating Summary */}
+      <div className="rounded-2xl bg-[#FBF8F2] dark:bg-[#1B1B1B] border border-[#E7DED2] dark:border-neutral-800 p-4 shadow-[3px_3px_8px_rgba(28,22,16,0.07),-3px_-3px_8px_rgba(255,255,255,0.75)] dark:shadow-[3px_3px_8px_rgba(0,0,0,0.28)]">
+        <div className="grid grid-cols-[88px_1fr] gap-4 items-center">
+
+          {/* Score */}
+          <div className="min-h-[100px] rounded-2xl bg-[#F2E7D8]/70 dark:bg-[#24201C] flex flex-col items-center justify-center">
+            <span className="text-4xl font-editorial font-semibold text-[var(--rentike-bronze)] leading-none">
+              {ratingCount > 0 ? averageRating.toFixed(1) : 'New'}
+            </span>
+
+            {ratingCount > 0 && (
+              <span className="mt-2 text-[9px] font-bold uppercase tracking-[0.18em] text-[var(--rentike-bronze)]">
+                Out of 5
+              </span>
+            )}
+          </div>
+
+          {/* Rating details */}
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5">
               <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span>{averageRating > 0 ? averageRating.toFixed(1) : 'New'}</span>
+
+              <span className="text-sm font-bold text-neutral-950 dark:text-[#F5F5F5] font-sans">
+                {ratingCount > 0 ? averageRating.toFixed(1) : 'New'}
+              </span>
             </div>
-            <div>
-              <p className="text-sm font-bold font-sans text-neutral-900 dark:text-[#F5F5F5]">
-                {ratingCount > 0
-                  ? `Based on ${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'}`
-                  : 'No ratings yet'}
-              </p>
-              {ratingCount > 0 && recommendationPercentage > 0 && (
-                <p className="text-xs text-neutral-500 dark:text-[#8A8A8A] font-sans font-medium">
-                  {recommendationPercentage}% would recommend this property
-                </p>
-              )}
-            </div>
+
+            <p className="mt-2 text-sm font-semibold text-neutral-900 dark:text-[#F5F5F5] font-sans">
+              {ratingCount > 0
+                ? `Based on ${ratingCount} ${ratingCount === 1 ? 'rating' : 'ratings'}`
+                : 'No ratings yet'}
+            </p>
+
+
           </div>
         </div>
+      </div>
 
-        {/* Seekers can write reviews; property owners manage responses */}
-        {!isPropertyOwner && (
+      {/* Seekers can write reviews; property owners manage responses */}
+      {!isPropertyOwner && (
+        <div className="space-y-3">
+          <div>
+            <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-300 font-sans">
+              Rate this property
+            </span>
+
+            <div
+              className="mt-2 flex items-center gap-2"
+              onMouseLeave={() => setHoveredQuickRating(null)}
+            >
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onMouseEnter={() => setHoveredQuickRating(star)}
+                  onClick={() => handleQuickRating(star)}
+                  className="p-0.5"
+                  aria-label={`Rate ${star} out of 5`}
+                >
+                  <Star
+                    className={`w-6 h-6 ${star <= quickRatingValue
+                      ? 'text-yellow-400 fill-yellow-400'
+                      : 'text-neutral-300 dark:text-neutral-600'
+                      }`}
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+          {pendingQuickRating !== null && (
+            <button
+              type="button"
+              onClick={handleSaveQuickRating}
+              className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-[var(--rentike-bronze)] text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+            >
+              Save rating
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setModalOpen(true)}
-            className="flex items-center justify-center gap-2 bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black text-xs font-bold font-sans px-4 py-2.5 rounded-xl transition-colors cursor-pointer shadow-2xs self-start sm:self-auto active:scale-98"
+            className="ml-2 inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-[#FBF8F2] dark:bg-[#1B1B1B] border border-[#E7DED2] dark:border-neutral-800 text-[var(--rentike-bronze)] text-xs font-semibold font-sans"
           >
-            <MessageSquarePlus className="w-4 h-4" />
-            <span>Rate & Review</span>
+            <MessageSquarePlus className="w-3.5 h-3.5" />
+            <span>Write a review</span>
+            <span>→</span>
           </button>
-        )}
-      </div>
+        </div>
+      )}
+
 
       {/* Individual Review Cards */}
       <div className="space-y-4 pt-1">
@@ -229,6 +343,7 @@ export const ReviewList: React.FC<ReviewListProps> = ({ property }) => {
               (a, b) =>
                 new Date(b.date).getTime() - new Date(a.date).getTime()
             )
+            .slice(0, showAllReviews ? reviews.length : 1)
             .map((rev) => {
               const isReplying = replyingReviewId === rev.id;
               const isEditing = editingReplyId === rev.id;
@@ -275,22 +390,25 @@ export const ReviewList: React.FC<ReviewListProps> = ({ property }) => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 bg-neutral-100 dark:bg-[#222222] px-2.5 py-1 rounded-lg">
-                      <div className="flex items-center gap-0.5">
-                        {[1, 2, 3, 4, 5].map((starIndex) => (
-                          <Star
-                            key={starIndex}
-                            className={`w-3.5 h-3.5 ${starIndex <= rev.rating
-                              ? 'text-yellow-400 fill-yellow-400'
-                              : 'text-neutral-300 dark:text-[#4A4A4A]'
-                              }`}
-                          />
-                        ))}
+                    {typeof rev.rating === 'number' && (
+                      <div className="flex items-center gap-1 bg-neutral-100 dark:bg-[#222222] px-2.5 py-1 rounded-lg">
+                        <div className="flex items-center gap-0.5">
+                          {[1, 2, 3, 4, 5].map((starIndex) => (
+                            <Star
+                              key={starIndex}
+                              className={`w-3.5 h-3.5 ${starIndex <= rev.rating!
+                                ? 'text-yellow-400 fill-yellow-400'
+                                : 'text-neutral-300 dark:text-[#4A4A4A]'
+                                }`}
+                            />
+                          ))}
+                        </div>
+
+                        <span className="text-xs font-bold text-neutral-900 dark:text-[#F5F5F5] ml-0.5">
+                          {rev.rating}.0
+                        </span>
                       </div>
-                      <span className="text-xs font-bold text-neutral-900 dark:text-[#F5F5F5] ml-0.5">
-                        {rev.rating}.0
-                      </span>
-                    </div>
+                    )}
                   </div>
 
                   {/* Written Comment (Rendered ONLY if provided) */}
@@ -638,34 +756,62 @@ export const ReviewList: React.FC<ReviewListProps> = ({ property }) => {
         modalOpen && (
           <WriteReviewModal
             property={property}
+            existingReview={currentUserReview}
             onClose={() => setModalOpen(false)}
             onSubmit={(revData) => {
-              addReview(property.id, revData);
+              if (currentUserReview) {
+                editReview(
+                  currentUserReview.id,
+                  revData.rating,
+                  revData.comment ?? '',
+                  revData.wouldRecommend
+                );
+              } else {
+                addReview(property.id, revData);
+              }
+
               setModalOpen(false);
             }}
           />
         )
       }
+      {reviews.length > 1 && (
+        <button
+          type="button"
+          onClick={() => setShowAllReviews((prev) => !prev)}
+          className="w-full mt-4 flex items-center justify-between px-4 py-3.5 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 bg-[#F7F3EC] dark:bg-[#151515] text-neutral-900 dark:text-[#F5F5F5] shadow-[3px_3px_8px_rgba(28,22,16,0.08),-3px_-3px_8px_rgba(255,255,255,0.8)] dark:shadow-[3px_3px_8px_rgba(0,0,0,0.3)]"
+        >
+          <span className="font-semibold text-sm text-[var(--rentike-bronze)]">
+            {showAllReviews ? 'Show fewer reviews' : 'See more reviews'}
+          </span>
+
+          <span className="text-lg text-[var(--rentike-bronze)]">
+            {showAllReviews ? '↑' : '→'}
+          </span>
+        </button>
+      )}
     </div >
   );
 };
 
 interface WriteReviewModalProps {
   property: PropertyListing;
+  existingReview?: PropertyReview;
   onClose: () => void;
   onSubmit: (revData: Omit<PropertyReview, 'id' | 'propertyId' | 'date'>) => void;
 }
 
 export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
   property,
+  existingReview,
   onClose,
   onSubmit
 }) => {
   const { currentUser } = useApp();
-  const [authorName, setAuthorName] = useState(currentUser?.name || '');
-  const [rating, setRating] = useState(5);
-  const [comment, setComment] = useState('');
-  const [wouldRecommend, setWouldRecommend] = useState<boolean>(true);
+
+  const [rating, setRating] = useState<number | undefined>(existingReview?.rating);
+  const [comment, setComment] = useState(existingReview?.comment ?? '');
+
   const [hoverRating, setHoverRating] = useState<number | null>(null);
 
   const getRatingLabel = (score: number) => {
@@ -688,17 +834,18 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanComment = comment.trim();
+    if (!rating && !cleanComment) return;
     onSubmit({
       authorId: currentUser?.id || 'demo-seeker-001',
-      authorName: authorName.trim() || 'Resident',
+      authorName: currentUser?.name || 'Resident',
       authorAvatar: currentUser?.avatar,
       rating,
       comment: cleanComment ? cleanComment : undefined,
-      wouldRecommend
+
     });
   };
 
-  const activeStarRating = hoverRating || rating;
+  const activeStarRating = hoverRating ?? rating ?? 0;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-black/60 backdrop-blur-2xs animate-in fade-in">
@@ -713,8 +860,9 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        <h3 className="text-2xl font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] mb-1">
-          Rate & Review {property.name}
+        <h3 className="text-2xl font-editorial font-semibold mb-1">
+          <span className="text-neutral-950 dark:text-[#F5F5F5]">Write a </span>
+          <span className="text-[var(--rentike-bronze)]">review</span>
         </h3>
         <p className="text-xs text-neutral-500 dark:text-[#8A8A8A] mb-5">
           Share your overall rating and feedback for this property.
@@ -726,95 +874,45 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
             <label className="block text-xs font-semibold text-neutral-700 dark:text-[#D5D5D5] mb-1">
               Your Name
             </label>
-            <input
-              type="text"
-              value={authorName}
-              onChange={(e) => setAuthorName(e.target.value)}
-              placeholder="e.g. Kevin Otieno"
-              className="w-full px-3 py-2 bg-white dark:bg-[#151515] border border-neutral-300 dark:border-[#383838] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-xs focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-              required
-            />
-          </div>
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-neutral-50 dark:bg-[#151515] border border-neutral-200 dark:border-[#383838]">
+              {currentUser?.avatar ? (
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.name || 'User'}
+                  className="w-9 h-9 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-full bg-[#F2E7D8] dark:bg-[#24201C] flex items-center justify-center text-[var(--rentike-bronze)] font-semibold">
+                  {currentUser?.name?.charAt(0).toUpperCase() || 'U'}
+                </div>
+              )}
 
-          {/* Overall Property Rating (1 to 5 stars, required) */}
-          <div className="p-4 bg-neutral-50 dark:bg-[#151515] rounded-2xl border border-neutral-200 dark:border-[#292929]">
-            <label className="block text-xs font-bold text-neutral-800 dark:text-[#E0E0E0] uppercase tracking-wider mb-2">
-              Overall Property Rating <span className="text-neutral-400 dark:text-[#7D7D7D] lowercase font-normal">(required)</span>
-            </label>
-            <div className="flex items-center gap-2">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setRating(star)}
-                  onMouseEnter={() => setHoverRating(star)}
-                  onMouseLeave={() => setHoverRating(null)}
-                  className="p-1 hover:scale-110 transition-transform cursor-pointer"
-                >
-                  <Star
-                    className={`w-7 h-7 ${star <= activeStarRating
-                      ? 'text-yellow-400 fill-yellow-400'
-                      : 'text-neutral-300 dark:text-[#4A4A4A]'
-                      }`}
-                  />
-                </button>
-              ))}
-              <span className="text-xs font-bold text-neutral-900 dark:text-[#F5F5F5] ml-2">
-                {getRatingLabel(activeStarRating)}
+              <span className="text-sm font-semibold text-neutral-900 dark:text-[#F5F5F5]">
+                {currentUser?.name || 'Resident'}
               </span>
             </div>
           </div>
 
-          {/* Recommendation: Yes / No */}
-          <div>
-            <label className="block text-xs font-semibold text-neutral-700 dark:text-[#D5D5D5] mb-2">
-              Would you recommend this property to other tenants?
-            </label>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => setWouldRecommend(true)}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${wouldRecommend === true
-                  ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-2xs'
-                  : 'bg-white dark:bg-[#151515] text-neutral-700 dark:text-[#D5D5D5] border-neutral-200 dark:border-[#303030] hover:border-neutral-400 dark:hover:border-neutral-500'
-                  }`}
-              >
-                <ThumbsUp className={`w-4 h-4 ${wouldRecommend === true ? 'text-white dark:text-black' : 'text-neutral-500 dark:text-[#8A8A8A]'}`} />
-                <span>Yes, I recommend</span>
-              </button>
 
-              <button
-                type="button"
-                onClick={() => setWouldRecommend(false)}
-                className={`py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${wouldRecommend === false
-                  ? 'bg-black dark:bg-white text-white dark:text-black border-black dark:border-white shadow-2xs'
-                  : 'bg-white dark:bg-[#151515] text-neutral-700 dark:text-[#D5D5D5] border-neutral-200 dark:border-[#303030] hover:border-neutral-400 dark:hover:border-neutral-500'
-                  }`}
-              >
-                <ThumbsDown className={`w-4 h-4 ${wouldRecommend === false ? 'text-white dark:text-black' : 'text-neutral-500 dark:text-[#8A8A8A]'}`} />
-                <span>No, I don't</span>
-              </button>
-            </div>
-          </div>
+
+
 
           {/* Written Review / Comment (Optional) */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="block text-xs font-semibold text-neutral-700 dark:text-[#D5D5D5]">
-                Written Review / Comment
+                Your review
               </label>
               <span className="text-[11px] text-neutral-400 dark:text-[#7D7D7D] font-medium">Optional</span>
             </div>
             <textarea
-              rows={3}
+              rows={5}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Share details about your experience living here (optional)..."
+              placeholder="What was your experience like?"
               className="w-full px-3 py-2 bg-white dark:bg-[#151515] border border-neutral-300 dark:border-[#383838] text-neutral-900 dark:text-[#F5F5F5] rounded-xl text-xs focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
             />
-            <p className="text-[11px] text-neutral-400 dark:text-[#7D7D7D] mt-1">
-              You can submit a star rating with or without a written comment.
-            </p>
+
           </div>
 
           {/* Actions */}
@@ -822,15 +920,15 @@ export const WriteReviewModal: React.FC<WriteReviewModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white rounded-xl transition-colors cursor-pointer"
+              className="px-5 py-2.5 text-xs font-semibold text-neutral-700 dark:text-neutral-300 bg-[#FBF8F2] dark:bg-[#1B1B1B] border border-[#E7DED2] dark:border-neutral-700 rounded-xl hover:bg-[#F3ECE2] dark:hover:bg-[#242424] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 text-xs font-bold bg-black dark:bg-white text-white dark:text-black rounded-xl hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors shadow-2xs cursor-pointer active:scale-98"
+              className="px-5 py-2.5 text-xs font-bold bg-[var(--rentike-bronze)] text-white rounded-xl hover:bg-neutral-800 dark:hover:bg-neutral-200 transition-colors shadow-2xs cursor-pointer active:scale-98"
             >
-              {comment.trim() ? 'Submit Rating & Review' : 'Submit Rating'}
+              Post review
             </button>
           </div>
         </form>

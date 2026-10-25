@@ -14,7 +14,9 @@ import {
   ChevronRight,
   User,
   Sparkles,
-  Info
+  Info,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ListerEnquiry } from '../types';
@@ -24,13 +26,22 @@ export const SeekerEnquiriesView: React.FC = () => {
     seekerEnquiries = [],
     setCurrentView,
     setSelectedPropertyId,
+    setTargetReviewId,
     properties = [],
+    reviews = [],
+    notifications = [],
+    markNotificationRead,
+    currentUser,
+    isDark,
+    toggleTheme,
     sendEnquiryReply,
     markEnquiryAsRead,
     targetEnquiryId,
     setTargetEnquiryId,
+    messageTab,
+    setMessageTab,
     targetMessageId,
-    setTargetMessageId
+    setTargetMessageId,
   } = useApp();
 
   // Selected enquiry id
@@ -38,27 +49,57 @@ export const SeekerEnquiriesView: React.FC = () => {
     if (targetEnquiryId && seekerEnquiries.some((e) => e.id === targetEnquiryId)) {
       return targetEnquiryId;
     }
-    return seekerEnquiries[0]?.id || null;
+    return null;
   });
+  useEffect(() => {
+    const isChatOpen = selectedEnquiryId !== null && messageTab === 'inbox';
 
+    document.body.classList.toggle('rentike-seeker-chat-open', isChatOpen);
+
+    return () => {
+      document.body.classList.remove('rentike-seeker-chat-open');
+    };
+  }, [selectedEnquiryId, messageTab]);
+
+
+  const activityNotifications = notifications.filter(
+    (notification) =>
+      notification.type === 'review' &&
+      notification.title === 'New Review Reply'
+  );
+  const unreadInboxCount = seekerEnquiries.filter(
+    (enq) => !enq.readBySeeker
+  ).length;
+  const systemNotifications = notifications.filter(
+    (notification) => notification.type === 'system'
+  );
+
+  const unreadSystemCount = systemNotifications.filter(
+    (notification) => !notification.read
+  ).length;
+
+  const unreadActivityCount = activityNotifications.filter(
+    (notification) => !notification.read
+  ).length;
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [highlightActive, setHighlightActive] = useState(false);
+
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   // Sync if targetEnquiryId changes externally
   useEffect(() => {
-    if (targetEnquiryId && seekerEnquiries.some((e) => e.id === targetEnquiryId)) {
+    if (
+      targetEnquiryId &&
+      seekerEnquiries.some((e) => e.id === targetEnquiryId)
+    ) {
       setSelectedEnquiryId(targetEnquiryId);
-      setHighlightActive(true);
-      const timer = setTimeout(() => setHighlightActive(false), 2500);
-      return () => clearTimeout(timer);
-    } else if (!selectedEnquiryId && seekerEnquiries.length > 0) {
-      setSelectedEnquiryId(seekerEnquiries[0].id);
     }
   }, [targetEnquiryId, seekerEnquiries]);
   const sortedEnquiries = [...seekerEnquiries].sort((a, b) => {
+
+
+
     const aLastTime =
       a.messages?.[a.messages.length - 1]?.createdAt ||
       a.createdAt ||
@@ -75,7 +116,8 @@ export const SeekerEnquiriesView: React.FC = () => {
     return bTime - aTime;
   });
   // Find active enquiry
-  const activeEnquiry = seekerEnquiries.find((e) => e.id === selectedEnquiryId) || seekerEnquiries[0] || null;
+  const activeEnquiry =
+    seekerEnquiries.find((e) => e.id === selectedEnquiryId) || null;
 
   // Mark as read when active enquiry changes
   useEffect(() => {
@@ -180,451 +222,735 @@ export const SeekerEnquiriesView: React.FC = () => {
   ];
 
   return (
-    <div id="seeker-enquiries-view" className="min-h-[calc(100vh-4rem)] bg-white dark:bg-black pb-24 text-neutral-900 dark:text-[#F5F5F5] font-sans transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 space-y-6">
-        {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-[#262626]">
-          <div className="flex items-center gap-3">
+    <div
+      id="seeker-enquiries-view"
+      className={`${activeEnquiry
+        ? 'fixed inset-0 z-[10000] overflow-y-auto bg-[#FBF8F3] dark:bg-black md:static md:z-auto md:h-[calc(100dvh-6rem)] md:min-h-0 md:overflow-hidden md:pb-0'
+        : 'min-h-[calc(100vh-4rem)] bg-[#FBF8F3] dark:bg-black pb-24'
+        } text-neutral-900 dark:text-[#F5F5F5] font-sans transition-colors duration-200`}
+    >
+      <div
+        className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${activeEnquiry
+          ? 'h-full pt-6 sm:pt-8 flex flex-col gap-4 md:h-full md:flex md:flex-col md:min-h-0 md:space-y-0'
+          : 'pt-6 sm:pt-8 space-y-6'
+          }`}
+      >
+        {activeEnquiry && (
+          <div className="flex items-center gap-3 pb-4 border-b border-neutral-200 dark:border-[#2A2A2A]">
             <button
               type="button"
-              id="back-to-homes-btn"
-              onClick={() => setCurrentView('tenant-home')}
-              className="p-2.5 rounded-xl border border-neutral-200 dark:border-[#303030] hover:border-black dark:hover:border-white text-neutral-600 dark:text-[#F5F5F5] hover:text-black bg-white dark:bg-[#111111] transition-colors cursor-pointer shadow-2xs"
-              title="Back to Discover Homes"
+              onClick={() => {
+                setSelectedEnquiryId(null);
+                setTargetEnquiryId(null);
+              }}
+              className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-neutral-100 dark:hover:bg-[#1A1A1A] shrink-0"
+              aria-label="Back to messages"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-5 h-5" />
             </button>
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] tracking-tight">
-                  My Enquiries & Messages
-                </h1>
-                <span className="text-[10px] sm:text-[11px] font-sans font-bold uppercase tracking-wider bg-black dark:bg-[#F5F5F5] text-white dark:text-[#111111] px-2.5 py-0.5 rounded-full">
-                  Private
-                </span>
+
+            {relatedProperty?.lister?.avatar ? (
+              <img
+                src={relatedProperty.lister.avatar}
+                alt={relatedProperty.lister.name}
+                className="w-11 h-11 rounded-full object-cover shrink-0"
+              />
+            ) : (
+              <div className="w-11 h-11 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold shrink-0">
+                {relatedProperty?.lister?.name?.charAt(0) || 'L'}
               </div>
-              <p className="text-xs sm:text-sm font-sans text-neutral-500 dark:text-[#A3A3A3] mt-0.5">
-                Direct conversations with property owners and managers
+            )}
+
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-semibold text-neutral-950 dark:text-white truncate">
+                {relatedProperty?.lister?.name || 'Property Lister'}
+              </p>
+
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                {activeEnquiry.propertyName}
+                {relatedProperty?.type && ` · ${relatedProperty.type}`}
+                {relatedProperty?.location?.estate &&
+                  ` · ${relatedProperty.location.estate}`}
+                {relatedProperty?.location?.subCounty &&
+                  `, ${relatedProperty.location.subCounty}`}
               </p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => setCurrentView('tenant-home')}
-              className="px-4 py-2 bg-white dark:bg-[#111111] border border-neutral-200 dark:border-[#303030] hover:border-black dark:hover:border-white text-neutral-800 dark:text-[#F5F5F5] text-xs font-sans font-bold rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              onClick={() => {
+                if (relatedProperty?.lister?.phone) {
+                  window.location.href = `tel:${relatedProperty.lister.phone}`;
+                }
+              }}
+              disabled={!relatedProperty?.lister?.phone}
+              className="w-10 h-10 rounded-full bg-[#F5EBDD] dark:bg-[#2A2118] text-[#8A5A2B] dark:text-[#C49A6C] flex items-center justify-center shrink-0 disabled:opacity-40"
+              aria-label="Call lister"
             >
-              <Building className="w-3.5 h-3.5" />
-              <span>Explore More Rentals</span>
+              <Phone className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        )}
 
         {/* Empty State */}
-        {seekerEnquiries.length === 0 ? (
-          <div className="bg-white dark:bg-[#111111] rounded-3xl p-12 text-center border border-neutral-200 dark:border-[#292929] max-w-xl mx-auto space-y-5 shadow-xs my-8 font-sans">
-            <div className="w-16 h-16 rounded-3xl bg-neutral-100 dark:bg-[#181818] border border-neutral-200 dark:border-[#303030] flex items-center justify-center mx-auto text-neutral-700 dark:text-[#F5F5F5]">
-              <MessageSquare className="w-8 h-8" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-2xl font-editorial font-semibold text-neutral-900 dark:text-[#F5F5F5]">No enquiries sent yet</h3>
-              <p className="text-xs sm:text-sm font-sans text-neutral-500 dark:text-[#A3A3A3] leading-relaxed">
-                When you find a house you like, click <strong className="text-neutral-900 dark:text-white">"Contact Lister"</strong> on its detail page to ask questions or arrange a physical viewing.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setCurrentView('tenant-home')}
-              className="px-6 py-3 bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black font-sans font-bold rounded-xl text-xs sm:text-sm transition-all shadow-md inline-flex items-center gap-2 cursor-pointer"
-            >
-              <Building className="w-4 h-4" />
-              <span>Discover Vacant Homes</span>
-            </button>
-          </div>
-        ) : (
-          /* Master-Detail Enquiries Layout */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start font-sans">
-            {/* Left Sidebar: Enquiries List */}
-            <div className={`lg:col-span-4 space-y-3 ${activeEnquiry ? 'hidden lg:block' : 'block'}`}>
-              <div className="flex items-center justify-between px-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-[#7D7D7D]">
-                  All Conversations ({seekerEnquiries.length})
-                </span>
-                <span className="text-[11px] text-neutral-500 dark:text-[#8A8A8A] font-medium">Click to open thread</span>
+
+
+        <div
+          className={`grid grid-cols-1 lg:grid-cols-12 gap-6 font-sans ${activeEnquiry ? 'flex-1 min-h-0 items-stretch md:items-stretch' : 'items-start'
+            }`}
+        >
+          {/* Left Sidebar: Enquiries List */}
+          <div
+            className={`space-y-3 ${activeEnquiry
+              ? 'hidden'
+              : 'block lg:col-span-12'
+              }`}
+          >
+            {/* Messages Tabs */}
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <h1 className="text-2xl font-bold text-neutral-950 dark:text-white">
+                  Messages
+                </h1>
+
               </div>
 
-              <div className="space-y-2.5 max-h-[calc(100vh-14rem)] overflow-y-auto no-scrollbar pr-0.5">
-                {sortedEnquiries.map((enq) => {
-                  const isSelected = enq.id === activeEnquiry?.id;
-                  const prop = properties.find((p) => p.id === enq.propertyId);
-                  const lastMsg = (enq.messages && enq.messages.length > 0)
-                    ? enq.messages[enq.messages.length - 1]
-                    : null;
-                  const hasReplied = enq.status === 'Replied' || (enq.messages && enq.messages.some((m) => m.senderRole === 'lister'));
+              <div className="grid grid-cols-3 gap-1.5 p-1.5 rounded-2xl bg-[#F1EBE3] dark:bg-[#151515] border border-[#E7DDD1] dark:border-[#202020] shadow-[inset_3px_3px_7px_rgba(165,140,115,0.18),inset_-3px_-3px_7px_rgba(255,255,255,0.9)] dark:shadow-[inset_3px_3px_7px_rgba(0,0,0,0.65),inset_-3px_-3px_7px_rgba(255,255,255,0.035)]">
+                <button
+                  type="button"
+                  onClick={() => setMessageTab('inbox')}
+                  className={`py-2.5 rounded-xl text-xs font-semibold transition-all ${messageTab === 'inbox'
+                    ? 'text-[var(--rentike-bronze)] bg-[#F8F3EB] dark:bg-[#1B1B1B] shadow-[4px_4px_8px_rgba(174,150,125,0.22),-3px_-3px_7px_rgba(255,255,255,0.95)] dark:shadow-[4px_4px_8px_rgba(0,0,0,0.65),-3px_-3px_7px_rgba(255,255,255,0.045)]'
+                    : 'text-neutral-600 dark:text-neutral-300'
+                    }`}
+                >
+                  <span className="inline-flex items-center justify-center gap-1.5">
+                    <span>Inbox</span>
 
-                  return (
-                    <div
-                      key={enq.id}
-                      id={`enquiry-card-${enq.id}`}
-                      onClick={() => {
-                        setSelectedEnquiryId(enq.id);
-                        setTargetEnquiryId(null);
-                      }}
-                      className={`p-4 rounded-2xl border transition-all cursor-pointer text-left relative ${isSelected
-                        ? 'bg-white dark:bg-[#151515] border-black dark:border-white ring-2 ring-black/10 dark:ring-white/10 shadow-md'
-                        : 'bg-white dark:bg-[#111111] border-neutral-200 dark:border-[#292929] hover:border-neutral-400 dark:hover:border-[#444444] hover:shadow-xs'
-                        } ${targetEnquiryId === enq.id ? 'ring-2 ring-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20' : ''}`}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2.5">
-                          {prop?.images?.[0] ? (
+                    {unreadInboxCount > 0 && (
+                      <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center">
+                        {unreadInboxCount}
+                      </span>
+                    )}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMessageTab('activity')}
+                  className={`py-2.5 rounded-xl text-xs font-semibold transition-all ${messageTab === 'activity'
+                    ? 'text-[var(--rentike-bronze)] bg-[#F8F3EB] dark:bg-[#1B1B1B] shadow-[4px_4px_8px_rgba(174,150,125,0.22),-3px_-3px_7px_rgba(255,255,255,0.95)] dark:shadow-[4px_4px_8px_rgba(0,0,0,0.65),-3px_-3px_7px_rgba(255,255,255,0.045)]'
+                    : 'text-neutral-600 dark:text-neutral-300'
+                    }`}
+                >
+                  <span className="inline-flex items-center justify-center gap-1.5">
+                    <span>Activity</span>
+
+                    {unreadActivityCount > 0 && (
+                      <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center">
+                        {unreadActivityCount}
+                      </span>
+                    )}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMessageTab('system')}
+                  className={`py-2.5 rounded-xl text-xs font-semibold transition-all ${messageTab === 'system'
+                    ? 'text-[var(--rentike-bronze)] bg-[#F8F3EB] dark:bg-[#181818] shadow-[4px_4px_10px_rgba(0,0,0,0.10)]'
+                    : 'text-neutral-600 dark:text-neutral-300'
+                    }`}
+                >
+                  <span className="inline-flex items-center justify-center gap-1.5">
+                    <span>System</span>
+
+                    {unreadSystemCount > 0 && (
+                      <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center">
+                        {unreadSystemCount}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </div>
+            </div>
+            {messageTab === 'activity' && (
+              <div className="divide-y divide-neutral-200/70 dark:divide-[#292929]">
+
+                <div className="flex items-center justify-between px-1 py-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-[#7D7D7D]">
+                    Property Activity
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      activityNotifications
+                        .filter((notification) => !notification.read)
+                        .forEach((notification) =>
+                          markNotificationRead(notification.id)
+                        );
+                    }}
+                    disabled={!activityNotifications.some((notification) => !notification.read)}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#A77745] dark:text-[#CCA177] hover:underline disabled:opacity-40 disabled:cursor-default disabled:no-underline"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Mark all read
+                  </button>
+                </div>
+
+                {[...activityNotifications]
+                  .sort((a, b) => {
+                    const aTime = new Date(a.createdAt || a.time).getTime();
+                    const bTime = new Date(b.createdAt || b.time).getTime();
+                    return bTime - aTime;
+                  })
+                  .map((notification) => {
+                    const relatedReview = reviews.find(
+                      (review) => review.id === notification.targetReviewId
+                    );
+
+                    const listerAvatar = relatedReview?.reply?.listerAvatar;
+
+                    return (
+                      <button
+                        key={notification.id}
+                        type="button"
+                        onClick={() => {
+                          markNotificationRead(notification.id);
+
+                          if (
+                            notification.targetPropertyId &&
+                            notification.targetReviewId
+                          ) {
+                            setSelectedPropertyId(notification.targetPropertyId);
+                            setTargetReviewId(notification.targetReviewId);
+                            setCurrentView('property-detail');
+                          }
+                        }}
+                        className={`w-full flex items-start gap-3 py-4 text-left transition-colors ${!notification.read
+                          ? 'bg-[#FBF6EF] dark:bg-[#15120F]'
+                          : 'bg-transparent'
+                          }`}
+                      >
+                        <div className="relative shrink-0">
+                          {listerAvatar ? (
                             <img
-                              src={prop.images[0]}
-                              alt={enq.propertyName}
-                              className="w-10 h-10 rounded-xl object-cover border border-neutral-200 dark:border-[#303030] shrink-0"
+                              src={listerAvatar}
+                              alt=""
+                              className="w-10 h-10 rounded-full object-cover"
                             />
                           ) : (
-                            <div className="w-10 h-10 rounded-xl bg-neutral-100 dark:bg-[#181818] border border-neutral-200 dark:border-[#303030] flex items-center justify-center shrink-0">
-                              <Building className="w-5 h-5 text-neutral-500 dark:text-[#A3A3A3]" />
+                            <div className="w-10 h-10 rounded-full bg-[#F5EBDD] dark:bg-[#221E1A] flex items-center justify-center text-[#8A5A2B] font-bold">
+                              {relatedReview?.reply?.listerName?.charAt(0) || 'L'}
                             </div>
                           )}
-                          <div className="overflow-hidden">
-                            <h4 className="font-bold text-xs sm:text-sm text-neutral-900 dark:text-[#F5F5F5] truncate">
-                              {enq.propertyName}
-                            </h4>
-                            <p className="text-[11px] text-neutral-500 dark:text-[#8A8A8A] truncate">
-                              {prop?.location?.estate || prop?.location?.subCounty || 'Kenya'}
-                            </p>
-                          </div>
+
+                          {!notification.read && (
+                            <span className="absolute -right-0.5 -bottom-0.5 w-3 h-3 rounded-full bg-[#8A5A2B] border-2 border-[#F8F3EB] dark:border-black" />
+                          )}
                         </div>
 
-                        <span className="text-[10px] text-neutral-400 dark:text-[#7D7D7D] shrink-0 font-medium">
-                          {formatRelativeTime(enq.date)}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+
+                            <div className="flex min-w-0 items-start gap-2">
+                              <p
+                                className={`min-w-0 text-sm leading-snug ${!notification.read
+                                  ? 'font-semibold text-neutral-950 dark:text-white'
+                                  : 'font-normal text-neutral-500 dark:text-neutral-400'
+                                  }`}
+                              >
+                                {notification.message}
+                              </p>
+
+                              {!notification.read && (
+                                <span
+                                  className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#C49A6C]"
+                                  aria-label="Unread activity"
+                                />
+                              )}
+                            </div>
+
+
+                            <span className="text-[10px] text-neutral-400 whitespace-nowrap pt-0.5">
+                              {formatRelativeTime(
+                                notification.createdAt || notification.time
+                              )}
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-[#8A5A2B] dark:text-[#C49A6C] mt-1.5">
+                            View comment
+                          </p>
+                        </div>
+
+                        <ChevronRight className="w-4 h-4 text-neutral-400 shrink-0 mt-3" />
+                      </button>
+                    );
+                  })}
+
+                {activityNotifications.length === 0 && (
+                  <div className="py-12 text-center">
+                    <p className="text-sm font-semibold text-neutral-900 dark:text-white">
+                      No activity yet
+                    </p>
+
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                      Replies to your property comments will appear here.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {messageTab === 'system' && (
+              <div className="divide-y divide-neutral-200/70 dark:divide-[#292929]">
+
+                <div className="flex items-center justify-between px-1 py-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-[#7D7D7D]">
+                    System Updates
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      systemNotifications
+                        .filter((notification) => !notification.read)
+                        .forEach((notification) =>
+                          markNotificationRead(notification.id)
+                        );
+                    }}
+                    disabled={!systemNotifications.some((notification) => !notification.read)}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#A77745] dark:text-[#CCA177] hover:underline disabled:opacity-40 disabled:cursor-default disabled:no-underline"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Mark all read
+                  </button>
+                </div>
+
+                {[...systemNotifications]
+                  .sort((a, b) => {
+                    const aTime = new Date(a.createdAt || a.time).getTime();
+                    const bTime = new Date(b.createdAt || b.time).getTime();
+                    return bTime - aTime;
+                  })
+                  .map((notification) => (
+                    <button
+                      key={notification.id}
+                      type="button"
+                      onClick={() => markNotificationRead(notification.id)}
+                      className={`w-full px-2 py-4 text-left transition-colors ${!notification.read
+                        ? 'bg-[#FBF6EF] dark:bg-[#15120F]'
+                        : 'bg-transparent'
+                        }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="relative w-10 h-10 rounded-full bg-[#F5EBDD] dark:bg-[#221E1A] flex items-center justify-center shrink-0">
+                          <span className="text-lg">🏠</span>
+
+                          {!notification.read && (
+                            <span className="absolute -right-0.5 -bottom-0.5 w-3 h-3 rounded-full bg-red-600 border-2 border-[#F8F3EB] dark:border-black" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p
+                              className={`text-sm ${!notification.read
+                                ? 'font-bold text-neutral-950 dark:text-white'
+                                : 'font-semibold text-neutral-700 dark:text-neutral-300'
+                                }`}
+                            >
+                              {notification.title}
+                            </p>
+
+                            <span className="text-[10px] text-neutral-400 whitespace-nowrap">
+                              {formatRelativeTime(
+                                notification.createdAt || notification.time
+                              )}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 leading-relaxed">
+                            {notification.message}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+
+                {systemNotifications.length === 0 && (
+                  <div className="py-12 text-center">
+                    <p className="text-sm font-semibold text-neutral-900 dark:text-white">
+                      No system notifications
+                    </p>
+
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                      Rentike updates and important notices will appear here.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+            <div
+              className={`${messageTab === 'inbox' ? 'flex' : 'hidden'
+                } items-center justify-between px-1`}
+            >
+              <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-[#7D7D7D]">
+                All Conversations ({seekerEnquiries.length})
+              </span>
+              <span className="text-[11px] text-neutral-500 dark:text-[#8A8A8A] font-medium">Click to open thread</span>
+            </div>
+
+            <div
+              className={`${messageTab === 'inbox' ? 'block' : 'hidden'
+                } space-y-2.5 max-h-[calc(100vh-14rem)] overflow-y-auto no-scrollbar pr-0.5`}
+            >
+              {seekerEnquiries.length === 0 && (
+                <div className="flex flex-col items-center justify-center text-center py-14 px-6">
+                  <div className="w-14 h-14 rounded-2xl bg-neutral-100 dark:bg-[#181818] flex items-center justify-center mb-4">
+                    <MessageSquare className="w-6 h-6 text-neutral-500 dark:text-neutral-400" />
+                  </div>
+
+                  <h3 className="text-base font-semibold text-neutral-900 dark:text-white">
+                    No enquiries sent yet
+                  </h3>
+
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-2 max-w-[260px] leading-relaxed">
+                    When you find a home you like, contact the lister and your conversations will appear here.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentView('tenant-home')}
+                    className="mt-5 px-5 py-2.5 rounded-xl bg-black dark:bg-white text-white dark:text-black text-xs font-semibold flex items-center gap-2"
+                  >
+                    <Building className="w-4 h-4" />
+                    Discover Vacant Homes
+                  </button>
+                </div>
+              )}
+
+              {messageTab === 'inbox' && seekerEnquiries.length > 0 && (
+                <div className="flex items-center justify-between px-1 py-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-[#7D7D7D]">
+                    Your Conversations
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      seekerEnquiries
+                        .filter((enq) => !enq.readBySeeker)
+                        .forEach((enq) => markEnquiryAsRead(enq.id));
+                    }}
+                    disabled={!seekerEnquiries.some((enq) => !enq.readBySeeker)}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#A77745] dark:text-[#CCA177] hover:underline disabled:opacity-40 disabled:cursor-default disabled:no-underline"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Mark all read
+                  </button>
+                </div>
+              )}
+
+              {seekerEnquiries.length > 0 && sortedEnquiries.map((enq) => {
+                const prop = properties.find((p) => p.id === enq.propertyId);
+
+                const lastMsg =
+                  enq.messages && enq.messages.length > 0
+                    ? enq.messages[enq.messages.length - 1]
+                    : null;
+
+                const listerMessage = [...(enq.messages || [])]
+                  .reverse()
+                  .find((msg) => msg.senderRole === 'lister');
+
+                const listerName =
+                  prop?.lister?.name ||
+                  listerMessage?.senderName ||
+                  'Property Lister';
+
+                const listerAvatar =
+                  prop?.lister?.avatar ||
+                  listerMessage?.senderAvatar;
+
+                const lastMessageTime =
+                  lastMsg?.createdAt ||
+                  enq.createdAt ||
+                  enq.date;
+
+                const isUnread = !enq.readBySeeker;
+
+                return (
+                  <button
+                    key={enq.id}
+                    id={`enquiry-card-${enq.id}`}
+                    type="button"
+                    onClick={() => {
+                      setSelectedEnquiryId(enq.id);
+                      setTargetEnquiryId(null);
+                    }}
+
+                    className={`w-full flex items-center gap-3 px-2 py-4 text-left border-b border-neutral-200/70 dark:border-[#292929] transition-colors ${isUnread
+                      ? 'bg-[#F8F1E8] dark:bg-[#252019] hover:bg-[#F3E8D9] dark:hover:bg-[#30271E]'
+                      : 'bg-transparent hover:bg-[#F8F5EF] dark:hover:bg-[#181818]'
+                      }`}
+
+                  >
+                    {/* Lister Avatar */}
+                    <div className="relative shrink-0">
+                      {listerAvatar ? (
+                        <img
+                          src={listerAvatar}
+                          alt={listerName}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-[#F5EBDD] dark:bg-[#24201B] text-[#8A5A2B] dark:text-[#C49A6C] flex items-center justify-center font-bold">
+                          {listerName.charAt(0)}
+                        </div>
+                      )}
+
+
+
+                    </div>
+
+
+                    {/* Conversation Details */}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3">
+
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className={`truncate text-sm ${isUnread
+                            ? 'font-bold text-neutral-950 dark:text-white'
+                            : 'font-medium text-neutral-600 dark:text-neutral-400'
+                            }`}>
+                            {listerName}
+                          </p>
+
+                          {isUnread && (
+                            <span
+                              className="h-2 w-2 shrink-0 rounded-full bg-[#C49A6C]"
+                              aria-label="Unread enquiry"
+                            />
+                          )}
+                        </div>
+
+
+                        <span className="text-[10px] text-neutral-400 dark:text-neutral-500 shrink-0">
+                          {formatRelativeTime(lastMessageTime)}
                         </span>
                       </div>
 
-                      {/* Last Message Snippet */}
-                      <p className="text-xs text-neutral-600 dark:text-[#A3A3A3] line-clamp-2 leading-relaxed bg-neutral-50 dark:bg-[#181818] p-2 rounded-xl border border-neutral-100 dark:border-[#262626]">
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-0.5">
+                        {enq.propertyName}
+                        {prop?.type && ` · ${prop.type}`}
+                      </p>
+
+                      <p
+                        className={`text-xs truncate mt-1 ${!enq.readBySeeker
+                          ? 'font-semibold text-neutral-900 dark:text-white'
+                          : 'text-neutral-500 dark:text-neutral-400'
+                          }`}
+                      >
                         {lastMsg ? (
                           <>
-                            <strong className="text-neutral-900 dark:text-[#F5F5F5]">
-                              {lastMsg.senderRole === 'lister' ? (prop?.lister?.name || 'Lister') : 'You'}:
-                            </strong>{' '}
+                            {lastMsg.senderRole === 'seeker' ? 'You: ' : ''}
                             {lastMsg.message}
                           </>
                         ) : (
                           enq.message
                         )}
                       </p>
-
-                      <div className="flex items-center justify-between pt-2.5 mt-1 border-t border-neutral-100 dark:border-[#262626] text-[11px]">
-                        <div className="flex items-center gap-1.5">
-                          {hasReplied ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-md border border-emerald-200/60 dark:border-emerald-900/60">
-                              <CheckCircle2 className="w-3 h-3" /> Lister Replied
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-neutral-700 dark:text-[#A3A3A3] font-semibold bg-neutral-100 dark:bg-[#181818] px-2 py-0.5 rounded-md border border-neutral-200 dark:border-[#292929]">
-                              <Clock className="w-3 h-3" /> Awaiting Reply
-                            </span>
-                          )}
-                        </div>
-
-                        <span className="font-bold text-neutral-900 dark:text-[#F5F5F5]">
-                          {prop ? `KSh ${prop.monthlyRent.toLocaleString()}` : ''}
-                        </span>
-                      </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Right Main Column: Active Thread & Quick Reply */}
-            {activeEnquiry && (
-              <div
-                className={`lg:col-span-8 space-y-4 ${highlightActive ? 'animate-pulse ring-2 ring-black dark:ring-white rounded-3xl' : ''
-                  }`}
-              >
-                {/* Mobile Back Button */}
-                <div className="lg:hidden">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedEnquiryId(null)}
-                    className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-[#111111] border border-neutral-200 dark:border-[#303030] rounded-xl text-xs font-bold text-neutral-700 dark:text-[#D5D5D5] shadow-2xs cursor-pointer"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Back to all enquiries</span>
                   </button>
-                </div>
+                );
+              })}
+            </div>
+          </div>
 
-                {/* Property & Lister Header Card */}
-                <div className="bg-white dark:bg-[#111111] rounded-3xl p-5 sm:p-6 border border-neutral-200 dark:border-[#292929] shadow-xs space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-100 dark:border-[#262626]">
-                    <div className="flex items-center gap-3.5">
-                      {relatedProperty?.images?.[0] && (
-                        <img
-                          src={relatedProperty.images[0]}
-                          alt={activeEnquiry.propertyName}
-                          className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border border-neutral-200 dark:border-[#303030] shadow-xs shrink-0"
-                        />
-                      )}
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-base sm:text-lg font-bold text-neutral-950 dark:text-[#F5F5F5] leading-tight">
-                            {activeEnquiry.propertyName}
-                          </h2>
-                          {relatedProperty && (
-                            <span className="text-[10px] font-bold bg-neutral-100 dark:bg-[#1E1E1E] text-neutral-800 dark:text-[#E0E0E0] px-2 py-0.5 rounded-md">
-                              {relatedProperty.type}
-                            </span>
-                          )}
-                        </div>
+          {/* Right Main Column: Active Thread & Quick Reply */}
+          {activeEnquiry && (
+            <div className="lg:col-span-12 flex flex-1 min-h-0 flex-col gap-4 md:flex md:flex-col md:space-y-0 md:gap-4">
 
-                        <p className="text-xs text-neutral-500 dark:text-[#A3A3A3] mt-0.5">
-                          {relatedProperty
-                            ? `${relatedProperty.location.estate}, ${relatedProperty.location.subCounty}, ${relatedProperty.location.county}`
-                            : 'Kenya'}
-                        </p>
+              {/* Compact Property Reference Card */}
+              <div className="bg-white dark:bg-[#111111] rounded-2xl border border-neutral-200 dark:border-[#292929] p-3">
+                <div className="flex items-center gap-3">
 
-                        {relatedProperty && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs font-extrabold text-neutral-950 dark:text-[#F5F5F5]">
-                              KSh {relatedProperty.monthlyRent.toLocaleString()} / mo
-                            </span>
-                            <span className="text-neutral-300 dark:text-[#555555]">•</span>
-                            <span className="text-[11px] text-neutral-600 dark:text-[#8A8A8A]">
-                              {relatedProperty.vacancies} vacancies
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                  {relatedProperty?.images?.[0] && (
+                    <img
+                      src={relatedProperty.images[0]}
+                      alt={activeEnquiry.propertyName}
+                      className="w-16 h-16 rounded-xl object-cover shrink-0"
+                    />
+                  )}
+
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-sm font-bold text-neutral-950 dark:text-white truncate">
+                      {activeEnquiry.propertyName}
+                    </h2>
 
                     {relatedProperty && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedPropertyId(relatedProperty.id);
-                          setCurrentView('property-detail');
-                        }}
-                        className="px-4 py-2.5 bg-neutral-100 dark:bg-[#181818] hover:bg-neutral-200 dark:hover:bg-[#222222] text-neutral-900 dark:text-[#F5F5F5] border border-transparent dark:border-[#303030] text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 self-start sm:self-center cursor-pointer"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>View Listing</span>
-                      </button>
+                      <p className="text-sm font-semibold text-[#9A6A35] dark:text-[#C49A6C] mt-0.5">
+                        KSh {relatedProperty.monthlyRent.toLocaleString()} / month
+                      </p>
                     )}
+
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
+                      {relatedProperty?.type}
+                      {relatedProperty?.location?.estate &&
+                        ` · ${relatedProperty.location.estate}`}
+                      {relatedProperty?.location?.subCounty &&
+                        `, ${relatedProperty.location.subCounty}`}
+                    </p>
                   </div>
 
-                  {/* Lister Contact Info & Direct Actions */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 bg-neutral-50 dark:bg-[#151515] p-3.5 rounded-2xl border border-neutral-200/80 dark:border-[#292929]">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={
-                          relatedProperty?.lister?.avatar ||
-                          'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80'
-                        }
-                        alt={relatedProperty?.lister?.name || 'Property Lister'}
-                        className="w-10 h-10 rounded-full object-cover border border-white dark:border-[#333333] shadow-2xs"
-                      />
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-xs sm:text-sm text-neutral-900 dark:text-[#F5F5F5]">
-                            {relatedProperty?.lister?.name || 'Property Lister'}
-                          </span>
-                          <ShieldCheck className="w-3.5 h-3.5 text-black dark:text-white" />
-                        </div>
-                        <span className="text-[11px] text-neutral-500 dark:text-[#A3A3A3] block">
-                          {relatedProperty?.lister?.type || 'Landlord / Property Owner'}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {relatedProperty?.lister?.phone && (
-                        <a
-                          href={`tel:${relatedProperty.lister.phone}`}
-                          className="px-3.5 py-2 bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 text-white dark:text-black font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs transition-colors"
-                        >
-                          <Phone className="w-3.5 h-3.5" />
-                          <span>Call</span>
-                        </a>
-                      )}
-                      {relatedProperty?.lister?.phone && (
-                        <a
-                          href={`https://wa.me/${relatedProperty.lister.phone.replace(/\D/g, '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3.5 py-2 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-neutral-700 rounded-xl font-semibold flex items-center gap-2 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition"
-                        >
-                          <svg
-                            viewBox="0 0 32 32"
-                            className="w-4 h-4 fill-[#25D366]"
-                            aria-hidden="true"
-                          >
-                            <path d="M16.04 3C9.39 3 4 8.24 4 14.7c0 2.34.7 4.52 1.91 6.35L4 29l8.19-1.86a12.34 12.34 0 0 0 3.85.61C22.69 27.75 28 22.51 28 16.05 28 9.59 22.69 3 16.04 3zm0 21.75c-1.3 0-2.56-.25-3.73-.74l-.27-.11-4.86 1.1 1.16-4.61-.18-.29a9.26 9.26 0 0 1-1.46-5.02c0-5.12 4.21-9.28 9.38-9.28 5.18 0 9.38 4.16 9.38 9.28s-4.2 9.67-9.42 9.67z" />
-                          </svg>
-                          <span>WhatsApp</span>
-                        </a>
-                      )}
-                    </div>
+                  <div className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[#F5EBDD] dark:bg-[#2A2118] px-2.5 py-2 text-[10px] font-semibold text-[#8A5A2B] dark:text-[#C49A6C]">
+                    <span>🔒</span>
+                    <span>Private enquiry</span>
                   </div>
 
-                  {/* Privacy Notice Banner */}
-                  <div className="bg-neutral-100/80 dark:bg-[#181818] px-3.5 py-2.5 rounded-xl border border-neutral-200/60 dark:border-[#292929] flex items-center gap-2 text-[11px] text-neutral-600 dark:text-[#A3A3A3]">
-                    <Info className="w-4 h-4 text-neutral-800 dark:text-[#F5F5F5] shrink-0" />
-                    <span>
-                      <strong className="text-neutral-900 dark:text-[#F5F5F5]">Private Thread:</strong> Messages here are strictly private between you and the lister. They are never published in public reviews or property comments.
-                    </span>
-                  </div>
-                </div>
-
-                {/* Conversation Stream Container */}
-                <div className="bg-white dark:bg-[#111111] rounded-3xl border border-neutral-200 dark:border-[#292929] shadow-xs overflow-hidden flex flex-col">
-                  {/* Messages Feed */}
-                  <div className="p-4 sm:p-6 space-y-4 max-h-[460px] overflow-y-auto bg-neutral-50/50 dark:bg-[#0D0D0D]">
-                    {conversationMessages.map((msg, index) => {
-                      const isSeeker = msg.senderRole === 'seeker';
-                      const isHighlighted = highlightedMessageId === msg.id;
-                      return (
-                        <div
-                          key={msg.id || index}
-                          id={`message-${msg.id}`}
-                          className={`flex gap-3 items-end ${isSeeker ? 'justify-end' : 'justify-start'} transition-all duration-300 ${isHighlighted ? 'scale-[1.01]' : ''
-                            }`}
-                        >
-                          {/* Lister Avatar (Left) */}
-                          {!isSeeker && (
-                            <img
-                              src={
-                                msg.senderAvatar ||
-                                relatedProperty?.lister?.avatar ||
-                                'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80'
-                              }
-                              alt={msg.senderName}
-                              className="w-8 h-8 rounded-full object-cover border border-neutral-200 dark:border-[#303030] shrink-0 mb-1"
-                            />
-                          )}
-
-                          {/* Message Bubble */}
-                          <div
-                            className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 shadow-2xs space-y-1.5 transition-all duration-300 ${isSeeker
-                              ? 'bg-black dark:bg-[#F5F5F5] text-white dark:text-[#111111] rounded-br-xs'
-                              : 'bg-white dark:bg-[#181818] text-neutral-900 dark:text-[#F5F5F5] border border-neutral-200 dark:border-[#303030] rounded-bl-xs'
-                              } ${isHighlighted
-                                ? isSeeker
-                                  ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-white dark:ring-offset-black shadow-md'
-                                  : 'ring-2 ring-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 ring-offset-2 ring-offset-white dark:ring-offset-black shadow-md'
-                                : ''
-                              }`}
-                          >
-                            <div className="flex items-center justify-between gap-3 text-[10px]">
-                              <div className="flex items-center gap-1.5">
-                                <span
-                                  className={`font-bold ${isSeeker
-                                    ? 'text-neutral-300 dark:text-neutral-700'
-                                    : 'text-neutral-900 dark:text-[#F5F5F5]'
-                                    }`}
-                                >
-                                  {isSeeker ? 'You' : msg.senderName}
-                                </span>
-                                {isHighlighted && !isSeeker && (
-                                  <span className="px-1.5 py-0.5 rounded-full bg-emerald-600 text-white font-bold text-[9px] tracking-wide uppercase animate-pulse">
-                                    New Reply
-                                  </span>
-                                )}
-                              </div>
-                              <span
-                                className={`${isSeeker
-                                  ? 'text-neutral-400 dark:text-neutral-500'
-                                  : 'text-neutral-400 dark:text-[#7D7D7D]'
-                                  }`}
-                              >
-                                {formatRelativeTime(msg.createdAt)}
-                              </span>
-                            </div>
-
-                            <p
-                              className={`text-xs sm:text-sm leading-relaxed whitespace-pre-wrap ${isSeeker
-                                ? 'text-neutral-100 dark:text-neutral-900 font-sans'
-                                : 'text-neutral-800 dark:text-[#E0E0E0] font-sans'
-                                }`}
-                            >
-                              {msg.message}
-                            </p>
-                          </div>
-
-                          {/* Seeker Avatar (Right) */}
-                          {isSeeker && (
-                            <div className="w-8 h-8 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-xs shrink-0 mb-1 border border-neutral-700 dark:border-neutral-300">
-                              {msg.senderName?.charAt(0) || 'K'}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    <div ref={messagesEndRef} />
-                  </div>
-
-                  {/* Quick Suggested Replies */}
-                  <div className="px-4 py-2.5 bg-neutral-100/70 dark:bg-[#151515] border-t border-neutral-200 dark:border-[#262626] flex items-center gap-2 overflow-x-auto no-scrollbar">
-                    <span className="text-[11px] font-bold text-neutral-500 dark:text-[#A3A3A3] shrink-0 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-neutral-700 dark:text-[#F5F5F5]" />
-                      Quick:
-                    </span>
-                    {quickReplies.map((q, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleQuickReply(q)}
-                        className="px-3 py-1 bg-white dark:bg-[#1E1E1E] hover:bg-neutral-50 dark:hover:bg-[#262626] text-neutral-700 dark:text-[#E0E0E0] hover:text-black dark:hover:text-white border border-neutral-200 dark:border-[#303030] rounded-full text-xs whitespace-nowrap transition-colors shrink-0 cursor-pointer shadow-2xs"
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Interactive Reply Input Form */}
-                  <form onSubmit={handleSendReply} className="p-4 bg-white dark:bg-[#111111] border-t border-neutral-200 dark:border-[#262626] space-y-3">
-                    <div className="relative">
-                      <textarea
-                        rows={2}
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendReply();
-                          }
-                        }}
-                        placeholder={`Write a private reply to ${relatedProperty?.lister?.name || 'the lister'
-                          }... (Press Enter to send)`}
-                        className="w-full px-4 py-3 bg-neutral-50 dark:bg-[#151515] border border-neutral-200 dark:border-[#303030] rounded-2xl text-xs sm:text-sm text-neutral-900 dark:text-[#F5F5F5] placeholder:text-neutral-400 dark:placeholder:text-[#777777] focus:bg-white dark:focus:bg-[#181818] focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none transition-all resize-none font-sans"
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[11px] text-neutral-400 dark:text-[#7D7D7D] font-medium hidden sm:inline font-sans">
-                        Direct encrypted chat channel
-                      </span>
-
-                      <button
-                        type="submit"
-                        disabled={!replyText.trim() || isSending}
-                        className="px-5 py-2.5 bg-black dark:bg-white hover:bg-neutral-800 dark:hover:bg-neutral-200 disabled:opacity-40 text-white dark:text-black font-bold font-sans rounded-xl text-xs transition-all shadow-sm flex items-center gap-2 ml-auto cursor-pointer"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Send Reply</span>
-                      </button>
-                    </div>
-                  </form>
                 </div>
               </div>
-            )}
-          </div>
-        )}
+
+              {/* Conversation Stream Container */}
+              <div className="bg-transparent dark:bg-[#111111] flex flex-1 min-h-0 flex-col overflow-hidden md:flex md:flex-col md:flex-1">
+                {/* Messages Feed */}
+                <div className="p-4 sm:p-6 space-y-4 flex-1 min-h-0 overflow-y-auto bg-neutral-50/50 dark:bg-[#0D0D0D]">
+                  {conversationMessages.map((msg, index) => {
+                    const isSeeker = msg.senderRole === 'seeker';
+                    const isHighlighted = highlightedMessageId === msg.id;
+                    return (
+                      <div
+                        key={`${msg.id || 'message'}-${index}`}
+                        id={`message-${msg.id || 'message'}-${index}`}
+                        className={`flex gap-3 items-end ${isSeeker ? 'justify-end' : 'justify-start'} transition-all duration-300 ${isHighlighted ? 'scale-[1.01]' : ''
+                          }`}
+                      >
+                        {/* Lister Avatar (Left) */}
+                        {!isSeeker && (
+                          <img
+                            src={
+                              msg.senderAvatar ||
+                              relatedProperty?.lister?.avatar ||
+                              'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=150&q=80'
+                            }
+                            alt={msg.senderName}
+                            className="w-8 h-8 rounded-full object-cover border border-neutral-200 dark:border-[#303030] shrink-0 mb-1"
+                          />
+                        )}
+
+                        {/* Message Bubble */}
+                        <div
+                          className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 shadow-2xs space-y-1.5 transition-all duration-300 ${isSeeker
+                            ? 'bg-[#F3E8DC] dark:bg-[#F5F5F5] text-neutral-900 dark:text-[#111111] rounded-br-md border border-[#EADCCB] dark:border-transparent'
+                            : 'bg-white dark:bg-[#181818] text-neutral-900 dark:text-[#F5F5F5] border border-neutral-200 dark:border-[#303030] rounded-bl-xs'
+                            } ${isHighlighted
+                              ? isSeeker
+                                ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-white dark:ring-offset-black shadow-md'
+                                : 'ring-2 ring-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 ring-offset-2 ring-offset-white dark:ring-offset-black shadow-md'
+                              : ''
+                            }`}
+                        >
+                          <div className="flex items-center justify-between gap-3 text-[10px]">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`font-bold ${isSeeker
+                                  ? 'text-neutral-600 dark:text-neutral-600'
+                                  : 'text-neutral-900 dark:text-[#F5F5F5]'
+                                  }`}
+                              >
+                                {isSeeker ? 'You' : msg.senderName}
+                              </span>
+                              {isHighlighted && !isSeeker && (
+                                <span className="px-1.5 py-0.5 rounded-full bg-emerald-600 text-white font-bold text-[9px] tracking-wide uppercase animate-pulse">
+                                  New Reply
+                                </span>
+                              )}
+                            </div>
+                            <span
+                              className={`${isSeeker
+                                ? 'text-neutral-400 dark:text-neutral-500'
+                                : 'text-neutral-400 dark:text-[#7D7D7D]'
+                                }`}
+                            >
+                              {formatRelativeTime(msg.createdAt)}
+                            </span>
+                          </div>
+
+                          <p
+                            className={`text-xs sm:text-sm leading-relaxed whitespace-pre-wrap ${isSeeker
+                              ? 'text-neutral-900 dark:text-neutral-900 font-sans'
+                              : 'text-neutral-800 dark:text-[#E0E0E0] font-sans'
+                              }`}
+                          >
+                            {msg.message}
+                          </p>
+                        </div>
+
+                        {/* Seeker Avatar (Right) */}
+                        {isSeeker && (
+                          <>
+                            {msg.senderAvatar || currentUser?.avatar ? (
+                              <img
+                                src={msg.senderAvatar || currentUser?.avatar}
+                                alt={msg.senderName || 'Seeker'}
+                                className="w-8 h-8 rounded-full object-cover border border-neutral-200 dark:border-[#383838] shrink-0"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center text-xs font-bold shrink-0">
+                                {msg.senderName?.charAt(0) || 'S'}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+
+
+                {/* Interactive Reply Input Form */}
+                <form
+                  onSubmit={handleSendReply}
+                  className="p-3 bg-white dark:bg-[#111111] border-t border-neutral-200 dark:border-[#292929] shrink-0"
+                >
+                  <div className="flex items-end gap-2 lg:max-w-[750px] lg:mx-auto lg:w-full">
+                    <textarea
+                      rows={1}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendReply(e);
+                        }
+                      }}
+                      placeholder="Type a message..."
+
+                      className="flex-1 min-h-[44px] max-h-[110px] resize-none rounded-2xl border border-[#D9C5AE] bg-[#F3E8DB] px-4 py-3 text-sm font-medium text-[#242424] outline-none placeholder:text-[#806B58] focus:border-[#B88653] dark:border-[#5A4635] dark:bg-[#29231E] dark:text-[#F5F5F5] dark:placeholder:text-[#B8A596]"
+
+                    />
+
+                    <button
+                      type="submit"
+                      disabled={!replyText.trim() || isSending}
+
+                      className="w-11 h-11 shrink-0 flex items-center justify-center rounded-full bg-[#C49A6C] text-[#1F1F1F] shadow-sm transition-colors hover:bg-[#B88955] disabled:cursor-not-allowed disabled:opacity-45 dark:bg-[#C49A6C] dark:text-[#151515]"
+
+                      aria-label="Send message"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+
       </div>
-    </div>
+    </div >
   );
 };

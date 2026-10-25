@@ -1,18 +1,20 @@
-import React, { useMemo } from 'react';
-import { X, SlidersHorizontal, MapPin, Check, RotateCcw } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { X, SlidersHorizontal, MapPin, Check, RotateCcw, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { getCounties, getSubCountiesInCounty, getWardsInSubCounty } from '../utils/kenyaLocations';
-import { KENYA_ESTATE_COORDS } from '../utils/kenyaGeocoding';
+import { KENYA_COUNTY_COORDS, KENYA_SUBCOUNTY_COORDS, KENYA_WARD_COORDS, KENYA_ESTATE_COORDS } from '../utils/kenyaGeocoding';
 import { PropertyType } from '../types';
 
 const PROPERTY_TYPES: PropertyType[] = [
   'Single Room',
+  'Double Room',
   'Bedsitter',
   '1 Bedroom',
   '2 Bedroom',
   '3 Bedroom',
   '4+ Bedroom',
-  'Entire House'
+  'Studio',
+  'Commercial / Shop',
 ];
 
 const AMENITY_OPTIONS = [
@@ -48,9 +50,11 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
     setFilters,
     resetFilters,
     availableProperties,
-    setCurrentView
+    setCurrentView, triggerMapNavigation
   } = useApp();
-
+  const [countyDropdownOpen, setCountyDropdownOpen] = useState(false);
+  const [subCountyDropdownOpen, setSubCountyDropdownOpen] = useState(false);
+  const [wardDropdownOpen, setWardDropdownOpen] = useState(false);
   const isDrawerOpen = isOpen !== undefined ? isOpen : filterDrawerOpen;
   const handleClose = onClose || (() => setFilterDrawerOpen(false));
 
@@ -225,37 +229,146 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
   };
 
   const handleApply = () => {
+    const normalize = (value: string) =>
+      value.trim().toLowerCase().replace(/\s+/g, ' ');
+
+    let target: {
+      lat: number;
+      lng: number;
+      zoom: number;
+      label: string;
+    } | null = null;
+
+    // 1. Estate / Area — most specific
+    if (filters.estate?.trim()) {
+      const estateMatch = Object.values(KENYA_ESTATE_COORDS).find((entry) => {
+        const estateMatches =
+          normalize(entry.estate) === normalize(filters.estate);
+
+        const countyMatches =
+          !filters.county ||
+          normalize(entry.county) === normalize(filters.county);
+
+        const subCountyMatches =
+          !filters.subCounty ||
+          normalize(entry.subCounty) === normalize(filters.subCounty);
+
+        const wardMatches =
+          !filters.ward ||
+          normalize(entry.ward) === normalize(filters.ward);
+
+        return (
+          estateMatches &&
+          countyMatches &&
+          subCountyMatches &&
+          wardMatches
+        );
+      });
+
+      if (estateMatch) {
+        target = {
+          lat: estateMatch.lat,
+          lng: estateMatch.lng,
+          zoom: 16,
+          label: estateMatch.estate,
+        };
+      }
+    }
+
+    // 2. Ward
+    if (!target && filters.county && filters.subCounty && filters.ward) {
+      const wardKey = `${normalize(filters.county)}:${normalize(
+        filters.subCounty
+      )}:${normalize(filters.ward)}`;
+
+      const wardCoords = KENYA_WARD_COORDS[wardKey];
+
+      if (wardCoords) {
+        target = {
+          lat: wardCoords.lat,
+          lng: wardCoords.lng,
+          zoom: 15,
+          label: filters.ward,
+        };
+      }
+    }
+
+    // 3. Sub-county
+    if (!target && filters.county && filters.subCounty) {
+      const subCountyKey = `${normalize(filters.county)}:${normalize(
+        filters.subCounty
+      )}`;
+
+      const subCountyCoords = KENYA_SUBCOUNTY_COORDS[subCountyKey];
+
+      if (subCountyCoords) {
+        target = {
+          lat: subCountyCoords.lat,
+          lng: subCountyCoords.lng,
+          zoom: 13,
+          label: filters.subCounty,
+        };
+      }
+    }
+
+    // 4. County
+    if (!target && filters.county) {
+      const countyCoords = KENYA_COUNTY_COORDS[normalize(filters.county)];
+
+      if (countyCoords) {
+        target = {
+          lat: countyCoords.lat,
+          lng: countyCoords.lng,
+          zoom: 10,
+          label: filters.county,
+        };
+      }
+    }
+
+    if (target) {
+      triggerMapNavigation(
+        target.lat,
+        target.lng,
+        target.zoom,
+        'selection',
+        target.label
+      );
+    }
+
     handleClose();
     setCurrentView('map-explore');
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
+    <div className="fixed inset-0 z-[100] overflow-hidden flex justify-end">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 bg-black/45 backdrop-blur-xs transition-opacity"
         onClick={handleClose}
       />
 
       {/* Drawer Panel */}
       <div
         id="filter-slide-over-panel"
-        className="relative w-full max-w-md bg-white dark:bg-black text-neutral-900 dark:text-neutral-100 h-full shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-200 border-l border-neutral-200 dark:border-neutral-800"
-      >
+        className="relative w-[92%] sm:w-full max-w-md h-full flex flex-col bg-[var(--rentike-bg)] text-[var(--rentike-text)] shadow-[-18px_0_45px_rgba(0,0,0,0.16)] rounded-l-[28px] transition-transform duration-300 ease-out">
         {/* Header */}
-        <div className="px-6 py-5 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between bg-white dark:bg-black sticky top-0 z-20">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-black text-white dark:bg-[#1F1F1F] dark:text-white flex items-center justify-center border border-transparent dark:border-neutral-700">
+        <div className="px-5 py-5 border-b border-[#E7DED2] dark:border-neutral-800 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 shrink-0 rounded-2xl bg-[#F2E7D8] dark:bg-[#24201C] text-[#B8792B] flex items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.06)]">
               <SlidersHorizontal className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-neutral-900 dark:text-[#F5F5F5] tracking-tight">Filter Properties</h2>
-              <p className="text-xs text-neutral-500 dark:text-[#A0A0A0]">Refine search criteria across Kenya</p>
+              <h2 className="font-editorial text-xl font-semibold text-neutral-900 dark:text-[#F5F5F5] leading-tight">
+                Filter Properties
+              </h2>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
+                Refine your search to find the right home
+              </p>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="w-8 h-8 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-900 flex items-center justify-center text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white transition-colors cursor-pointer"
+            className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-[#F2E7D8] dark:hover:bg-[#24201C] hover:text-[#B8792B] transition-colors"
             aria-label="Close filters"
           >
             <X className="w-5 h-5" />
@@ -263,7 +376,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
         </div>
 
         {/* Scrollable Filters Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8 no-scrollbar">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6 space-y-8 no-scrollbar">
           {/* Category 1: Location Hierarchy (County -> Sub-county -> Ward -> Estate / Area) */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
@@ -271,31 +384,63 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
               <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">1. Location Hierarchy</h3>
             </div>
 
-            <div className="space-y-3.5 bg-neutral-50 dark:bg-[#151515] p-4 rounded-xl border border-neutral-200 dark:border-[#303030] text-sm">
+            <div className="space-y-3.5 bg-[#F4EFE7] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.75)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]">
               {/* 1. County */}
               <div>
                 <label htmlFor="filter-county-select" className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">
                   County
                 </label>
-                <select
-                  id="filter-county-select"
-                  value={filters.county}
-                  onChange={(e) => handleCountyChange(e.target.value)}
-                  className="w-full bg-white dark:bg-[#111111] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none cursor-pointer"
-                >
-                  <option value="" className="bg-white dark:bg-[#111111] text-[#111111] dark:text-[#F5F5F5]">
-                    All Counties (Kenya)
-                  </option>
-                  {counties.map((c) => (
-                    <option
-                      key={c.code || c.name}
-                      value={c.name}
-                      className="bg-white dark:bg-[#111111] text-[#111111] dark:text-[#F5F5F5]"
-                    >
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    id="filter-county-select"
+                    type="button"
+                    onClick={() => setCountyDropdownOpen((open) => !open)}
+                    aria-expanded={countyDropdownOpen}
+                    className="w-full flex items-center justify-between rounded-xl bg-[#F8F3EB] dark:bg-[#181818] border border-[#E4D8C8] dark:border-[#2A2A2A] px-4 py-3 text-sm text-neutral-800 dark:text-neutral-100 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.05),inset_-2px_-2px_5px_rgba(255,255,255,0.75)] dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.45),inset_-2px_-2px_5px_rgba(255,255,255,0.03)] focus:outline-none focus:border-[#C49A6C] transition-all"
+                  >
+                    <span>{filters.county || 'All Counties (Kenya)'}</span>
+
+                    <ChevronDown
+                      className={`w-4 h-4 text-[#B8792B] transition-transform ${countyDropdownOpen ? 'rotate-180' : ''
+                        }`}
+                    />
+                  </button>
+
+                  {countyDropdownOpen && (
+                    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-64 overflow-y-auto rounded-2xl border border-[#E4D8C8] dark:border-[#2A2A2A] bg-[#FBF7F1] dark:bg-[#181818] shadow-[0_14px_35px_rgba(0,0,0,0.16)]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleCountyChange('');
+                          setCountyDropdownOpen(false);
+                        }}
+                        className={`w-full px-4 py-3 text-left text-sm ${!filters.county
+                          ? 'bg-[#EAD7BF] text-[#9A5E1F] font-semibold'
+                          : 'text-neutral-800 hover:bg-[#F2E7D8] dark:text-neutral-100 dark:hover:bg-[#24201C]'
+                          }`}
+                      >
+                        All Counties (Kenya)
+                      </button>
+
+                      {counties.map((c) => (
+                        <button
+                          key={c.code || c.name}
+                          type="button"
+                          onClick={() => {
+                            handleCountyChange(c.name);
+                            setCountyDropdownOpen(false);
+                          }}
+                          className={`w-full px-4 py-3 text-left text-sm ${filters.county === c.name
+                            ? 'bg-[#EAD7BF] text-[#9A5E1F] font-semibold'
+                            : 'text-neutral-800 hover:bg-[#F2E7D8] dark:text-neutral-100 dark:hover:bg-[#24201C]'
+                            }`}
+                        >
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 2. Sub-county (Disabled or empty until County is selected) */}
@@ -303,30 +448,71 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
                 <label htmlFor="filter-subcounty-select" className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">
                   Sub-county
                 </label>
-                <select
-                  id="filter-subcounty-select"
-                  disabled={!filters.county}
-                  value={filters.subCounty}
-                  onChange={(e) => handleSubCountyChange(e.target.value)}
-                  className={`w-full border text-sm font-medium rounded-lg px-3 py-2 focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none transition-colors ${
-                    !filters.county
-                      ? 'bg-neutral-100 dark:bg-[#1A1A1A] border-neutral-200 dark:border-[#282828] text-neutral-400 dark:text-neutral-600 cursor-not-allowed'
-                      : 'bg-white dark:bg-[#111111] border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] cursor-pointer'
-                  }`}
-                >
-                  <option value="" className="bg-white dark:bg-[#111111] text-[#111111] dark:text-[#F5F5F5]">
-                    {filters.county ? `All Sub-counties in ${filters.county}` : 'Select County first'}
-                  </option>
-                  {availableSubCounties.map((s) => (
-                    <option
-                      key={s.code || s.name}
-                      value={s.name}
-                      className="bg-white dark:bg-[#111111] text-[#111111] dark:text-[#F5F5F5]"
-                    >
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    id="filter-subcounty-select"
+                    type="button"
+                    disabled={!filters.county}
+                    onClick={() => {
+                      if (filters.county) {
+                        setSubCountyDropdownOpen((open) => !open);
+                      }
+                    }}
+                    aria-expanded={subCountyDropdownOpen}
+                    className={`w-full flex items-center justify-between rounded-xl border px-4 py-3 text-sm transition-all
+      ${filters.county
+                        ? 'bg-[#F8F3EB] dark:bg-[#181818] border-[#E4D8C8] dark:border-[#2A2A2A] text-neutral-800 dark:text-neutral-100 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.05),inset_-2px_-2px_5px_rgba(255,255,255,0.75)]'
+                        : 'bg-[#EFEAE3] dark:bg-[#141414] border-[#E4DED5] dark:border-[#242424] text-neutral-400 cursor-not-allowed'
+                      }`}
+                  >
+                    <span>
+                      {filters.subCounty ||
+                        (filters.county
+                          ? `All Sub-Counties in ${filters.county}`
+                          : 'Select County first')}
+                    </span>
+
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${filters.county ? 'text-[#B8792B]' : 'text-neutral-400'
+                        } ${subCountyDropdownOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+
+                  {subCountyDropdownOpen && filters.county && (
+                    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-64 overflow-y-auto rounded-2xl border border-[#E4D8C8] dark:border-[#2A2A2A] bg-[#FBF7F1] dark:bg-[#181818] shadow-[0_14px_35px_rgba(0,0,0,0.16)]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleSubCountyChange('');
+                          setSubCountyDropdownOpen(false);
+                        }}
+                        className={`w-full px-4 py-3 text-left text-sm ${!filters.subCounty
+                          ? 'bg-[#EAD7BF] text-[#9A5E1F] font-semibold'
+                          : 'text-neutral-800 hover:bg-[#F2E7D8] dark:text-neutral-100 dark:hover:bg-[#24201C]'
+                          }`}
+                      >
+                        All Sub-Counties in {filters.county}
+                      </button>
+
+                      {availableSubCounties.map((s) => (
+                        <button
+                          key={s.code || s.name}
+                          type="button"
+                          onClick={() => {
+                            handleSubCountyChange(s.name);
+                            setSubCountyDropdownOpen(false);
+                          }}
+                          className={`w-full px-4 py-3 text-left text-sm ${filters.subCounty === s.name
+                            ? 'bg-[#EAD7BF] text-[#9A5E1F] font-semibold'
+                            : 'text-neutral-800 hover:bg-[#F2E7D8] dark:text-neutral-100 dark:hover:bg-[#24201C]'
+                            }`}
+                        >
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 3. Ward (Disabled or empty until Sub-county is selected) */}
@@ -334,30 +520,71 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
                 <label htmlFor="filter-ward-select" className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">
                   Ward
                 </label>
-                <select
-                  id="filter-ward-select"
-                  disabled={!filters.subCounty}
-                  value={filters.ward}
-                  onChange={(e) => handleWardChange(e.target.value)}
-                  className={`w-full border text-sm font-medium rounded-lg px-3 py-2 focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none transition-colors ${
-                    !filters.subCounty
-                      ? 'bg-neutral-100 dark:bg-[#1A1A1A] border-neutral-200 dark:border-[#282828] text-neutral-400 dark:text-neutral-600 cursor-not-allowed'
-                      : 'bg-white dark:bg-[#111111] border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] cursor-pointer'
-                  }`}
-                >
-                  <option value="" className="bg-white dark:bg-[#111111] text-[#111111] dark:text-[#F5F5F5]">
-                    {filters.subCounty ? `All Wards in ${filters.subCounty}` : 'Select Sub-county first'}
-                  </option>
-                  {availableWards.map((w) => (
-                    <option
-                      key={w.code || w.name}
-                      value={w.name}
-                      className="bg-white dark:bg-[#111111] text-[#111111] dark:text-[#F5F5F5]"
-                    >
-                      {w.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <button
+                    id="filter-ward-select"
+                    type="button"
+                    disabled={!filters.subCounty}
+                    onClick={() => {
+                      if (filters.subCounty) {
+                        setWardDropdownOpen((open) => !open);
+                      }
+                    }}
+                    aria-expanded={wardDropdownOpen}
+                    className={`w-full flex items-center justify-between rounded-xl border px-4 py-3 text-sm transition-all
+      ${filters.subCounty
+                        ? 'bg-[#F8F3EB] dark:bg-[#181818] border-[#E4D8C8] dark:border-[#2A2A2A] text-neutral-800 dark:text-neutral-100 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.05),inset_-2px_-2px_5px_rgba(255,255,255,0.75)]'
+                        : 'bg-[#EFEAE3] dark:bg-[#141414] border-[#E4DED5] dark:border-[#242424] text-neutral-400 cursor-not-allowed'
+                      }`}
+                  >
+                    <span>
+                      {filters.ward ||
+                        (filters.subCounty
+                          ? `All Wards in ${filters.subCounty}`
+                          : 'Select Sub-county first')}
+                    </span>
+
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${filters.subCounty ? 'text-[#B8792B]' : 'text-neutral-400'
+                        } ${wardDropdownOpen ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+
+                  {wardDropdownOpen && filters.subCounty && (
+                    <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-64 overflow-y-auto rounded-2xl border border-[#E4D8C8] dark:border-[#2A2A2A] bg-[#FBF7F1] dark:bg-[#181818] shadow-[0_14px_35px_rgba(0,0,0,0.16)]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleWardChange('');
+                          setWardDropdownOpen(false);
+                        }}
+                        className={`w-full px-4 py-3 text-left text-sm ${!filters.ward
+                          ? 'bg-[#EAD7BF] text-[#9A5E1F] font-semibold'
+                          : 'text-neutral-800 hover:bg-[#F2E7D8] dark:text-neutral-100 dark:hover:bg-[#24201C]'
+                          }`}
+                      >
+                        All Wards in {filters.subCounty}
+                      </button>
+
+                      {availableWards.map((w) => (
+                        <button
+                          key={w.code || w.name}
+                          type="button"
+                          onClick={() => {
+                            handleWardChange(w.name);
+                            setWardDropdownOpen(false);
+                          }}
+                          className={`w-full px-4 py-3 text-left text-sm ${filters.ward === w.name
+                            ? 'bg-[#EAD7BF] text-[#9A5E1F] font-semibold'
+                            : 'text-neutral-800 hover:bg-[#F2E7D8] dark:text-neutral-100 dark:hover:bg-[#24201C]'
+                            }`}
+                        >
+                          {w.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* 4. Estate / Area */}
@@ -369,17 +596,13 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
                   <input
                     id="filter-estate-input"
                     type="text"
-                    list="estate-suggestions-list"
+
                     value={filters.estate}
                     onChange={(e) => handleEstateChange(e.target.value)}
                     placeholder="e.g. Seasons / Mirema / Kilimani"
-                    className="w-full bg-white dark:bg-[#111111] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] placeholder:text-neutral-400 dark:placeholder:text-neutral-500 rounded-lg px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
+                    className="w-full rounded-xl bg-[#F8F3EB] dark:bg-[#181818] border border-[#E4D8C8] dark:border-[#2A2A2A] px-4 py-3 text-sm text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.05),inset_-2px_-2px_5px_rgba(255,255,255,0.75)] dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.45),inset_-2px_-2px_5px_rgba(255,255,255,0.03)] focus:outline-none focus:border-[#C49A6C] focus:ring-2 focus:ring-[#C49A6C]/20 transition-all"
                   />
-                  <datalist id="estate-suggestions-list">
-                    {availableEstates.map((est) => (
-                      <option key={est} value={est} />
-                    ))}
-                  </datalist>
+
                 </div>
               </div>
             </div>
@@ -388,7 +611,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
           {/* Category 2: Property Type */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">2. Property Type</h3>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 bg-[#F4EFE7] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.75)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]">
               {PROPERTY_TYPES.map((type) => {
                 const active = filters.propertyType === type;
                 return (
@@ -396,11 +619,10 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
                     key={type}
                     type="button"
                     onClick={() => togglePropertyType(type)}
-                    className={`px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all text-left flex items-center justify-between cursor-pointer ${
-                      active
-                        ? 'bg-black text-white border-black dark:bg-white dark:text-black dark:border-white shadow-sm'
-                        : 'bg-white dark:bg-[#151515] text-neutral-800 dark:text-[#F5F5F5] border-neutral-200 dark:border-[#333333] hover:border-neutral-400 dark:hover:border-neutral-600 hover:bg-neutral-50 dark:hover:bg-[#1C1C1C]'
-                    }`}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all text-left flex items-center justify-between ${active
+                      ? 'bg-[var(--rentike-bronze)] border-[var(--rentike-bronze)] text-[#111111] shadow-[0_4px_12px_rgba(196,154,108,0.22)]'
+                      : 'bg-[#F8F3EB] dark:bg-[#181818] text-neutral-800 dark:text-[#F5F5F5] border-[#E4D8C8] dark:border-[#2A2A2A] hover:border-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C]'
+                      }`}
                   >
                     <span>{type}</span>
                     {active && <Check className="w-3.5 h-3.5" />}
@@ -413,51 +635,52 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
           {/* Category 3: Monthly Rent (KSh) */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">3. Monthly Rent (KSh)</h3>
-            
-            {/* Quick Presets */}
-            <div className="flex flex-wrap gap-1.5 pb-1">
-              {RENT_PRESETS.map((preset, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => applyPresetRent(preset.min ?? '', preset.max ?? '')}
-                  className="px-2.5 py-1 text-xs rounded-full border border-neutral-200 dark:border-neutral-800 hover:border-black dark:hover:border-white text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white bg-white dark:bg-[#151515] font-medium transition-colors cursor-pointer"
-                >
-                  {preset.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">Min Rent (KSh)</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-400 dark:text-neutral-500">KSh</span>
-                  <input
-                    type="number"
-                    value={filters.minRent}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, minRent: e.target.value ? Number(e.target.value) : '' }))
-                    }
-                    placeholder="e.g. 5,000"
-                    className="w-full pl-11 pr-3 py-2 bg-white dark:bg-[#111111] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] placeholder:text-neutral-400 dark:placeholder:text-neutral-600 rounded-lg text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                  />
-                </div>
+            <div className="space-y-4 bg-[#F4EFE7] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.75)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]">
+              {/* Quick Presets */}
+              <div className="flex flex-wrap gap-1.5 pb-1">
+                {RENT_PRESETS.map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => applyPresetRent(preset.min ?? '', preset.max ?? '')}
+                    className="px-3 py-2 text-xs rounded-xl border border-[#E4D8C8] dark:border-[#2A2A2A] bg-[#F8F3EB] dark:bg-[#181818] text-neutral-800 dark:text-[#F5F5F5] hover:border-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C] transition-all"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">Max Rent (KSh)</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-400 dark:text-neutral-500">KSh</span>
-                  <input
-                    type="number"
-                    value={filters.maxRent}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, maxRent: e.target.value ? Number(e.target.value) : '' }))
-                    }
-                    placeholder="e.g. 25,000"
-                    className="w-full pl-11 pr-3 py-2 bg-white dark:bg-[#111111] border border-neutral-300 dark:border-[#333333] text-neutral-900 dark:text-[#F5F5F5] placeholder:text-neutral-400 dark:placeholder:text-neutral-600 rounded-lg text-sm font-medium focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none"
-                  />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">Min Rent (KSh)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-400 dark:text-neutral-500">KSh</span>
+                    <input
+                      type="number"
+                      value={filters.minRent}
+                      onChange={(e) =>
+                        setFilters((prev) => ({ ...prev, minRent: e.target.value ? Number(e.target.value) : '' }))
+                      }
+                      placeholder="e.g. 5,000"
+                      className="w-full pl-11 pr-3 py-2 rounded-xl bg-[#F8F3EB] dark:bg-[#181818] border border-[#E4D8C8] dark:border-[#2A2A2A] text-sm text-neutral-800 dark:text-[#F5F5F5] placeholder:text-neutral-400 focus:outline-none focus:border-[var(--rentike-bronze)] focus:ring-2 focus:ring-[var(--rentike-bronze)]/20 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">Max Rent (KSh)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-400 dark:text-neutral-500">KSh</span>
+                    <input
+                      type="number"
+                      value={filters.maxRent}
+                      onChange={(e) =>
+                        setFilters((prev) => ({ ...prev, maxRent: e.target.value ? Number(e.target.value) : '' }))
+                      }
+                      placeholder="e.g. 25,000"
+                      className="w-full pl-11 pr-3 py-2 rounded-xl bg-[#F8F3EB] dark:bg-[#181818] border border-[#E4D8C8] dark:border-[#2A2A2A] text-sm text-neutral-800 dark:text-[#F5F5F5] placeholder:text-neutral-400 focus:outline-none focus:border-[var(--rentike-bronze)] focus:ring-2 focus:ring-[var(--rentike-bronze)]/20 transition-all"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -466,23 +689,22 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
           {/* Category 4: Amenities */}
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">4. Amenities</h3>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 bg-[#F4EFE7] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.75)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]">
               {AMENITY_OPTIONS.map((amenity) => {
                 const checked = filters.amenities.includes(amenity);
                 return (
                   <label
                     key={amenity}
-                    className={`flex items-center gap-2.5 p-2.5 rounded-lg border text-xs font-medium cursor-pointer transition-all ${
-                      checked
-                        ? 'bg-neutral-100 dark:bg-[#222222] border-black dark:border-white text-black dark:text-white font-semibold'
-                        : 'border-neutral-200 dark:border-[#2A2A2A] text-neutral-700 dark:text-[#A0A0A0] hover:border-neutral-300 dark:hover:border-neutral-600 bg-white dark:bg-[#151515]'
-                    }`}
+                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all ${checked
+                      ? 'bg-[var(--rentike-bronze)] border-[var(--rentike-bronze)] text-[#111111]'
+                      : 'bg-[#F8F3EB] dark:bg-[#181818] border-[#E4D8C8] dark:border-[#2A2A2A] text-neutral-800 dark:text-[#F5F5F5] hover:border-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C]'
+                      }`}
                   >
                     <input
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggleAmenity(amenity)}
-                      className="rounded border-neutral-300 dark:border-neutral-700 text-black dark:text-white focus:ring-black dark:focus:ring-white w-4 h-4 accent-black dark:accent-white"
+                      className="rounded border-neutral-300 dark:border-neutral-700 accent-[var(--rentike-bronze)]"
                     />
                     <span>{amenity}</span>
                   </label>
@@ -493,11 +715,11 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
         </div>
 
         {/* Footer Actions */}
-        <div className="p-5 border-t border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black flex items-center gap-3">
+        <div className="p-5 bg-transparent flex items-center gap-3">
           <button
             type="button"
             onClick={resetFilters}
-            className="flex items-center justify-center gap-1.5 px-4 py-3 border border-neutral-300 dark:border-neutral-700 hover:border-neutral-400 dark:hover:border-neutral-500 bg-white dark:bg-[#151515] rounded-xl text-xs font-bold text-neutral-700 dark:text-[#A0A0A0] hover:text-black dark:hover:text-white transition-colors cursor-pointer"
+            className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-[#E4D8C8] dark:border-[#2A2A2A] bg-[#F8F3EB] dark:bg-[#181818] text-neutral-700 dark:text-neutral-200 text-xs font-semibold hover:border-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C] transition-all"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Clear Filters</span>
@@ -506,12 +728,12 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
           <button
             type="button"
             onClick={handleApply}
-            className="flex-1 bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 py-3 px-4 rounded-xl text-sm font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+            className="flex-1 px-4 py-3 rounded-xl bg-[var(--rentike-bronze)] border border-[var(--rentike-bronze)] text-[#111111] text-xs font-semibold shadow-[0_4px_12px_rgba(196,154,108,0.22)] hover:opacity-90 transition-all"
           >
             <span>Show {matchingCount} {matchingCount === 1 ? 'Home' : 'Homes'}</span>
           </button>
         </div>
       </div>
-    </div>
+    </div >
   );
 };

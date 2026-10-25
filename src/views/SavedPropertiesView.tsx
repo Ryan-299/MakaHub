@@ -1,13 +1,19 @@
 import React from 'react';
-import { Heart, ArrowLeft, Search, Building } from 'lucide-react';
+import { Heart, ArrowLeft, Search, Building, Sun, Moon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PropertyCard } from '../components/PropertyCard';
 
 export const SavedPropertiesView: React.FC = () => {
-  const { savedProperties = [], setCurrentView } = useApp();
+  const {
+    savedProperties = [],
+    setCurrentView,
+    resolvedTheme,
+    toggleTheme
+  } = useApp();
+  const isDark = resolvedTheme === 'dark';
 
   return (
-    <div id="saved-properties-view" className="min-h-[calc(100vh-4rem)] bg-white dark:bg-black pb-24 text-neutral-900 dark:text-[#F5F5F5] font-sans transition-colors duration-200">
+    <div id="saved-properties-view" className="min-h-[calc(100vh-4rem)] bg-[#F7F3EC] dark:bg-[#0D0D0D] pb-24 text-neutral-900 dark:text-[#F5F5F5] font-sans transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 space-y-6 sm:space-y-8">
         {/* Header Bar */}
         <div className="flex items-center justify-between pb-4 border-b border-neutral-200 dark:border-[#262626]">
@@ -21,15 +27,39 @@ export const SavedPropertiesView: React.FC = () => {
               <ArrowLeft className="w-4 h-4" />
             </button>
             <div>
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] tracking-tight">
-                Saved Properties
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-editorial font-semibold">
+                <span className="text-neutral-950 dark:text-white">Saved </span>
+                <span className="text-[var(--rentike-bronze)]">Properties</span>
               </h1>
               <p className="text-xs sm:text-sm font-sans text-neutral-500 dark:text-[#A3A3A3] mt-0.5">
                 {savedProperties.length} saved rental {savedProperties.length === 1 ? 'property' : 'properties'}
               </p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="sm:hidden flex items-center rounded-full border border-[#E2D3C2] dark:border-neutral-700 bg-[#F7F3EC] dark:bg-[#151515] p-1 shadow-[4px_4px_10px_rgba(28,22,16,0.10),-4px_-4px_10px_rgba(255,255,255,0.9)] dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)]"
+          >
+            <span
+              className={`w-8 h-8 rounded-full flex items-center justify-center ${!isDark
+                ? 'bg-white text-neutral-600 shadow-sm'
+                : 'text-neutral-500'
+                }`}
+            >
+              <Sun className="w-4 h-4" />
+            </span>
 
+            <span
+              className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark
+                ? 'bg-[#C49A6C] text-white shadow-sm'
+                : 'text-[#B8792B]'
+                }`}
+            >
+              <Moon className="w-4 h-4" />
+            </span>
+          </button>
           <button
             type="button"
             onClick={() => setCurrentView('tenant-home')}

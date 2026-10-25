@@ -65,22 +65,26 @@ export const EstimatedMoveInCost: React.FC<EstimatedMoveInCostProps> = ({ proper
   const totalMoveIn = applicableFees.reduce((sum, item) => sum + item.amount, 0);
 
   return (
-    <div id="estimated-move-in-card" className="bg-neutral-900 dark:bg-[#111111] text-white rounded-3xl p-6 sm:p-7 shadow-xl w-full min-w-0 border border-neutral-800 dark:border-[#292929] transition-colors">
-      <div className="flex items-center justify-between pb-4 border-b border-neutral-800 dark:border-[#262626] gap-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-neutral-800 dark:bg-[#1E1E1E] flex items-center justify-center text-white shrink-0 border border-transparent dark:border-[#333333]">
-            <Calculator className="w-4 h-4" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-2xl sm:text-[26px] font-editorial font-semibold text-white tracking-tight truncate">
-              Estimated Move-In Cost
-            </h3>
-            <p className="text-xs text-neutral-400 font-sans truncate">Total upfront payment required before key handover</p>
-          </div>
+    <div
+      id="estimated-move-in-card"
+      className="bg-[#F7F3EC] dark:bg-[#151515] text-neutral-950 dark:text-[#F5F5F5] rounded-2xl p-5 sm:p-6 border border-[#E7DED2] dark:border-neutral-800 shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)]"
+    >
+      <div className="flex items-start gap-3 pb-5 border-b border-[#E7DED2] dark:border-neutral-800">
+        <div className="w-9 h-9 shrink-0 rounded-xl bg-[#F2E7D8] dark:bg-[#24201C] border border-[#E7DED2] dark:border-neutral-800 flex items-center justify-center text-[var(--rentike-bronze)]">
+          <Calculator className="w-4 h-4" />
         </div>
-        <span className="text-xs font-semibold font-sans px-2.5 py-1 bg-neutral-800 dark:bg-[#1E1E1E] rounded-full text-neutral-300 border border-neutral-700 dark:border-[#333333] shrink-0 hidden sm:inline-block">
-          Kenyan Shillings (KSh)
-        </span>
+
+        <div className="min-w-0">
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--rentike-bronze)] font-sans">
+            Move-In Cost
+          </span>
+
+          <h3 className="mt-1 text-2xl sm:text-[26px] font-editorial font-semibold tracking-tight">
+            Estimated Move-In Cost
+          </h3>
+
+
+        </div>
       </div>
 
       {/* Breakdown Items */}
@@ -91,9 +95,23 @@ export const EstimatedMoveInCost: React.FC<EstimatedMoveInCostProps> = ({ proper
           </div>
         ) : (
           applicableFees.map((fee, idx) => (
-            <div key={idx} className="flex items-center justify-between gap-3 text-neutral-300">
-              <span className="truncate">{fee.label}</span>
-              <span className="font-semibold text-white shrink-0 whitespace-nowrap">
+            <div
+              key={idx}
+              className="flex items-start justify-between gap-3 py-3 border-b border-[#E7DED2] dark:border-neutral-800 last:border-b-0"
+            >
+              <div className="min-w-0">
+                <span className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+                  {fee.label}
+                </span>
+
+                {fee.sublabel && (
+                  <span className="block mt-0.5 text-[10px] text-neutral-500 dark:text-neutral-500">
+                    {fee.sublabel}
+                  </span>
+                )}
+              </div>
+
+              <span className="font-bold text-sm text-neutral-950 dark:text-[#F5F5F5] shrink-0 whitespace-nowrap">
                 KSh {fee.amount.toLocaleString()}
               </span>
             </div>
@@ -102,23 +120,36 @@ export const EstimatedMoveInCost: React.FC<EstimatedMoveInCostProps> = ({ proper
       </div>
 
       {/* Prominent Calculated Total */}
-      <div className="pt-4 border-t border-neutral-800 dark:border-[#262626] flex items-baseline justify-between gap-3">
-        <div className="min-w-0 font-sans">
-          <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 block truncate">
-            Total Move-In Estimate
-          </span>
-          <span className="text-xs text-neutral-500">Payable directly upon lease agreement</span>
-        </div>
-        <div className="text-right shrink-0">
-          <span className="text-3xl sm:text-4xl font-editorial font-semibold text-white tracking-tight">
-            KSh {totalMoveIn.toLocaleString()}
-          </span>
-        </div>
-      </div>
+      <div className="mt-4 pt-4 border-t border-[#E7DED2] dark:border-neutral-800">
 
-      <div className="mt-4 pt-3 border-t border-neutral-800/60 dark:border-[#262626]/80 flex items-center gap-2 text-[11px] font-sans text-neutral-400">
-        <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-        <span>No unofficial viewing fees. Always verify the premises before paying deposits.</span>
+        <div className="rounded-2xl bg-[#F2E7D8]/70 dark:bg-[#1C1917] border border-[#E7DED2] dark:border-neutral-800 p-4">
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400 font-sans">
+            Estimated Total
+          </span>
+
+          <div className="mt-1 flex items-baseline gap-1 font-editorial font-semibold">
+            <span className="text-2xl text-neutral-950 dark:text-[#F5F5F5]">
+              KSh
+            </span>
+
+            <span className="text-3xl sm:text-4xl font-bold text-[var(--rentike-bronze)]">
+              {totalMoveIn.toLocaleString()}
+            </span>
+          </div>
+
+          <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400 font-sans">
+            Estimated amount required before move-in.
+          </p>
+        </div>
+
+        <div className="mt-4 flex items-start gap-2 rounded-xl border border-[#E7DED2] dark:border-neutral-800 bg-white/40 dark:bg-white/[0.03] px-3 py-3">
+          <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+
+          <span className="text-[10px] leading-relaxed text-neutral-600 dark:text-neutral-400 font-sans">
+            Verify all charges and the property before making any payment.
+          </span>
+        </div>
+
       </div>
     </div>
   );

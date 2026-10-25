@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Menu,
   Bell,
+  Sun,
+  Moon,
   User,
   LogOut,
   ChevronDown,
@@ -42,7 +44,8 @@ export const Navbar: React.FC = () => {
     notifications = [],
     markNotificationRead,
     markAllNotificationsRead,
-    resolvedTheme
+    resolvedTheme,
+    toggleTheme
   } = useApp();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -261,12 +264,12 @@ export const Navbar: React.FC = () => {
       {/* 3. NEW SEEKER TOP BAR */}
       <header
         id="makaohub-topbar"
-        className="bg-white dark:bg-black border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-40 transition-colors"
+        className="hidden sm:block bg-[var(--rentike-bg)] border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-40 transition-colors"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-17">
+          <div className="flex items-center justify-between md:justify-end h-16 sm:h-17">
             {/* LEFT SIDE: Hamburger menu icon only */}
-            <div className="flex items-center">
+            <div className="hidden sm:flex md:hidden items-center">
               <button
                 type="button"
                 id="topbar-hamburger-btn"
@@ -280,97 +283,24 @@ export const Navbar: React.FC = () => {
             </div>
 
             {/* RIGHT SIDE: Notification bell + Profile avatar */}
-            <div className="flex items-center gap-2.5 sm:gap-3">
-              {/* Notification Bell */}
-              {currentUser && (
-                <div className="relative" ref={notifRef}>
-                  <button
-                    type="button"
-                    id="topbar-notification-btn"
-                    onClick={() => setNotifOpen(!notifOpen)}
-                    className="relative p-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 dark:hover:border-neutral-700 bg-white dark:bg-neutral-950 text-neutral-700 dark:text-neutral-300 hover:text-black dark:hover:text-white transition-all cursor-pointer"
-                    title="Notifications"
-                    aria-label="Notifications"
-                  >
-                    <Bell className="w-4 h-4 sm:w-4.5 sm:h-4.5" />
-                    {/* Small RED badge with WHITE number */}
-                    {unreadNotificationCount > 0 && (
-                      <span
-                        id="topbar-unread-badge"
-                        className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-extrabold w-4.5 h-4.5 min-w-[18px] rounded-full flex items-center justify-center shadow-xs border-2 border-white dark:border-black animate-pulse"
-                      >
-                        {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
-                      </span>
-                    )}
-                  </button>
 
-                  {/* Notifications Menu Popup */}
-                  {notifOpen && (
-                    <div
-                      id="topbar-notifications-dropdown"
-                      className="fixed sm:absolute top-16 sm:top-full left-3 right-3 sm:left-auto sm:right-0 mt-2 w-auto sm:w-[380px] max-w-[calc(100vw-24px)] sm:max-w-[calc(100vw-32px)] flex flex-col bg-white dark:bg-neutral-950 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-800 z-50 animate-in fade-in zoom-in-95 overflow-hidden"
-                    >
-                      <div className="px-4 py-3 flex items-center justify-between border-b border-neutral-100 dark:border-neutral-800 shrink-0">
-                        <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-300">
-                          Notifications ({notifications.length})
-                        </h4>
-                        {unreadNotificationCount > 0 && (
-                          <button
-                            onClick={markAllNotificationsRead}
-                            className="text-[11px] text-neutral-500 hover:text-black dark:hover:text-white font-semibold cursor-pointer transition-colors"
-                          >
-                            Mark all as read
-                          </button>
-                        )}
-                      </div>
+            <div className="hidden sm:flex items-center gap-2.5 sm:gap-3">
+              <button
+                type="button"
+                id="topbar-theme-toggle-btn"
+                onClick={toggleTheme}
+                title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                aria-label={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                className="w-10 h-10 flex items-center justify-center rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white/70 dark:bg-[#151515] text-neutral-700 dark:text-neutral-300 hover:text-[var(--rentike-bronze)] transition-all"
+              >
+                {isDark ? (
+                  <Sun className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                ) : (
+                  <Moon className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                )}
+              </button>
 
-                      <div className="divide-y divide-neutral-100 dark:divide-neutral-800/60">
-                        {notifications.length === 0 ? (
-                          <div className="p-6 text-center text-xs text-neutral-400">
-                            No notifications yet.
-                          </div>
-                        ) : (
-                          [...notifications]
-                            .sort((a, b) => new Date(b.createdAt || b.time).getTime() - new Date(a.createdAt || a.time).getTime())
-                            .slice(0, 3)
-                            .map((notif) => (
-                              <div
-                                key={notif.id}
-                                onClick={() => handleNotificationClick(notif)}
-                                className={`p-3.5 text-xs hover:bg-neutral-50 dark:hover:bg-neutral-900 cursor-pointer transition-colors ${!notif.read ? 'bg-neutral-50/90 dark:bg-neutral-900/60 font-medium' : ''
-                                  }`}
-                              >
-                                <div className="flex items-center justify-between gap-2 mb-1">
-                                  <span className="font-bold text-neutral-900 dark:text-white truncate">{notif.title}</span>
-                                  <span className="text-[10px] text-neutral-400 shrink-0">{formatRelativeTime(notif.createdAt || notif.time)}</span>
-                                </div>
-                                <p className="text-neutral-600 dark:text-neutral-300 leading-relaxed text-[11px] whitespace-pre-line break-words line-clamp-2">
-                                  {notif.message}
-                                </p>
-                              </div>
-                            ))
-                        )}
-                      </div>
 
-                      {/* Footer: See all notifications */}
-                      {notifications.length > 0 && (
-                        <button
-                          type="button"
-                          id="btn-see-all-notifications"
-                          onClick={() => {
-                            setNotifOpen(false);
-                            setCurrentView('notifications');
-                          }}
-                          className="w-full px-4 py-3 border-t border-neutral-100 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/40 hover:bg-neutral-100 dark:hover:bg-neutral-900 text-xs font-bold text-neutral-900 dark:text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                        >
-                          <span>See all notifications</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Profile Photo / Avatar with Compact Profile Menu (Section 18) */}
               {!currentUser ? (
@@ -509,7 +439,7 @@ export const Navbar: React.FC = () => {
             </div>
           </div>
         </div>
-      </header>
+      </header >
     </>
   );
 };

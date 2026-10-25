@@ -1,10 +1,12 @@
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { useUser, AuthenticateWithRedirectCallback } from '@clerk/react';
 import { useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
+import { MobileNavbar } from './components/MobileNavbar';
 import { Footer } from './components/Footer';
 import { FilterDrawer } from './components/FilterDrawer';
 import { SplashScreen } from './components/SplashScreen';
+import { OfflineScreen } from './components/OfflineScreen';
 import { SsoCallback } from './components/SsoCallback';
 // Views
 import { WelcomeView } from './views/WelcomeView';
@@ -16,8 +18,10 @@ import { ListerPhoneView } from './views/ListerPhoneView';
 import { TenantHomeView } from './views/TenantHomeView';
 import { MapExploreView } from './views/MapExploreView';
 import { PropertyDetailView } from './views/PropertyDetailView';
+import { PublicListerProfileView } from './views/PublicListerProfileView';
 import { SavedPropertiesView } from './views/SavedPropertiesView';
 import { UserProfileView } from './views/UserProfileView';
+import { MyProfileView } from './views/MyProfileView';
 import { ListerDashboardView } from './views/ListerDashboardView';
 import { MyListingsView } from './views/MyListingsView';
 import { AddPropertyView } from './views/AddPropertyView';
@@ -29,6 +33,174 @@ import { NotificationsView } from './views/NotificationsView';
 
 export default function App() {
   const { isLoaded, isSignedIn } = useUser();
+  const isClerkHandshake =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('__clerk_handshake');
+  const [isOnline, setIsOnline] = useState(() =>
+
+
+
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+  const [startupStage, setStartupStage] = useState<0 | 1 | 2>(0);
+  const [hasConnectionTrouble, setHasConnectionTrouble] = useState(false);
+  const [startupFailed, setStartupFailed] = useState(false);
+  const [minimumSplashDone, setMinimumSplashDone] = useState(() => {
+    return sessionStorage.getItem('rentike-splash-shown') === 'true';
+  });
+
+  const startupWasOffline = useRef(
+    typeof navigator !== 'undefined' ? !navigator.onLine : false
+  );
+  const clerkHasLoadedOnce = useRef(false);
+  const splashWasAlreadyShownOnMount = useRef(
+    sessionStorage.getItem('rentike-splash-shown') === 'true'
+  );
+  useEffect(() => {
+    if (isLoaded) {
+      clerkHasLoadedOnce.current = true;
+    }
+  }, [isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      setStartupStage(0);
+      return;
+    }
+
+    setStartupStage(0);
+
+    const checkingTimer = window.setTimeout(() => {
+      setStartupStage(1);
+    }, 2000);
+
+    const slowTimer = window.setTimeout(() => {
+      setStartupStage(2);
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(checkingTimer);
+      window.clearTimeout(slowTimer);
+    };
+  }, [isLoaded]);
+  useEffect(() => {
+    const minimumSplashTimer = window.setTimeout(() => {
+      sessionStorage.setItem('rentike-splash-shown', 'true');
+      setMinimumSplashDone(true);
+    }, 3200);
+    return () => {
+      window.clearTimeout(minimumSplashTimer);
+    };
+  }, []);
+  useEffect(() => {
+    if (isLoaded) {
+
+      setStartupFailed(false);
+      return;
+    }
+
+    const failureTimer = window.setTimeout(() => {
+      if (navigator.onLine && !hasConnectionTrouble) {
+        setStartupFailed(true);
+      }
+    }, 20000);
+    return () => {
+      window.clearTimeout(failureTimer);
+    };
+  }, [isLoaded, hasConnectionTrouble]);
+  useEffect(() => {
+    const handleStartupOffline = () => {
+      if (!isLoaded) {
+        startupWasOffline.current = true;
+      }
+    };
+
+    const handleStartupRecovery = () => {
+      if (!isLoaded && startupWasOffline.current) {
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener('offline', handleStartupOffline);
+    window.addEventListener('online', handleStartupRecovery);
+
+    return () => {
+      window.removeEventListener('offline', handleStartupOffline);
+      window.removeEventListener('online', handleStartupRecovery);
+    };
+  }, [isLoaded]);
+  useEffect(() => {
+    let cancelled = false;
+
+    const checkConnection = async () => {
+      if (!navigator.onLine) {
+        if (!cancelled) {
+          setIsOnline(false);
+          setHasConnectionTrouble(false);
+        }
+        return;
+      }
+
+      const controller = new AbortController();
+
+      const timeoutId = window.setTimeout(() => {
+        controller.abort();
+      }, 8000);
+
+      try {
+        await fetch(
+          `https://www.gstatic.com/generate_204?rentike=${Date.now()}`,
+          {
+            mode: 'no-cors',
+            cache: 'no-store',
+            signal: controller.signal,
+          }
+        );
+
+        window.clearTimeout(timeoutId);
+
+        if (!cancelled) {
+          setIsOnline(true);
+          setHasConnectionTrouble(false);
+        }
+      } catch {
+        window.clearTimeout(timeoutId);
+
+        if (!cancelled) {
+          if (!navigator.onLine) {
+            setIsOnline(false);
+            setHasConnectionTrouble(false);
+          } else {
+            setIsOnline(true);
+            setHasConnectionTrouble(true);
+          }
+        }
+      }
+    };
+
+    const handleOnline = () => {
+      checkConnection();
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      setHasConnectionTrouble(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    checkConnection();
+
+    const interval = window.setInterval(checkConnection, 5000);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      window.clearInterval(interval);
+    };
+  }, []);
   const {
     currentView,
     currentUser,
@@ -38,6 +210,7 @@ export default function App() {
     showSplashScreen,
     setShowSplashScreen,
     resolvedTheme,
+    desktopSidebarExpanded,
     runAdminDemo,
     setAdminActiveTab
   } = useApp();
@@ -177,10 +350,15 @@ export default function App() {
         return <MapExploreView />;
       case 'property-detail':
         return <PropertyDetailView />;
+      case 'public-lister-profile':
+        return <PublicListerProfileView />;
       case 'saved':
         return <SavedPropertiesView />;
       case 'profile':
         return <UserProfileView />;
+
+      case 'my-profile':
+        return <MyProfileView />;
       case 'lister-dashboard':
         return <ListerDashboardView />;
       case 'my-listings':
@@ -214,9 +392,223 @@ export default function App() {
   const handleSplashComplete = useCallback(() => {
     setShowSplashScreen(false);
   }, [setShowSplashScreen]);
+  if (!isOnline && showSplashScreen) {
+    return (
+      <>
+        <SplashScreen
+          isOpen={true}
+          theme={resolvedTheme}
+          durationMs={1500}
+          onComplete={handleSplashComplete}
+        />
+
+        <div
+          className="fixed z-[100000] left-1/2 -translate-x-1/2 flex flex-col items-center"
+          style={{ top: '67%' }}
+        >
+          <div
+            className="w-7 h-7 rounded-full animate-spin"
+            style={{
+              border: '2px solid rgba(196, 154, 108, 0.22)',
+              borderTopColor: '#C49A6C',
+              borderRightColor: '#C49A6C',
+            }}
+          />
+
+          <p
+            style={{
+              marginTop: '10px',
+              fontSize: '0.55rem',
+              letterSpacing: '0.22em',
+              fontWeight: 500,
+              color: '#C49A6C',
+            }}
+          >
+            CHECKING CONNECTION
+          </p>
+        </div>
+      </>
+    );
+  }
+
+  if (!isOnline) {
+    if (hasConnectionTrouble) {
+      return (
+        <div
+          className="fixed inset-0 z-[99999] w-screen h-screen flex flex-col items-center justify-center px-6 text-center"
+          style={{
+            backgroundColor: resolvedTheme === 'dark' ? '#000000' : '#F7F5F1',
+          }}
+        >
+          <div
+            className="w-8 h-8 rounded-full animate-spin"
+            style={{
+              border: '2px solid rgba(196, 154, 108, 0.22)',
+              borderTopColor: '#C49A6C',
+              borderRightColor: '#C49A6C',
+            }}
+          />
+
+          <h1
+            className="mt-7 font-semibold"
+            style={{
+              fontSize: '1.15rem',
+              letterSpacing: '0.12em',
+              color: resolvedTheme === 'dark' ? '#FFFFFF' : '#111111',
+            }}
+          >
+            HAVING TROUBLE CONNECTING
+          </h1>
+
+          <p
+            className="mt-3 max-w-[280px]"
+            style={{
+              fontSize: '0.72rem',
+              lineHeight: 1.7,
+              color: resolvedTheme === 'dark' ? '#A3A3A3' : '#666666',
+            }}
+          >
+            Please check your internet connection.
+          </p>
+
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-7 px-7 py-3 rounded-full"
+            style={{
+              backgroundColor: '#C49A6C',
+              color: '#000000',
+              fontSize: '0.65rem',
+              letterSpacing: '0.16em',
+              fontWeight: 600,
+            }}
+          >
+            TRY AGAIN
+          </button>
 
 
-  if (!isLoaded || (isSignedIn && currentView === 'welcome')) {
+        </div>
+      );
+    }
+    return (
+      <OfflineScreen
+        theme={resolvedTheme}
+        onRetry={() => {
+          if (navigator.onLine) {
+            window.location.reload();
+          }
+        }}
+      />
+    );
+  }
+  if (startupFailed) {
+    return (
+      <div
+        className="fixed inset-0 z-[99999] w-screen h-screen flex flex-col items-center justify-center px-6 text-center"
+        style={{
+          backgroundColor: resolvedTheme === 'dark' ? '#000000' : '#F7F5F1',
+        }}
+      >
+        <h1
+          className="font-semibold"
+          style={{
+            fontSize: '1.15rem',
+            letterSpacing: '0.12em',
+            color: resolvedTheme === 'dark' ? '#FFFFFF' : '#111111',
+          }}
+        >
+          SOMETHING WENT WRONG
+        </h1>
+
+        <p
+          className="mt-3 max-w-[280px]"
+          style={{
+            fontSize: '0.72rem',
+            lineHeight: 1.7,
+            color: resolvedTheme === 'dark' ? '#A3A3A3' : '#666666',
+          }}
+        >
+          Rentike couldn&apos;t start properly.
+        </p>
+
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-7 px-7 py-3 rounded-full"
+          style={{
+            backgroundColor: '#C49A6C',
+            color: '#000000',
+            fontSize: '0.65rem',
+            letterSpacing: '0.16em',
+            fontWeight: 600,
+          }}
+        >
+          TRY AGAIN
+        </button>
+      </div>
+    );
+  }
+  if (
+    (!isLoaded &&
+      !clerkHasLoadedOnce.current &&
+      !splashWasAlreadyShownOnMount.current) ||
+    !minimumSplashDone
+  ) {
+    return (
+      <>
+        <SplashScreen
+          isOpen={true}
+          theme={resolvedTheme}
+          durationMs={60000}
+          onComplete={() => { }}
+        />
+
+
+        {startupStage > 0 && (
+          <div
+            className="fixed z-[100000] left-1/2 -translate-x-1/2 flex flex-col items-center"
+            style={{ top: '67%' }}
+          >
+            <div
+              className="w-7 h-7 rounded-full animate-spin"
+              style={{
+                border: '2px solid rgba(196, 154, 108, 0.22)',
+                borderTopColor: '#C49A6C',
+                borderRightColor: '#C49A6C',
+              }}
+            />
+
+            <p
+              style={{
+                marginTop: '10px',
+                fontSize: '0.55rem',
+                letterSpacing: '0.22em',
+                fontWeight: 500,
+                color: '#C49A6C',
+              }}
+            >
+              {startupStage === 1
+                ? 'CHECKING CONNECTION'
+                : 'TAKING LONGER THAN USUAL'}
+            </p>
+          </div>
+        )}
+
+
+      </>
+    );
+  }
+  if (isClerkHandshake) {
+    return (
+      <div
+        className="min-h-[100dvh] w-full"
+        style={{
+          backgroundColor:
+            resolvedTheme === 'dark' ? '#000000' : '#F7F5F1',
+        }}
+      />
+    );
+  }
+
+  if (isSignedIn && currentView === 'welcome') {
     return (
       <div
         className="min-h-screen w-full"
@@ -227,14 +619,9 @@ export default function App() {
     );
   }
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-black font-sans antialiased text-neutral-900 dark:text-neutral-100 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900 transition-colors duration-200">
-      {/* Theme-Aware Opening Splash Screen */}
-      <SplashScreen
+    <div className="min-h-screen flex flex-col font-sans antialiased text-neutral-900 dark:text-neutral-100 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900 transition-colors duration-200">
 
-        isOpen={showSplashScreen && isLoaded && !isSignedIn}
-        theme={resolvedTheme}
-        onComplete={handleSplashComplete}
-      />
+
 
       {/* Main Top Header - hidden on Auth pages */}
       {!['welcome', 'signup', 'login', 'role-selection', 'lister-subtype'].includes(currentView) && <Navbar />}
@@ -246,12 +633,33 @@ export default function App() {
       />
 
       {/* Main Dynamic View Screen */}
-      <div className="flex-1 w-full min-w-0">
+
+      <div
+        className={`flex-1 w-full min-w-0 transition-[padding] duration-300 ${desktopSidebarExpanded ? 'md:pl-72' : 'md:pl-28'
+          }`}
+      >
         {renderView()}
       </div>
 
-      {/* Footer with credit - hidden on Auth pages */}
-      {!['welcome', 'signup', 'login', 'role-selection', 'lister-subtype'].includes(currentView) && <Footer />}
+
+      <MobileNavbar />
+
+      {/* Footer with sidebar-aware spacing */}
+      {![
+        'welcome',
+        'signup',
+        'login',
+        'role-selection',
+        'lister-subtype'
+      ].includes(currentView) && (
+          <div
+            className={`w-full min-w-0 transition-[padding] duration-300 ${desktopSidebarExpanded ? 'md:pl-72' : 'md:pl-28'
+              }`}
+          >
+            <Footer />
+          </div>
+        )}
+
     </div>
   );
 }

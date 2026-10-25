@@ -15,7 +15,12 @@ import {
   User,
   Sparkles,
   Info,
-  AlertCircle
+  AlertCircle,
+  Sun,
+  Moon,
+  Heart,
+  Star,
+  MessageCircle,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ListerEnquiry } from '../types';
@@ -26,21 +31,74 @@ export const ListerEnquiriesView: React.FC = () => {
     setCurrentView,
     setSelectedPropertyId,
     properties = [],
+    users,
+    reviews = [],
     sendEnquiryReply,
     markEnquiryAsRead,
     targetEnquiryId,
     setTargetEnquiryId,
     targetMessageId,
-    setTargetMessageId
+    setTargetMessageId,
+    messageTab,
+    setMessageTab,
+    notifications,
+    markNotificationRead,
+    currentUser,
+    resolvedTheme,
+    toggleTheme
   } = useApp();
+  const isDark = resolvedTheme === 'dark';
 
   const [searchQuery, setSearchQuery] = useState('');
+
+  const systemNotifications = notifications
+
+    .filter(
+      (notification) =>
+        (notification.recipientUserId || notification.userId) === currentUser?.id &&
+        ['system', 'approval', 'rejection', 'flag'].includes(notification.type)
+    )
+
+    .sort((a, b) => {
+      const aTime = new Date(a.createdAt || a.time).getTime();
+      const bTime = new Date(b.createdAt || b.time).getTime();
+      return bTime - aTime;
+    });
+
+  const activityNotifications = notifications
+    .filter((notification) =>
+      (notification.recipientUserId || notification.userId) === currentUser?.id
+    )
+
+    .filter((notification) =>
+      notification.type === 'activity' ||
+      (notification.type === 'review' &&
+        ['Property Saved', 'New Property Rating', 'New Property Comment'].includes(notification.title))
+    )
+
+    .sort((a, b) => {
+      const aTime = new Date(a.createdAt || a.time).getTime();
+      const bTime = new Date(b.createdAt || b.time).getTime();
+      return bTime - aTime;
+    });
+
   const [selectedEnquiryId, setSelectedEnquiryId] = useState<string | null>(() => {
     if (targetEnquiryId && listerEnquiries.some((e) => e.id === targetEnquiryId)) {
       return targetEnquiryId;
     }
-    return listerEnquiries[0]?.id || null;
+    return null;
   });
+
+  useEffect(() => {
+    const isChatOpen =
+      selectedEnquiryId !== null && messageTab === 'inbox';
+
+    document.body.classList.toggle('rentike-lister-chat-open', isChatOpen);
+
+    return () => {
+      document.body.classList.remove('rentike-lister-chat-open');
+    };
+  }, [selectedEnquiryId, messageTab]);
 
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -48,17 +106,18 @@ export const ListerEnquiriesView: React.FC = () => {
   const [highlightActive, setHighlightActive] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
+
   // Sync if targetEnquiryId changes
   useEffect(() => {
     if (targetEnquiryId && listerEnquiries.some((e) => e.id === targetEnquiryId)) {
       setSelectedEnquiryId(targetEnquiryId);
       setHighlightActive(true);
+
       const timer = setTimeout(() => setHighlightActive(false), 2500);
       return () => clearTimeout(timer);
-    } else if (!selectedEnquiryId && listerEnquiries.length > 0) {
-      setSelectedEnquiryId(listerEnquiries[0].id);
     }
   }, [targetEnquiryId, listerEnquiries]);
+
 
   // Filtered list
   const filteredEnquiries = listerEnquiries.filter((enq) => {
@@ -86,12 +145,10 @@ export const ListerEnquiriesView: React.FC = () => {
 
     return bTime - aTime;
   });
-  // Find active enquiry
+
   const activeEnquiry =
-    sortedEnquiries.find((e) => e.id === selectedEnquiryId) ||
-    listerEnquiries.find((e) => e.id === selectedEnquiryId) ||
-    sortedEnquiries[0] ||
-    null;
+    listerEnquiries.find((e) => e.id === selectedEnquiryId) || null;
+
 
   // Mark as read when active enquiry changes
   useEffect(() => {
@@ -194,50 +251,414 @@ export const ListerEnquiriesView: React.FC = () => {
   ];
 
   return (
-    <div id="lister-enquiries-view" className="min-h-[calc(100vh-4rem)] bg-white dark:bg-black pb-24 text-neutral-900 dark:text-[#F5F5F5] font-sans transition-colors duration-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 space-y-6">
+
+    <div
+      id="lister-enquiries-view"
+      className={`${activeEnquiry && messageTab === 'inbox'
+        ? 'fixed inset-0 z-[10000] overflow-y-auto bg-[#F8F5EF] dark:bg-[#151515] md:static md:z-auto md:min-h-[calc(100vh-4rem)] md:overflow-visible md:pb-24'
+        : 'min-h-[calc(100vh-4rem)] bg-[#F8F5EF] dark:bg-[#151515] pb-24'
+        } text-neutral-900 dark:text-[#F5F5F5] font-sans transition-colors duration-200`}
+    >
+
+
+
+      <div
+        className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${activeEnquiry && messageTab === 'inbox'
+          ? 'h-full pt-3 flex flex-col gap-0 md:h-auto md:block md:pt-8 md:space-y-6'
+          : 'pt-6 sm:pt-8 space-y-6'
+          }`}
+      >
+
+
         {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-[#262626]">
+
+        <div className={`${activeEnquiry && messageTab === 'inbox' ? 'hidden' : 'flex'} flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200 dark:border-[#262626]`}>
+
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              id="back-to-dashboard-btn"
-              onClick={() => setCurrentView('lister-dashboard')}
-              className="p-2.5 rounded-xl border border-neutral-200 dark:border-[#303030] hover:border-black dark:hover:border-white text-neutral-600 dark:text-[#F5F5F5] hover:text-black bg-white dark:bg-[#111111] transition-colors cursor-pointer shadow-2xs"
-              title="Back to Lister Dashboard"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] tracking-tight">
-                  Seeker Enquiries & Leads
-                </h1>
-                <span className="text-[11px] font-bold uppercase tracking-wider bg-black dark:bg-white text-white dark:text-black px-2.5 py-0.5 rounded-full font-sans">
-                  Lister Inbox
+
+
+
+            <div className="flex w-full items-center justify-between gap-3">
+              <h1 className="text-2xl font-bold text-neutral-950 dark:text-white">
+                Messages
+              </h1>
+
+              <button
+                type="button"
+                onClick={toggleTheme}
+                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                className="ml-auto shrink-0 flex lg:hidden items-center rounded-full p-1 border border-[#E2D3C2] dark:border-neutral-700 bg-[#F7F3EC] dark:bg-[#181818] shadow-[4px_4px_10px_rgba(0,0,0,0.12),-3px_-3px_9px_rgba(255,255,255,0.85)] dark:shadow-[4px_4px_10px_rgba(0,0,0,0.6)] transition-colors"
+              >
+                <span className={`w-8 h-8 rounded-full flex items-center justify-center ${!isDark ? 'bg-white text-neutral-600 shadow-sm' : 'text-neutral-500'}`}>
+                  <Sun className="w-4 h-4" />
                 </span>
-              </div>
-              <p className="text-xs sm:text-sm font-sans text-neutral-500 dark:text-[#A3A3A3] mt-0.5">
-                {listerEnquiries.length} prospective tenants reached out regarding your listings
-              </p>
+                <span className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark ? 'bg-[#292929] text-[#C49A6C] shadow-sm' : 'text-[#946B46]'}`}>
+                  <Moon className="w-4 h-4" />
+                </span>
+              </button>
             </div>
+
+
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCurrentView('my-listings')}
-              className="px-4 py-2 bg-white dark:bg-[#111111] border border-neutral-200 dark:border-[#303030] hover:border-black dark:hover:border-white text-neutral-800 dark:text-[#F5F5F5] text-xs font-bold font-sans rounded-xl transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <Building className="w-3.5 h-3.5" />
-              <span>Manage Listings</span>
-            </button>
-          </div>
+
         </div>
 
-        {/* Empty State */}
+
+
+
+
+
+        <div className={`${activeEnquiry && messageTab === 'inbox' ? 'hidden' : 'grid'} grid-cols-3 gap-1.5 p-1.5 rounded-2xl bg-[#F1EBE3] dark:bg-[#151515] border border-[#E2D3C2] dark:border-[#303030]`}>
+
+
+          {(['inbox', 'activity', 'system'] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setMessageTab(tab)}
+              className={`py-2.5 rounded-xl text-xs font-semibold transition-all ${messageTab === tab
+                ? 'text-[var(--rentike-bronze)] bg-[#F8F3EB] dark:bg-[#1B1B1B] shadow-[4px_4px_8px_rgba(174,150,125,0.22),-3px_-3px_7px_rgba(255,255,255,0.95)] dark:shadow-[4px_4px_8px_rgba(0,0,0,0.65),-3px_-3px_7px_rgba(255,255,255,0.045)]'
+                : 'text-neutral-600 dark:text-neutral-300'
+                }`}
+            >
+
+              <span className="inline-flex items-center justify-center gap-1.5">
+                {tab === 'inbox' ? 'Enquiries' : tab === 'activity' ? 'Activity' : 'System'}
+
+                {tab === 'inbox' &&
+                  listerEnquiries.filter((enq) => !enq.readByLister).length > 0 && (
+                    <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-bold inline-flex items-center justify-center">
+                      {listerEnquiries.filter((enq) => !enq.readByLister).length}
+                    </span>
+                  )}
+
+                {tab === 'activity' &&
+                  activityNotifications.filter((notification) => !notification.read).length > 0 && (
+                    <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center">
+                      {activityNotifications.filter((notification) => !notification.read).length}
+                    </span>
+                  )}
+
+                {tab === 'system' &&
+                  systemNotifications.filter((notification) => !notification.read).length > 0 && (
+                    <span className="min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[9px] font-bold inline-flex items-center justify-center">
+                      {systemNotifications.filter((notification) => !notification.read).length}
+                    </span>
+                  )}
+              </span>
+
+            </button>
+          ))}
+        </div>
+
+        {/* Activity Notifications */}
+        {messageTab === 'activity' && (
+          <div className="divide-y divide-[#E7DED2] dark:divide-[#292929]">
+
+            <div className="flex items-center justify-between px-1 py-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-[#7D7D7D]">
+                Property Activity
+              </span>
+
+              <button
+                type="button"
+                onClick={() => {
+                  activityNotifications
+                    .filter((notification) => !notification.read)
+                    .forEach((notification) =>
+                      markNotificationRead(notification.id)
+                    );
+                }}
+                disabled={!activityNotifications.some((notification) => !notification.read)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#A77745] dark:text-[#CCA177] hover:underline disabled:opacity-40 disabled:cursor-default disabled:no-underline"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Mark all read
+              </button>
+            </div>
+
+            {activityNotifications.length === 0 ? (
+              <div className="px-5 py-16 text-center">
+                <Heart className="mx-auto mb-3 h-7 w-7 text-[#C49A6C]" />
+                <p className="text-sm font-semibold text-[#242424] dark:text-[#F5F5F5]">
+                  No property activity yet
+                </p>
+                <p className="mt-1 text-xs text-[#806B58] dark:text-[#B8A596]">
+                  Property saves and comments will appear here.
+                </p>
+              </div>
+            ) : (
+              activityNotifications.map((notification) => (
+                <button
+                  key={notification.id}
+                  type="button"
+                  onClick={() => {
+                    markNotificationRead(notification.id);
+                    if (notification.targetPropertyId) {
+                      setSelectedPropertyId(notification.targetPropertyId);
+                      setCurrentView('property-detail');
+                    }
+                  }}
+
+                  className={`flex w-full items-start gap-3 px-4 py-4 text-left transition-colors ${!notification.read
+                    ? 'bg-[#F8F1E8] dark:bg-[#252019] hover:bg-[#F3E8D9] dark:hover:bg-[#30271E]'
+                    : 'bg-transparent hover:bg-[#F8F5EF] dark:hover:bg-[#181818]'
+                    }`}
+
+                >
+
+                  <span className="relative flex h-11 w-11 shrink-0 items-center justify-center">
+                    {(() => {
+
+                      const actor = users.find(
+                        (user) => user.id === notification.actorUserId
+                      );
+
+                      const actorEnquiry = listerEnquiries.find(
+                        (enq) => enq.seekerId === notification.actorUserId
+                      );
+
+                      const actorReview = reviews.find(
+                        (review) =>
+                          (notification.targetReviewId &&
+                            review.id === notification.targetReviewId) ||
+                          (notification.actorUserId &&
+                            review.authorId === notification.actorUserId &&
+                            review.propertyId === notification.targetPropertyId)
+                      );
+
+                      const actorAvatar =
+                        actorReview?.authorAvatar ||
+                        actor?.avatar ||
+                        actorEnquiry?.seekerAvatar;
+
+                      const actorName =
+                        actorReview?.authorName ||
+                        actor?.name ||
+                        actorEnquiry?.seekerName;
+
+
+
+                      return actorAvatar ? (
+                        <img
+                          src={actorAvatar}
+                          alt={actorName || 'User'}
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#EEE4D7] dark:bg-[#24201B]">
+                          {actorName?.charAt(0).toUpperCase() || '?'}
+                        </span>
+                      );
+
+                    })()}
+
+                    <span className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-white dark:border-[#151515] dark:bg-[#151515]">
+
+                      {notification.title === 'New Property Rating' ? (
+                        <Star className="h-3 w-3 fill-[#FACC15] text-[#FACC15]" />
+                      ) : notification.title === 'New Property Comment' ? (
+                        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#C49A6C]">
+                          <MessageCircle className="h-2.5 w-2.5 fill-white text-white" />
+                        </span>
+                      ) : (
+                        <Heart className="h-3 w-3 fill-[#DC2626] text-[#DC2626]" />
+                      )}
+
+                    </span>
+                  </span>
+
+
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-start justify-between gap-2">
+
+                      <span className="flex min-w-0 items-start gap-2">
+                        <span className={`min-w-0 text-sm ${notification.read
+                          ? 'font-normal text-[#806B58] dark:text-[#B8A596]'
+                          : 'font-semibold text-[#242424] dark:text-[#F5F5F5]'
+                          }`}>
+                          {notification.message}
+                        </span>
+
+                        {!notification.read && (
+                          <span
+                            className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#C49A6C]"
+                            aria-label="Unread activity"
+                          />
+                        )}
+                      </span>
+
+                      <span className="shrink-0 text-[10px] text-[#806B58] dark:text-[#B8A596]">
+                        {formatRelativeTime(notification.createdAt || notification.time)}
+                      </span>
+                    </span>
+
+
+
+                    {notification.targetPropertyId && (
+                      <span className="mt-2 inline-block text-xs font-semibold text-[#A77745] dark:text-[#C49A6C]">
+                        View Property →
+                      </span>
+                    )}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* System Notifications */}
+        {messageTab === 'system' && (
+          <div className="divide-y divide-neutral-200/70 dark:divide-[#292929]">
+
+            <div className="flex items-center justify-between px-1 py-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 dark:text-[#7D7D7D]">
+                System Updates
+              </span>
+
+              <button
+                type="button"
+                onClick={() => {
+                  systemNotifications
+                    .filter((notification) => !notification.read)
+                    .forEach((notification) =>
+                      markNotificationRead(notification.id)
+                    );
+                }}
+                disabled={!systemNotifications.some((notification) => !notification.read)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#A77745] dark:text-[#CCA177] hover:underline disabled:opacity-40 disabled:cursor-default disabled:no-underline"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Mark all read
+              </button>
+            </div>
+
+
+            {systemNotifications.map((notification) => {
+              const title = notification.title.toLowerCase();
+
+              const isApproved = title.includes('approv');
+              const isRejected = title.includes('reject');
+              const isFlagged =
+                title.includes('flag') || notification.type === 'flag';
+              const isWelcome = title.includes('welcome');
+              const isSecurity =
+                title.includes('password') ||
+                title.includes('email changed') ||
+                title.includes('phone changed');
+              const isPayment =
+                title.includes('payment') ||
+                title.includes('subscription');
+
+              const canManageListing =
+                !!notification.targetPropertyId &&
+                (isApproved || isRejected || isFlagged);
+
+              const iconStyles = isApproved
+                ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400'
+                : isRejected
+                  ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400'
+                  : isFlagged
+                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
+                    : isSecurity
+                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400'
+                      : isPayment
+                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400'
+                        : 'bg-[#F2E7D8] text-[#A77745] dark:bg-[#30251D] dark:text-[#CCA177]';
+
+              return (
+                <button
+                  key={notification.id}
+                  type="button"
+                  onClick={() => {
+                    markNotificationRead(notification.id);
+
+                    if (canManageListing) {
+                      setCurrentView('my-listings');
+                    }
+                  }}
+                  className={`w-full text-left px-3 py-4 transition-colors hover:bg-[#F3ECE2] dark:hover:bg-[#211D19] ${!notification.read
+                    ? 'bg-[#F8F1E8] dark:bg-[#252019]'
+                    : 'bg-transparent'
+                    }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconStyles}`}
+                    >
+                      {isApproved ? (
+                        <CheckCircle2 className="h-5 w-5" />
+                      ) : isRejected ? (
+                        <AlertCircle className="h-5 w-5" />
+                      ) : isFlagged ? (
+                        <AlertCircle className="h-5 w-5" />
+                      ) : isSecurity ? (
+                        <ShieldCheck className="h-5 w-5" />
+                      ) : isWelcome ? (
+                        <Sparkles className="h-5 w-5" />
+                      ) : isPayment ? (
+                        <Info className="h-5 w-5" />
+                      ) : (
+                        <Info className="h-5 w-5" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p
+                          className={`text-sm text-neutral-900 dark:text-[#F5F5F5] ${!notification.read
+                            ? 'font-bold'
+                            : 'font-medium'
+                            }`}
+                        >
+                          {notification.title}
+                        </p>
+
+                        <div className="flex shrink-0 items-center gap-2">
+                          {!notification.read && (
+                            <span className="h-2 w-2 rounded-full bg-[#B98A5A]" />
+                          )}
+
+                          <span className="text-[10px] text-neutral-400 dark:text-neutral-500">
+                            {formatRelativeTime(notification.createdAt || notification.time)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="mt-1 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
+                        {notification.message}
+                      </p>
+
+                      {canManageListing && (
+                        <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#A77745] dark:text-[#CCA177]">
+                          Manage Listing
+                          <span aria-hidden="true">→</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+
+            {systemNotifications.length === 0 && (
+              <div className="py-12 text-center">
+                <p className="text-sm font-semibold text-neutral-900 dark:text-white">
+                  No system notifications
+                </p>
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  Listing approvals, subscription updates and important Rentike notices will appear here.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+
         {listerEnquiries.length === 0 ? (
-          <div className="bg-white dark:bg-[#111111] rounded-3xl p-12 text-center border border-neutral-200 dark:border-[#2A2A2A] max-w-xl mx-auto space-y-5 shadow-xs my-8 font-sans">
+          <div className="bg-transparent dark:bg-transparent rounded-none p-12 text-center border border-neutral-200 dark:border-[#2A2A2A] max-w-xl mx-auto space-y-5 shadow-xs my-8 font-sans">
             <div className="w-16 h-16 rounded-3xl bg-neutral-100 dark:bg-[#181818] border border-neutral-200 dark:border-[#303030] flex items-center justify-center mx-auto text-neutral-700 dark:text-[#F5F5F5]">
               <MessageSquare className="w-8 h-8" />
             </div>
@@ -258,9 +679,9 @@ export const ListerEnquiriesView: React.FC = () => {
           </div>
         ) : (
           /* Master-Detail Enquiries Layout */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start font-sans">
+          <div className={`grid grid-cols-1 lg:grid-cols-12 gap-6 font-sans ${messageTab === 'inbox' ? (activeEnquiry ? 'flex-1 min-h-0 items-stretch lg:h-[calc(100dvh-120px)]' : 'items-start') : 'hidden'}`}>
             {/* Left Sidebar: Leads List */}
-            <div className={`lg:col-span-4 space-y-3 ${activeEnquiry ? 'hidden lg:block' : 'block'}`}>
+            <div className={`space-y-3 ${activeEnquiry ? 'hidden' : 'col-span-1 lg:col-span-12 block'}`}>
               {/* Search Bar */}
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3.5 top-3 text-neutral-400 dark:text-[#7D7D7D]" />
@@ -277,12 +698,30 @@ export const ListerEnquiriesView: React.FC = () => {
                 <span className="text-xs font-bold uppercase tracking-wider text-neutral-400 dark:text-[#7D7D7D]">
                   Received Leads ({filteredEnquiries.length})
                 </span>
-                <span className="text-[11px] text-neutral-500 dark:text-[#A3A3A3] font-medium">Click to chat</span>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    listerEnquiries
+                      .filter((enq) => !enq.readByLister)
+                      .forEach((enq) => markEnquiryAsRead(enq.id));
+                  }}
+                  disabled={!listerEnquiries.some((enq) => !enq.readByLister)}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#A77745] dark:text-[#CCA177] hover:underline disabled:opacity-40 disabled:cursor-default disabled:no-underline"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Mark all read
+                </button>
+
               </div>
 
               <div className="space-y-2.5 max-h-[calc(100vh-16rem)] overflow-y-auto no-scrollbar pr-0.5">
                 {sortedEnquiries.map((enq) => {
                   const isSelected = enq.id === activeEnquiry?.id;
+
+
+                  const isUnread = !enq.readByLister;
+
                   const prop = properties.find((p) => p.id === enq.propertyId);
                   const lastMsg =
                     enq.messages && enq.messages.length > 0
@@ -291,6 +730,7 @@ export const ListerEnquiriesView: React.FC = () => {
                   const isReplied = enq.status === 'Replied' || (enq.messages && enq.messages.some((m) => m.senderRole === 'lister'));
 
                   return (
+
                     <div
                       key={enq.id}
                       id={`lister-enquiry-card-${enq.id}`}
@@ -298,61 +738,64 @@ export const ListerEnquiriesView: React.FC = () => {
                         setSelectedEnquiryId(enq.id);
                         setTargetEnquiryId(null);
                       }}
-                      className={`p-4 rounded-2xl border transition-all cursor-pointer text-left relative ${isSelected
-                        ? 'bg-white dark:bg-[#151515] border-black dark:border-white ring-2 ring-black/10 dark:ring-white/10 shadow-md'
-                        : 'bg-white dark:bg-[#111111] border-neutral-200 dark:border-[#2A2A2A] hover:border-neutral-400 dark:hover:border-[#444444] hover:shadow-xs'
-                        } ${targetEnquiryId === enq.id ? 'ring-2 ring-emerald-500 bg-emerald-50/20 dark:bg-emerald-950/20' : ''}`}
+
+                      className={`flex items-center gap-3 px-2 py-4 border-b border-neutral-200/70 dark:border-[#292929] cursor-pointer transition-colors ${isSelected
+                        ? 'bg-[#F5EFE7] dark:bg-[#1B1B1B]'
+                        : isUnread
+                          ? 'bg-[#F8F1E8] dark:bg-[#252019]'
+                          : 'hover:bg-[#F8F5EF] dark:hover:bg-[#181818]'
+                        }`}
+
                     >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-10 h-10 rounded-xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-sm shrink-0">
-                            {enq.seekerName.charAt(0)}
-                          </div>
-                          <div className="overflow-hidden">
-                            <h4 className="font-bold text-xs sm:text-sm text-neutral-900 dark:text-[#F5F5F5] truncate">
+
+                      {enq.seekerAvatar ? (
+                        <img
+                          src={enq.seekerAvatar}
+                          alt={enq.seekerName}
+                          className="w-11 h-11 shrink-0 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-11 h-11 shrink-0 rounded-full bg-[#EEE4D7] dark:bg-[#24201B] flex items-center justify-center text-sm font-semibold text-[#8B6B43] dark:text-[#C49A6C]">
+                          {enq.seekerName.charAt(0)}
+                        </div>
+                      )}
+
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+
+                          <div className="flex min-w-0 items-center gap-2">
+                            <h4 className={`truncate text-sm ${isUnread
+                              ? 'font-bold text-neutral-950 dark:text-white'
+                              : 'font-medium text-neutral-600 dark:text-neutral-400'
+                              }`}>
                               {enq.seekerName}
                             </h4>
-                            <p className="text-[11px] text-neutral-500 dark:text-[#A3A3A3] truncate">
-                              For: <strong className="text-neutral-800 dark:text-[#E0E0E0]">{enq.propertyName}</strong>
-                            </p>
+
+                            {isUnread && (
+                              <span
+                                className="h-2 w-2 shrink-0 rounded-full bg-[#C49A6C]"
+                                aria-label="Unread enquiry"
+                              />
+                            )}
                           </div>
+
+
+                          <span className="shrink-0 text-[10px] text-neutral-400">
+                            {formatRelativeTime(lastMsg?.createdAt || enq.date)}
+                          </span>
                         </div>
 
-                        <span className="text-[10px] text-neutral-400 dark:text-[#7D7D7D] shrink-0">
-                          {formatRelativeTime(enq.date)}
-                        </span>
-                      </div>
+                        <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
+                          {enq.propertyName}
+                        </p>
 
-                      {/* Last Message Snippet */}
-                      <p className="text-xs text-neutral-600 dark:text-[#A3A3A3] line-clamp-2 leading-relaxed bg-neutral-50 dark:bg-[#181818] p-2 rounded-xl border border-neutral-100 dark:border-[#262626]">
-                        {lastMsg ? (
-                          <>
-                            <strong className="text-neutral-900 dark:text-[#F5F5F5]">
-                              {lastMsg.senderRole === 'lister' ? 'You' : enq.seekerName}:
-                            </strong>{' '}
-                            {lastMsg.message}
-                          </>
-                        ) : (
-                          enq.message
-                        )}
-                      </p>
+                        <p className="mt-1 truncate text-xs text-neutral-600 dark:text-neutral-300">
+                          {lastMsg
+                            ? `${lastMsg.senderRole === 'lister' ? 'You: ' : ''}${lastMsg.message}`
+                            : enq.message}
+                        </p>
 
-                      <div className="flex items-center justify-between pt-2.5 mt-1 border-t border-neutral-100 dark:border-[#262626] text-[11px]">
-                        <div className="flex items-center gap-1.5">
-                          {isReplied ? (
-                            <span className="inline-flex items-center gap-1 text-neutral-700 dark:text-[#A3A3A3] font-bold bg-neutral-100 dark:bg-[#181818] px-2 py-0.5 rounded-md">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Replied
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-black dark:text-white font-bold bg-neutral-100 dark:bg-[#181818] px-2 py-0.5 rounded-md border border-black/20 dark:border-white/20">
-                              <Clock className="w-3 h-3" /> Needs Reply
-                            </span>
-                          )}
-                        </div>
-
-                        <span className="text-neutral-500 dark:text-[#7D7D7D] font-mono text-[11px]">
-                          {enq.seekerPhone}
-                        </span>
                       </div>
                     </div>
                   );
@@ -360,90 +803,78 @@ export const ListerEnquiriesView: React.FC = () => {
               </div>
             </div>
 
+
             {/* Right Main Column: Active Lead Thread */}
             {activeEnquiry && (
+
               <div
-                className={`lg:col-span-8 space-y-4 ${highlightActive ? 'animate-pulse ring-2 ring-black dark:ring-white rounded-3xl' : ''
+                className={`col-span-1 lg:col-span-12 flex flex-1 min-h-0 flex-col gap-3 lg:h-full ${highlightActive
+                  ? 'animate-pulse ring-2 ring-black dark:ring-white rounded-3xl'
+                  : ''
                   }`}
+
               >
-                {/* Mobile Back Button */}
-                <div className="lg:hidden">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedEnquiryId(null)}
-                    className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-[#111111] border border-neutral-200 dark:border-[#303030] rounded-xl text-xs font-bold text-neutral-700 dark:text-[#F5F5F5] shadow-2xs cursor-pointer"
-                  >
-                    <ArrowLeft className="w-3.5 h-3.5" />
-                    <span>Back to all leads</span>
-                  </button>
-                </div>
+
 
                 {/* Seeker Info & Property Context Card */}
-                <div className="bg-white dark:bg-[#111111] rounded-3xl p-5 sm:p-6 border border-neutral-200 dark:border-[#2A2A2A] shadow-xs space-y-4">
-                  {/* Seeker Profile & Quick Call/SMS */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-100 dark:border-[#262626]">
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-13 h-13 rounded-2xl bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-lg shadow-2xs shrink-0">
-                        {activeEnquiry.seekerName.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-base sm:text-lg font-bold text-neutral-950 dark:text-[#F5F5F5] leading-tight">
-                            {activeEnquiry.seekerName}
-                          </h2>
-                          <span className="text-[10px] font-bold bg-neutral-100 dark:bg-[#181818] text-neutral-800 dark:text-[#CCCCCC] px-2 py-0.5 rounded-md">
-                            Prospective Tenant
-                          </span>
-                        </div>
 
-                        <p className="text-xs text-neutral-500 dark:text-[#A3A3A3] mt-0.5">
-                          Enquired on {activeEnquiry.date || 'Recently'}
+                <div className="bg-transparent dark:bg-transparent rounded-none p-0 border-0 shadow-none space-y-3">
+
+
+                  {/* Compact Seeker Chat Header */}
+                  <div className="flex items-center justify-between gap-3 border-b border-neutral-200 dark:border-[#303030] pb-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEnquiryId(null)}
+                        aria-label="Back to enquiries"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-neutral-700 hover:bg-neutral-100 dark:text-neutral-200 dark:hover:bg-[#292929]"
+                      >
+                        <ArrowLeft className="h-5 w-5" />
+                      </button>
+                      {activeEnquiry.seekerAvatar ? (
+                        <img
+                          src={activeEnquiry.seekerAvatar}
+                          alt={activeEnquiry.seekerName}
+                          className="h-10 w-10 shrink-0 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EEE4D7] text-sm font-semibold text-[#8B6B43] dark:bg-[#24201B] dark:text-[#C49A6C]">
+                          {activeEnquiry.seekerName.charAt(0)}
+                        </div>
+                      )}
+
+                      <div className="min-w-0">
+                        <h2 className="truncate text-sm font-semibold text-neutral-950 dark:text-white">
+                          {activeEnquiry.seekerName}
+                        </h2>
+                        <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
+                          {activeEnquiry.propertyName}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
-
-                      {/* CALL */}
-                      <a
-                        href={`tel:${activeEnquiry.seekerPhone}`}
-                        className="px-4 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-xl font-semibold flex items-center gap-2 hover:opacity-90 transition"
-                      >
-                        <Phone className="w-3.5 h-3.5" />
-                        <span>Call</span>
-                      </a>
-
-                      {/* WHATSAPP */}
-                      <a
-                        href={`https://wa.me/${activeEnquiry.seekerPhone.replace(/\D/g, '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2.5 bg-white dark:bg-[#181818] border border-neutral-300 dark:border-neutral-700 rounded-xl font-semibold flex items-center gap-2 hover:bg-neutral-50 dark:hover:bg-neutral-900 transition"
-                      >
-                        <svg
-                          viewBox="0 0 32 32"
-                          className="w-4 h-4 fill-[#25D366]"
-                          aria-hidden="true"
-                        >
-                          <path d="M16.04 3C9.39 3 4 8.24 4 14.7c0 2.34.7 4.52 1.91 6.35L4 29l8.19-1.86a12.34 12.34 0 0 0 3.85.61C22.69 27.75 28 22.51 28 16.05 28 9.59 22.69 3 16.04 3zm0 21.75c-1.3 0-2.56-.25-3.73-.74l-.27-.11-4.86 1.1 1.16-4.61-.18-.29a9.26 9.26 0 0 1-1.46-5.02c0-5.12 4.21-9.28 9.38-9.28 5.18 0 9.38 4.16 9.38 9.28s-4.2 9.67-9.42 9.67zm5.14-6.96c-.28-.14-1.66-.81-1.92-.9-.26-.09-.45-.14-.64.14-.19.28-.73.9-.9 1.08-.17.19-.33.21-.61.07-.28-.14-1.19-.43-2.26-1.38-.84-.73-1.4-1.64-1.57-1.92-.17-.28-.02-.43.13-.57.13-.13.28-.33.42-.5.14-.17.19-.28.28-.47.09-.19.05-.35-.02-.5-.07-.14-.64-1.53-.88-2.1-.23-.55-.47-.48-.64-.49h-.55c-.19 0-.5.07-.76.35-.26.28-1 1-1 2.43s1.04 2.82 1.19 3.01c.14.19 2.05 3.1 4.97 4.35.69.3 1.23.48 1.65.61.69.22 1.32.19 1.82.12.56-.08 1.66-.67 1.9-1.32.23-.65.23-1.2.16-1.32-.07-.12-.26-.19-.54-.33z" />
-                        </svg>
-                        <span>WhatsApp</span>
-                      </a>
-
-
-
-                    </div>
+                    <a
+                      href={`tel:${activeEnquiry.seekerPhone}`}
+                      aria-label={`Call ${activeEnquiry.seekerName}`}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#F3E8DB] text-[#946B46] dark:bg-[#24201B] dark:text-[#C49A6C]"
+                    >
+                      <Phone className="h-4 w-4" />
+                    </a>
                   </div>
+
 
                   {/* Property Reference Bar */}
                   {relatedProperty && (
-                    <div className="flex items-center justify-between gap-3 bg-neutral-50 dark:bg-[#181818] p-3.5 rounded-2xl border border-neutral-200/80 dark:border-[#262626]">
+
+                    <div className="flex w-full min-w-0 items-center justify-between gap-3 rounded-2xl border border-[#E7DED2] bg-white px-3 py-3 shadow-sm transition-colors dark:border-[#33302C] dark:bg-[#1B1B1B] sm:px-4">
+
                       <div className="flex items-center gap-3 overflow-hidden">
                         {relatedProperty.images?.[0] && (
                           <img
                             src={relatedProperty.images[0]}
                             alt={relatedProperty.name}
-                            className="w-11 h-11 rounded-xl object-cover border border-neutral-200 dark:border-[#303030] shrink-0"
+                            className="h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-xl object-cover border border-[#E7DED2] dark:border-[#33302C]"
                           />
                         )}
                         <div className="overflow-hidden">
@@ -470,19 +901,16 @@ export const ListerEnquiriesView: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Privacy Notice Banner */}
-                  <div className="bg-neutral-100/80 dark:bg-[#181818] px-3.5 py-2.5 rounded-xl flex items-center gap-2 text-[11px] text-neutral-600 dark:text-[#A3A3A3]">
-                    <Info className="w-4 h-4 text-neutral-800 dark:text-[#F5F5F5] shrink-0" />
-                    <span>
-                      <strong>Private Lead:</strong> This inquiry conversation is completely private between you and {activeEnquiry.seekerName}. It will never appear on public reviews or listing pages.
-                    </span>
-                  </div>
+
                 </div>
 
                 {/* Conversation Stream Container */}
-                <div className="bg-white dark:bg-[#111111] rounded-3xl border border-neutral-200 dark:border-[#2A2A2A] shadow-xs overflow-hidden flex flex-col">
-                  {/* Messages Feed */}
-                  <div className="p-4 sm:p-6 space-y-4 max-h-[460px] overflow-y-auto bg-neutral-50/50 dark:bg-[#0D0D0D]">
+
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-0 bg-transparent shadow-none">
+
+
+                  <div className="flex-1 min-h-0 overflow-y-auto space-y-3 px-3 py-4 sm:px-5 sm:py-5 bg-[#FAF9F6] dark:bg-[#151515]">
+
                     {conversationMessages.map((msg, index) => {
                       const isLister = msg.senderRole === 'lister';
                       const isHighlighted = highlightedMessageId === msg.id;
@@ -493,33 +921,43 @@ export const ListerEnquiriesView: React.FC = () => {
                           className={`flex gap-3 items-end ${isLister ? 'justify-end' : 'justify-start'} transition-all duration-300 ${isHighlighted ? 'scale-[1.01]' : ''
                             }`}
                         >
-                          {/* Seeker Avatar (Left) */}
+
                           {!isLister && (
-                            <div className="w-8 h-8 rounded-full bg-neutral-900 dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-xs shrink-0 mb-1 border border-neutral-700 dark:border-neutral-300">
-                              {msg.senderName?.charAt(0) || 'K'}
-                            </div>
+                            activeEnquiry.seekerAvatar ? (
+                              <img
+                                src={activeEnquiry.seekerAvatar}
+                                alt={activeEnquiry.seekerName}
+                                className="h-8 w-8 shrink-0 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EEE4D7] text-xs font-semibold text-[#8B6B43] dark:bg-[#24201B] dark:text-[#C49A6C]">
+                                {msg.senderName?.charAt(0) || 'F'}
+                              </div>
+                            )
                           )}
+
 
                           {/* Message Bubble */}
                           <div
-                            className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 shadow-2xs space-y-1.5 transition-all duration-300 ${isLister
-                              ? 'bg-black dark:bg-[#F5F5F5] text-white dark:text-[#111111] rounded-br-xs'
-                              : 'bg-white dark:bg-[#181818] text-neutral-900 dark:text-[#F5F5F5] border border-neutral-200 dark:border-[#303030] rounded-bl-xs'
+
+                            className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-3 py-3 space-y-1.5 border transition-all ${isLister
+
+                              ? 'bg-[#F3E8DB] dark:bg-[#33281F] text-[#242424] dark:text-[#F5F5F5] border-transparent rounded-br-sm'
+                              : 'bg-white dark:bg-[#202020] text-[#242424] dark:text-[#F5F5F5] border-[#ECE8E2] dark:border-[#333333] rounded-bl-sm'
+
                               } ${isHighlighted
-                                ? isLister
-                                  ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-white dark:ring-offset-black shadow-md'
-                                  : 'ring-2 ring-emerald-600 dark:ring-emerald-400 bg-emerald-50/60 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 ring-offset-2 ring-offset-white dark:ring-offset-black shadow-md'
+                                ? 'ring-2 ring-emerald-400'
                                 : ''
                               }`}
+
                           >
-                            <div className="flex items-center justify-between gap-3 text-[10px]">
+                            <div className="flex items-center justify-between gap-3 pt-2 md:pt-0 text-[10px]">
                               <div className="flex items-center gap-1.5">
-                                <span
-                                  className={`font-bold ${isLister ? 'text-neutral-300 dark:text-neutral-700' : 'text-neutral-900 dark:text-[#F5F5F5]'
-                                    }`}
-                                >
-                                  {isLister ? 'You (Lister)' : msg.senderName}
+
+                                <span className="font-semibold text-[#242424] dark:text-[#F5F5F5]">
+                                  {isLister ? 'You' : msg.senderName}
                                 </span>
+
                                 {isHighlighted && !isLister && (
                                   <span className="px-1.5 py-0.5 rounded-full bg-emerald-600 text-white font-bold text-[9px] tracking-wide uppercase animate-pulse">
                                     New Message
@@ -534,10 +972,7 @@ export const ListerEnquiriesView: React.FC = () => {
                               </span>
                             </div>
 
-                            <p
-                              className={`text-xs sm:text-sm leading-relaxed whitespace-pre-wrap ${isLister ? 'text-neutral-100 dark:text-neutral-900' : 'text-neutral-800 dark:text-[#D5D5D5]'
-                                }`}
-                            >
+                            <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words text-[#242424] dark:text-[#F5F5F5]">
                               {msg.message}
                             </p>
                           </div>
@@ -560,62 +995,50 @@ export const ListerEnquiriesView: React.FC = () => {
                     <div ref={messagesEndRef} />
                   </div>
 
-                  {/* Quick Suggested Replies */}
-                  <div className="px-4 py-2.5 bg-neutral-100/70 dark:bg-[#151515] border-t border-neutral-200 dark:border-[#262626] flex items-center gap-2 overflow-x-auto no-scrollbar">
-                    <span className="text-[11px] font-bold text-neutral-500 dark:text-[#7D7D7D] shrink-0 flex items-center gap-1">
-                      <Sparkles className="w-3 h-3 text-neutral-700 dark:text-[#F5F5F5]" />
-                      Quick:
-                    </span>
-                    {quickReplies.map((q, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleQuickReply(q)}
-                        className="px-3 py-1 bg-white dark:bg-[#181818] hover:bg-neutral-50 dark:hover:bg-[#222222] text-neutral-700 dark:text-[#D5D5D5] hover:text-black dark:hover:text-white border border-neutral-200 dark:border-[#303030] rounded-full text-xs whitespace-nowrap transition-colors shrink-0 cursor-pointer shadow-2xs"
-                      >
-                        {q}
-                      </button>
-                    ))}
-                  </div>
 
                   {/* Interactive Reply Input Form */}
-                  <form onSubmit={handleSendReply} className="p-4 bg-white dark:bg-[#111111] border-t border-neutral-200 dark:border-[#262626] space-y-3">
-                    <div className="relative">
-                      <textarea
-                        rows={2}
-                        value={replyText}
-                        onChange={(e) => setReplyText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
+
+                  <form
+                    onSubmit={handleSendReply}
+                    className="flex shrink-0 items-center gap-2 lg:max-w-[750px] lg:mx-auto lg:w-full border-t border-[#E7DED2] bg-white px-3 py-2 dark:border-[#303030] dark:bg-[#151515]"
+                  >
+                    <textarea
+                      rows={1}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          if (replyText.trim() && !isSending) {
                             handleSendReply();
                           }
-                        }}
-                        placeholder={`Write a private reply to ${activeEnquiry.seekerName}... (Press Enter to send)`}
-                        className="w-full px-4 py-3 bg-neutral-50 dark:bg-[#181818] border border-neutral-200 dark:border-[#303030] rounded-2xl text-xs sm:text-sm text-neutral-900 dark:text-[#F5F5F5] placeholder:text-neutral-400 dark:placeholder:text-[#7D7D7D] focus:bg-white dark:focus:bg-[#151515] focus:ring-2 focus:ring-black dark:focus:ring-white focus:outline-none transition-all resize-none"
-                      />
-                    </div>
+                        }
+                      }}
+                      placeholder="Type a message..."
+                      aria-label="Type a message"
 
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-[11px] text-neutral-400 dark:text-[#7D7D7D] font-medium hidden sm:inline">
-                        Instant notification delivered to {activeEnquiry.seekerName}
-                      </span>
+                      className="min-h-[44px] max-h-28 min-w-0 flex-1 resize-none rounded-2xl border border-[#D9C5AE] bg-[#F3E8DB] px-4 py-3 text-sm font-medium text-[#242424] outline-none placeholder:text-[#806B58] focus:border-[#B88653] dark:border-[#5A4635] dark:bg-[#29231E] dark:text-[#F5F5F5] dark:placeholder:text-[#B8A596]"
 
-                      <button
-                        type="submit"
-                        disabled={!replyText.trim() || isSending}
-                        className="px-5 py-2.5 bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-neutral-200 disabled:opacity-40 font-bold rounded-xl text-xs transition-all shadow-sm flex items-center gap-2 ml-auto cursor-pointer"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Send Reply</span>
-                      </button>
-                    </div>
+                    />
+
+                    <button
+                      type="submit"
+                      disabled={!replyText.trim() || isSending}
+                      aria-label="Send message"
+
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#C49A6C] text-[#1F1F1F] shadow-sm transition-colors hover:bg-[#B88955] disabled:cursor-not-allowed disabled:opacity-45 dark:bg-[#C49A6C] dark:text-[#151515]"
+
+                    >
+                      <Send className="h-4 w-4" />
+                    </button>
                   </form>
+
                 </div>
               </div>
             )}
           </div>
         )}
+
       </div>
     </div>
   );

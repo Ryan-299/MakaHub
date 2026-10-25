@@ -2,17 +2,89 @@ import React, { useState, useEffect } from 'react';
 import { useSignIn } from '@clerk/react';
 import { Eye, EyeOff, ArrowLeft, Sun, Moon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import darkLogo from '../assets/RENTIKE NO BACKGROUND 2 (dark-theme).png';
-import lightLogo from '../assets/RENTIKE NO BACKGROUND 2 (light-theme).png';
+import rentikeDarkThemeIcon from '../assets/rentike(light).png';
+import rentikeLightThemeIcon from '../assets/rentike(dark).png';
 export const LoginView: React.FC = () => {
   const { loginUser, setCurrentView, resolvedTheme, setTheme } = useApp();
   const { signIn, fetchStatus } = useSignIn();
   const isDark = resolvedTheme === 'dark';
 
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const isSubmitting =
+    fetchStatus === 'fetching' && !isGoogleLoading;
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const [lockedEmail, setLockedEmail] = useState('');
+  const [lockoutExpiresAt, setLockoutExpiresAt] = useState<number | null>(null);
+  const [lockoutSecondsLeft, setLockoutSecondsLeft] = useState(0);
+  useEffect(() => {
+    if (!lockoutExpiresAt) {
+      setLockoutSecondsLeft(0);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const remaining = Math.max(
+        0,
+        Math.ceil((lockoutExpiresAt - Date.now()) / 1000)
+      );
+
+      setLockoutSecondsLeft(remaining);
+
+      if (remaining === 0) {
+        setLockoutExpiresAt(null);
+        setLockedEmail('');
+      }
+    };
+
+    updateCountdown();
+
+    const timer = window.setInterval(updateCountdown, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [lockoutExpiresAt]);
+  const startLockoutCountdown = (accountEmail: string) => {
+    const normalizedEmail = accountEmail.trim().toLowerCase();
+
+    const storageKey = `rentike-lockout-${normalizedEmail}`;
+    const savedExpiry = Number(localStorage.getItem(storageKey));
+
+    const expiresAt =
+      savedExpiry > Date.now()
+        ? savedExpiry
+        : Date.now() + 30 * 60 * 1000;
+
+    localStorage.setItem(storageKey, String(expiresAt));
+
+    setLockedEmail(normalizedEmail);
+    setLockoutExpiresAt(expiresAt);
+  };
+  useEffect(() => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      setLockedEmail('');
+      setLockoutExpiresAt(null);
+      return;
+    }
+
+    const storageKey = `rentike-lockout-${normalizedEmail}`;
+    const savedExpiry = Number(localStorage.getItem(storageKey));
+
+    if (savedExpiry > Date.now()) {
+      setLockedEmail(normalizedEmail);
+      setLockoutExpiresAt(savedExpiry);
+    } else {
+      localStorage.removeItem(storageKey);
+      setLockedEmail('');
+      setLockoutExpiresAt(null);
+    }
+  }, [email]);
   const [googleNotice, setGoogleNotice] = useState(false);
   const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
   const [resetCodeSent, setResetCodeSent] = useState(false);
@@ -53,13 +125,39 @@ export const LoginView: React.FC = () => {
         password,
       });
 
+
       if (error) {
+        const clerkError = error as {
+          code?: string;
+          message?: string;
+          longMessage?: string;
+          errors?: Array<{
+            code?: string;
+            message?: string;
+            longMessage?: string;
+          }>;
+        };
+
+        const details =
+          clerkError.errors?.find((item) => item.code === 'user_locked') ??
+          clerkError;
+
+        if (details.code === 'user_locked') {
+          startLockoutCountdown(trimmedEmail);
+          setErrorMessage(
+            details.longMessage ||
+            'Your account is temporarily locked. Please try again later or contact support@rentike.co.ke.'
+          );
+          return;
+        }
+
         setErrorMessage(
-          error.message ||
+          clerkError.message ||
           'Incorrect email address or password.'
         );
         return;
       }
+
 
       if (signIn.status === 'complete') {
         await signIn.finalize({
@@ -85,16 +183,34 @@ export const LoginView: React.FC = () => {
       }
 
       setErrorMessage('Sign-in could not be completed.');
+
     } catch (err: any) {
+      const clerkError =
+        err?.errors?.find((item: any) => item.code === 'user_locked') ??
+        err?.errors?.[0] ??
+        err;
+
+      if (clerkError?.code === 'user_locked') {
+        startLockoutCountdown(email);
+        setErrorMessage(
+          clerkError.longMessage ||
+          clerkError.message ||
+          'Your account is temporarily locked. Please try again later or contact support@rentike.co.ke.'
+        );
+        return;
+      }
+
       setErrorMessage(
-        err?.errors?.[0]?.message ||
-        err?.message ||
+        clerkError?.longMessage ||
+        clerkError?.message ||
         'Incorrect email address or password.'
       );
     }
+
   };
 
   const handleGoogleClick = async () => {
+    setIsGoogleLoading(true);
     setErrorMessage('');
     console.time('Google login start');
     try {
@@ -105,13 +221,16 @@ export const LoginView: React.FC = () => {
       });
       console.timeEnd('Google login start');
 
+
       if (error) {
+        setIsGoogleLoading(false);
         setErrorMessage(
           error.message ||
           'Google sign-in could not be started. Please try again'
         );
       }
     } catch (err: any) {
+      setIsGoogleLoading(false);
       setErrorMessage(
         err?.errors?.[0]?.message ||
         err?.message ||
@@ -411,7 +530,38 @@ export const LoginView: React.FC = () => {
         className={`min-h-screen w-full flex items-center justify-center px-6 ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
           }`}
       >
-        <div className="w-full max-w-[460px]">
+        <div
+          className="w-[calc(100%-32px)] sm:w-full max-w-[560px] mx-auto flex flex-col rounded-[28px] px-6 sm:px-10 py-8 sm:py-10 border"
+          style={{
+            backgroundColor: isDark ? '#0D0D0D' : '#FCFAF7',
+            borderColor: isDark
+              ? 'rgba(196, 154, 108, 0.65)'
+              : 'rgba(196, 154, 108, 0.45)',
+            boxShadow: isDark
+              ? '0 18px 50px rgba(0, 0, 0, 0.35)'
+              : '0 18px 50px rgba(28, 22, 16, 0.08)',
+          }}
+        >
+          <div className="mb-5 flex flex-col items-center">
+            <img
+              src={isDark ? rentikeDarkThemeIcon : rentikeLightThemeIcon}
+              alt="Rentike"
+              draggable={false}
+              className="w-20 sm:w-24 h-auto object-contain"
+            />
+
+            <div
+              className="mt-3"
+              style={{
+                fontFamily: '"Anurati", sans-serif',
+                fontSize: '1.45rem',
+                letterSpacing: '0.16em',
+                color: isDark ? '#F7F5F1' : '#171512',
+              }}
+            >
+              RENTIKE
+            </div>
+          </div>
           <h1
             className="text-4xl text-center mb-3"
             style={{ fontFamily: '"Cormorant Garamond", Georgia, serif' }}
@@ -423,7 +573,7 @@ export const LoginView: React.FC = () => {
             className={`text-center text-sm mb-8 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
               }`}
           >
-            Enter the email address linked to your MakaoHub account.
+            Enter the email address linked to your Renike account.
           </p>
 
           <label className="block text-xs font-semibold mb-2">
@@ -453,12 +603,30 @@ export const LoginView: React.FC = () => {
           <button
             type="button"
             onClick={handleSendResetCode}
+            disabled={isSubmitting}
             className={`w-full h-[52px] mt-6 rounded-2xl text-sm font-semibold ${isDark
               ? 'bg-white text-black'
               : 'bg-black text-white'
               }`}
           >
-            SEND RESET CODE
+            {isSubmitting ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                />
+              </span>
+            ) : (
+              <span>SEND RESET CODE</span>
+            )}
           </button>
 
           <button
@@ -483,7 +651,7 @@ export const LoginView: React.FC = () => {
       className={`min-h-screen w-full flex flex-col justify-between items-center px-6 py-6 sm:py-10 transition-colors duration-200 relative ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
         }`}
       style={{
-        backgroundColor: isDark ? '#000000' : '#FFFFFF'
+        backgroundColor: isDark ? '#000000' : '#F7F5F1'
       }}
     >
       {/* Top Bar Controls: Back Navigation (Left) and Theme Switch (Right) */}
@@ -524,15 +692,39 @@ export const LoginView: React.FC = () => {
       </header>
 
       {/* Main Centered Login Column (Max-width 440px - 480px on desktop) */}
-      <div className="w-full max-w-[460px] mx-auto flex flex-col items-center text-center my-auto py-4 sm:py-6 animate-in fade-in duration-300">
+      <div
+        className="w-[calc(100%-32px)] sm:w-full max-w-[560px] sm:max-w-[600px] md:max-w-[640px] mx-auto flex flex-col items-center rounded-[28px] px-4 sm:px-10 py-7 sm:py-10 border"
+        style={{
+          backgroundColor: isDark ? '#0D0D0D' : '#FCFAF7',
+          borderColor: isDark
+            ? 'rgba(196, 154, 108, 0.65)'
+            : 'rgba(196, 154, 108, 0.45)',
+          boxShadow: isDark
+            ? '0 18px 50px rgba(0, 0, 0, 0.35)'
+            : '0 18px 50px rgba(28, 22, 16, 0.08)',
+        }}
+      >
         {/* 1. Large MakaoHub Logo */}
-        <div className="mb-3 sm:mb-4 flex items-center justify-center">
+
+        <div className="mb-5 flex flex-col items-center">
           <img
-            src={isDark ? darkLogo : lightLogo}
-            alt="MakaoHub"
-            className="w-52 sm:w-60 md:w-72 h-auto object-contain pointer-events-none select-none"
+            src={isDark ? rentikeDarkThemeIcon : rentikeLightThemeIcon}
+            alt="Rentike"
             draggable={false}
+            className="w-20 sm:w-24 h-auto object-contain"
           />
+
+          <div
+            className="mt-3"
+            style={{
+              fontFamily: "'Anurati', sans-serif",
+              fontSize: '1.45rem',
+              letterSpacing: '0.16em',
+              color: isDark ? '#F7F5F1' : '#171512',
+            }}
+          >
+            RENTIKE
+          </div>
         </div>
 
         {/* 2. Page Title with Cormorant Garamond */}
@@ -557,17 +749,72 @@ export const LoginView: React.FC = () => {
           Access your saved homes, inquiries, and property listings
         </p>
 
-        {/* Inline Error Display */}
-        {errorMessage && (
+        {/* Login Error / Account Lockout Display */}
+        {lockedEmail && lockedEmail === email.trim().toLowerCase() ? (
           <div
             id="login-error-message"
             role="alert"
-            className="w-full mb-4 px-4 py-3 rounded-2xl text-xs font-semibold text-red-500 dark:text-red-400 bg-red-500/10 border border-red-500/20 text-center animate-in fade-in"
+            className={`w-full mb-4 rounded-2xl border p-4 ${isDark
+              ? 'border-red-900/50 bg-red-950/20'
+              : 'border-red-200 bg-red-50'
+              }`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">🔒</span>
+              <span
+                className={`text-sm font-bold ${isDark ? 'text-red-300' : 'text-red-800'
+                  }`}
+              >
+                Account temporarily locked
+              </span>
+            </div>
+
+            <p
+              className={`text-xs leading-relaxed ${isDark ? 'text-neutral-300' : 'text-neutral-600'
+                }`}
+            >
+              Too many unsuccessful sign-in attempts.
+              For your security, access to this account
+              has been temporarily restricted.
+            </p>
+
+            {lockoutSecondsLeft > 0 && (
+              <div className="mt-4 text-center">
+                <div
+                  className="text-3xl font-bold tabular-nums"
+                  style={{ color: '#B68B5A' }}
+                >
+                  {String(Math.floor(lockoutSecondsLeft / 60)).padStart(2, '0')}:
+                  {String(lockoutSecondsLeft % 60).padStart(2, '0')}
+                </div>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Estimated time before you can try again
+                </p>
+              </div>
+            )}
+
+            <p className="mt-4 text-xs text-center text-neutral-500">
+              Need assistance?{' '}
+              <a
+                href="https://mail.google.com/mail/?view=cm&fs=1&to=support%40rentike.co.ke"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold underline"
+                style={{ color: '#B68B5A' }}
+              >
+                Contact Rentike Support
+              </a>
+            </p>
+          </div>
+        ) : errorMessage ? (
+          <div
+            id="login-error-message"
+            role="alert"
+            className="w-full mb-4 px-4 py-3 rounded-2xl text-xs font-semibold text-red-500 dark:text-red-400"
           >
             {errorMessage}
           </div>
-        )}
-
+        ) : null}
         {/* Temporary Google notice */}
         {googleNotice && (
           <div
@@ -660,12 +907,30 @@ export const LoginView: React.FC = () => {
           <button
             type="submit"
             id="login-submit-btn"
+            disabled={isSubmitting}
             className={`w-full h-[52px] sm:h-14 mt-2 rounded-2xl text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 ${isDark
               ? 'bg-white hover:bg-neutral-100 active:bg-neutral-200 text-black focus:ring-white focus:ring-offset-black'
               : 'bg-black hover:bg-neutral-800 active:bg-neutral-900 text-white focus:ring-black focus:ring-offset-white'
               }`}
           >
-            <span>LOG IN</span>
+            {isSubmitting ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                />
+              </span>
+            ) : (
+              <span>LOG IN</span>
+            )}
           </button>
         </form>
 
@@ -688,13 +953,38 @@ export const LoginView: React.FC = () => {
           type="button"
           id="login-google-btn"
           onClick={handleGoogleClick}
-          className={`w-full h-[52px] sm:h-14 rounded-2xl text-sm font-semibold tracking-wide flex items-center justify-center gap-3 transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer border focus:outline-none focus:ring-2 ${isDark
+          disabled={isGoogleLoading}
+          className={`relative w-full h-[52px] sm:h-14 flex items-center justify-center gap-3 transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer border focus:outline-none focus:ring-2 ${isDark
             ? 'bg-transparent hover:bg-white/5 active:bg-white/10 border-neutral-800 text-white focus:ring-white focus:ring-offset-black'
             : 'bg-white hover:bg-neutral-50 active:bg-neutral-100 border-neutral-300 text-neutral-900 focus:ring-black focus:ring-offset-white'
             }`}
         >
+          {isGoogleLoading && (
+            <span className="absolute inset-0 flex items-center justify-center gap-2">
+              <span
+                className="w-2 h-2 rounded-full animate-bounce"
+                style={{ backgroundColor: '#4285F4', animationDelay: '0ms' }}
+              />
+              <span
+                className="w-2 h-2 rounded-full animate-bounce"
+                style={{ backgroundColor: '#EA4335', animationDelay: '150ms' }}
+              />
+              <span
+                className="w-2 h-2 rounded-full animate-bounce"
+                style={{ backgroundColor: '#FBBC05', animationDelay: '300ms' }}
+              />
+              <span
+                className="w-2 h-2 rounded-full animate-bounce"
+                style={{ backgroundColor: '#34A853', animationDelay: '450ms' }}
+              />
+            </span>
+          )}
           {/* Official multicolor Google "G" icon */}
-          <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+          <svg
+            className={`w-5 h-5 ${isGoogleLoading ? 'opacity-0' : 'opacity-100'}`}
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
             <path
               fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -712,7 +1002,12 @@ export const LoginView: React.FC = () => {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
             />
           </svg>
-          <span className="font-body">Continue with Google</span>
+          <span
+            className={`font-body ${isGoogleLoading ? 'opacity-0' : 'opacity-100'
+              }`}
+          >
+            Continue with Google
+          </span>
         </button>
 
         {/* 5. Create Account Link */}
@@ -720,7 +1015,7 @@ export const LoginView: React.FC = () => {
           className={`mt-8 text-xs font-body ${isDark ? 'text-neutral-400' : 'text-neutral-500'
             }`}
         >
-          <span>New to MakaoHub? </span>
+          <span>New to Rentike? </span>
           <button
             type="button"
             id="login-to-signup-btn"
@@ -735,7 +1030,7 @@ export const LoginView: React.FC = () => {
 
       {/* Bottom spacer for optical balance */}
       <footer className="w-full py-2 flex justify-center opacity-0 pointer-events-none">
-        <span className="text-[10px]">MakaoHub</span>
+        <span className="text-[10px]">Rentike</span>
       </footer>
     </main>
   );

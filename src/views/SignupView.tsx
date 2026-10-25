@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useSignUp, useSignIn } from '@clerk/react';
 import { Sun, Moon, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import darkLogo from '../assets/RENTIKE NO BACKGROUND 2 (dark-theme).png';
-import lightLogo from '../assets/RENTIKE NO BACKGROUND 2 (light-theme).png';
+import rentikeDarkThemeIcon from '../assets/rentike(light).png';
+import rentikeLightThemeIcon from '../assets/rentike(dark).png';
 
 export const SignupView: React.FC = () => {
   const [acceptedLegal, setAcceptedLegal] = React.useState(false);
@@ -15,7 +15,10 @@ export const SignupView: React.FC = () => {
   const [code, setCode] = useState('');
   const [pendingVerification, setPendingVerification] = useState(false);
 
-  const isSubmitting = fetchStatus === 'fetching';
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const isSubmitting =
+    fetchStatus === 'fetching' && !isGoogleLoading;
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -161,6 +164,7 @@ export const SignupView: React.FC = () => {
     setEmail('');
   };
   const handleGoogleClick = async () => {
+    setIsGoogleLoading(true);
     setErrorMessage('');
 
     try {
@@ -171,12 +175,15 @@ export const SignupView: React.FC = () => {
       });
 
       if (error) {
+        setIsGoogleLoading(false);
         setErrorMessage(
           error.message ||
           'Google sign-in could not be started. Please try again.'
         );
+
       }
     } catch (err: any) {
+      setIsGoogleLoading(false);
       setErrorMessage(
         err?.errors?.[0]?.message ||
         err?.message ||
@@ -200,8 +207,18 @@ export const SignupView: React.FC = () => {
         className={`min-h-screen w-full flex flex-col justify-center items-center px-6 py-6 transition-colors duration-200 ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
           }`}
       >
-        <div className="w-full max-w-[400px] mx-auto flex flex-col items-center text-center">
-
+        <div
+          className="w-[calc(100%-32px)] sm:w-full max-w-[560px] mx-auto flex flex-col items-center rounded-[28px] px-6 sm:px-10 py-8 sm:py-10 border"
+          style={{
+            backgroundColor: isDark ? '#0D0D0D' : '#FCFAF7',
+            borderColor: isDark
+              ? 'rgba(196, 154, 108, 0.65)'
+              : 'rgba(196, 154, 108, 0.45)',
+            boxShadow: isDark
+              ? '0 18px 50px rgba(0, 0, 0, 0.35)'
+              : '0 18px 50px rgba(28, 22, 16, 0.08)',
+          }}
+        >
           <h1
             className={`font-editorial text-3xl font-normal mb-2 ${isDark ? 'text-white' : 'text-neutral-950'
               }`}
@@ -321,15 +338,38 @@ export const SignupView: React.FC = () => {
       </header>
 
       {/* Main Centered Signup Column (Max-width 440px - 480px on desktop) */}
-      <div className="w-full max-w-[460px] mx-auto flex flex-col items-center text-center my-auto py-4 sm:py-6 animate-in fade-in duration-300">
+      <div
+        className="w-[calc(100%-32px)] sm:w-full max-w-[560px] sm:max-w-[600px] md:max-w-[640px] mx-auto flex flex-col items-center rounded-[28px] px-4 sm:px-10 py-7 sm:py-10 border"
+        style={{
+          backgroundColor: isDark ? '#0D0D0D' : '#FCFAF7',
+          borderColor: isDark
+            ? 'rgba(196, 154, 108, 0.65)'
+            : 'rgba(196, 154, 108, 0.45)',
+          boxShadow: isDark
+            ? '0 18px 50px rgba(0, 0, 0, 0.35)'
+            : '0 18px 50px rgba(28, 22, 16, 0.08)',
+        }}
+      >
         {/* 1. Large MakaoHub Logo */}
-        <div className="mb-3 sm:mb-4 flex items-center justify-center">
+        <div className="mb-5 flex flex-col items-center">
           <img
-            src={isDark ? darkLogo : lightLogo}
-            alt="MakaoHub"
-            className="w-52 sm:w-60 md:w-72 h-auto object-contain pointer-events-none select-none"
+            src={isDark ? rentikeDarkThemeIcon : rentikeLightThemeIcon}
+            alt="Rentike"
             draggable={false}
+            className="w-20 sm:w-24 h-auto object-contain"
           />
+
+          <div
+            className="mt-3"
+            style={{
+              fontFamily: "'Anurati', sans-serif",
+              fontSize: '1.45rem',
+              letterSpacing: '0.16em',
+              color: isDark ? '#F7F5F1' : '#171512',
+            }}
+          >
+            RENTIKE
+          </div>
         </div>
 
         {/* 2. Page Title with Cormorant Garamond */}
@@ -568,14 +608,32 @@ export const SignupView: React.FC = () => {
               }
             }}
             id="signup-continue-btn"
+            disabled={isSubmitting}
 
-            className={`w-full h-[52px] sm:h-14 mt-2 rounded-2xl text-sm sm:text-base font-semibold tracking-wide flex items-center justify-center transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 ${isDark
-              ? 'bg-white hover:bg-neutral-100 active:bg-neutral-200 text-black focus:ring-white focus:ring-offset-black'
-              : 'bg-black hover:bg-neutral-800 active:bg-neutral-900 text-white focus:ring-black focus:ring-offset-white'
+            className={`w-full h-[52px] sm:h-14 mt-2 rounded-2xl text-sm sm:text-base font-semibold transition-all ${isDark
+              ? 'bg-white hover:bg-neutral-100 active:bg-neutral-200 text-black'
+              : 'bg-black hover:bg-neutral-800 active:bg-neutral-900 text-white'
               }`}
           >
 
-            <span>CONTINUE</span>
+            {isSubmitting ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
+                  style={{ animationDelay: '0ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
+                  style={{ animationDelay: '150ms' }}
+                />
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-current animate-bounce"
+                  style={{ animationDelay: '300ms' }}
+                />
+              </span>
+            ) : (
+              <span>CONTINUE</span>
+            )}
           </button>
         </form>
 
@@ -606,13 +664,38 @@ export const SignupView: React.FC = () => {
 
             handleGoogleClick();
           }}
-          className={`w-full h-[52px] sm:h-14 rounded-2xl text-sm font-semibold tracking-wide flex items-center justify-center gap-3 transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer border focus:outline-none focus:ring-2 ${isDark
+          disabled={isGoogleLoading}
+          className={`relative w-full h-[52px]ibold tracking-wide flex items-center justify-center gap-3 transition-all duration-200 ease-out active:scale-[0.99] cursor-pointer border focus:outline-none focus:ring-2 ${isDark
             ? 'bg-transparent hover:bg-white/5 active:bg-white/10 border-neutral-800 text-white focus:ring-white focus:ring-offset-black'
             : 'bg-white hover:bg-neutral-50 active:bg-neutral-100 border-neutral-300 text-neutral-900 focus:ring-black focus:ring-offset-white'
             }`}
         >
+          {isGoogleLoading && (
+            <span className="absolute inset-0 flex items-center justify-center gap-2">
+              <span
+                className="w-2 h-2 rounded-full animate-bounce"
+                style={{ backgroundColor: '#4285F4', animationDelay: '0ms' }}
+              />
+              <span
+                className="w-2 h-2 rounded-full animate-bounce"
+                style={{ backgroundColor: '#EA4335', animationDelay: '150ms' }}
+              />
+              <span
+                className="w-2 h-2 rounded-full animate-bounce"
+                style={{ backgroundColor: '#FBBC05', animationDelay: '300ms' }}
+              />
+              <span
+                className="w-2 h-2 rounded-full animate-bounce"
+                style={{ backgroundColor: '#34A853', animationDelay: '450ms' }}
+              />
+            </span>
+          )}
           {/* Official multicolor Google "G" icon */}
-          <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+          <svg
+            className={`w-5 h-5 ${isGoogleLoading ? 'opacity-0' : 'opacity-100'}`}
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
             <path
               fill="#4285F4"
               d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -630,7 +713,12 @@ export const SignupView: React.FC = () => {
               d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
             />
           </svg>
-          <span className="font-body">Continue with Google</span>
+          <span
+            className={`font-body ${isGoogleLoading ? 'opacity-0' : 'opacity-100'
+              }`}
+          >
+            Continue with Google
+          </span>
         </button>
 
         {/* 5. Login Link */}

@@ -416,3 +416,84 @@ export const deleteMyAccount = mutation({
     };
   },
 });
+
+export const updateListerProfile = mutation({
+  args: {
+    listerSubtype: v.union(
+      v.literal("Landlord / Property Owner"),
+      v.literal("Caretaker"),
+      v.literal("Property Manager"),
+      v.literal("Real Estate Agent"),
+      v.literal("Property Agency"),
+      v.literal("Property Company"),
+      v.literal("Property Developer")
+    ),
+    bio: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in to update your profile.");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!user) {
+      throw new Error("Your Rentike account could not be found.");
+    }
+
+    if (user.role !== "lister") {
+      throw new Error("Only listers can update a public lister profile.");
+    }
+
+    const bio = args.bio.trim();
+
+    if (bio.length > 500) {
+      throw new Error("About Me cannot exceed 500 characters.");
+    }
+
+    await ctx.db.patch(user._id, {
+      listerSubtype: args.listerSubtype,
+      bio,
+    });
+
+    return {
+      listerSubtype: args.listerSubtype,
+      bio,
+    };
+  },
+});
+// Public information shown to seekers viewing a lister's profile.
+export const getPublicListerProfile = query({
+  args: {
+    userId: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", args.userId)
+      )
+      .first();
+
+    if (!user || user.role !== "lister" || user.isSuspended) {
+      return null;
+    }
+
+    return {
+      id: user.userId,
+      name: user.name,
+      avatar: user.avatar,
+      listerSubtype: user.listerSubtype ?? "Landlord / Property Owner",
+      bio: user.bio ?? "",
+    };
+  },
+});

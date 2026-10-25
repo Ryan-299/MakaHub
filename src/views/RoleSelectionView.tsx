@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Search, Building2, ArrowLeft, Sun, Moon, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import darkLogo from '../assets/MAKAOHUB LOGO NO BACKGROUND (Dark Mode).png';
-import lightLogo from '../assets/official no white background image.png';
+import rentikeDarkThemeIcon from '../assets/rentike(light).png';
+import rentikeLightThemeIcon from '../assets/rentike(dark).png';
 
 export const RoleSelectionView: React.FC = () => {
   const {
@@ -95,17 +95,39 @@ export const RoleSelectionView: React.FC = () => {
       </header>
 
       {/* Main Centered Role Selection Column (Max-width 460px on desktop) */}
-      <div className="w-full max-w-[460px] mx-auto flex flex-col items-center text-center my-auto py-4 sm:py-6 animate-in fade-in duration-300">
-        {/* 1. Large MakaoHub Logo */}
-        <div className="mb-3 sm:mb-4 flex items-center justify-center">
+      <div
+        className="w-[calc(100%-32px)] sm:w-full max-w-[560px] mx-auto flex flex-col items-center rounded-[28px] px-6 sm:px-10 py-8 sm:py-10 border"
+        style={{
+          backgroundColor: isDark ? '#0D0D0D' : '#FCFAF7',
+          borderColor: isDark
+            ? 'rgba(196, 154, 108, 0.65)'
+            : 'rgba(196, 154, 108, 0.45)',
+          boxShadow: isDark
+            ? '0 18px 50px rgba(0, 0, 0, 0.35)'
+            : '0 18px 50px rgba(28, 22, 16, 0.08)',
+        }}
+      >
+        {/* 1. Large Rentike Logo */}
+        <div className="mb-5 flex flex-col items-center">
           <img
-            src={isDark ? darkLogo : lightLogo}
-            alt="MakaoHub"
-            className="w-52 sm:w-60 md:w-72 h-auto object-contain pointer-events-none select-none"
+            src={isDark ? rentikeDarkThemeIcon : rentikeLightThemeIcon}
+            alt="Rentike"
             draggable={false}
+            className="w-20 sm:w-24 h-auto object-contain"
           />
-        </div>
 
+          <div
+            className="mt-3"
+            style={{
+              fontFamily: '"Anurati", sans-serif',
+              fontSize: '1.45rem',
+              letterSpacing: '0.16em',
+              color: isDark ? '#F7F5F1' : '#171512',
+            }}
+          >
+            RENTIKE
+          </div>
+        </div>
         {/* 2. Page Title with Cormorant Garamond */}
         <h1
           className={`font-editorial text-3xl sm:text-4xl font-normal leading-tight tracking-tight mb-2 ${isDark ? 'text-white' : 'text-neutral-950'
@@ -116,7 +138,7 @@ export const RoleSelectionView: React.FC = () => {
         >
           {isSeekerSwitchingToLister
             ? 'Switch to Property Lister'
-            : 'How would you like to use MakaoHub?'}
+            : 'How would you like to use Rentike?'}
         </h1>
 
         {/* 3. Supporting Text */}
@@ -148,7 +170,7 @@ export const RoleSelectionView: React.FC = () => {
                   setSelectedRole('seeker');
                 }
               }}
-              className={`p-5 rounded-2xl border-2 transition-all duration-200 cursor-pointer flex items-start gap-4 select-none relative ${selectedRole === 'seeker'
+              className={`relative p-3 sm:p-5 rounded-2xl border-2 transition-all duration-200 cursor-pointer flex items-start gap-4 select-none relative ${selectedRole === 'seeker'
                 ? isDark
                   ? 'bg-neutral-900 border-white text-white shadow-md'
                   : 'bg-white border-black text-black shadow-md'
@@ -159,7 +181,7 @@ export const RoleSelectionView: React.FC = () => {
             >
               {/* Icon Container */}
               <div
-                className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors ${selectedRole === 'seeker'
+                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors ${selectedRole === 'seeker'
                   ? isDark
                     ? 'bg-white text-black'
                     : 'bg-black text-white'
@@ -168,11 +190,11 @@ export const RoleSelectionView: React.FC = () => {
                     : 'bg-neutral-200/80 text-neutral-800'
                   }`}
               >
-                <Search className="w-6 h-6" />
+                <Search className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
 
               {/* Content */}
-              <div className="flex-1 pr-6">
+              <div className="flex-1 min-w-0 pr-2 sm:pr-6">
                 <h2
                   className={`text-base sm:text-lg font-bold leading-snug mb-1 ${selectedRole === 'seeker'
                     ? isDark
@@ -201,7 +223,7 @@ export const RoleSelectionView: React.FC = () => {
 
               {/* Selection Check indicator */}
               <div
-                className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all ${selectedRole === 'seeker'
+                className={`absolute top-3 right-3 w-4 h-4 sm:w-5 sm:h-5 rounded-full border  flex items-center justify-center shrink-0 mt-0.5 transition-all ${selectedRole === 'seeker'
                   ? isDark
                     ? 'border-white bg-white text-black'
                     : 'border-black bg-black text-white'
@@ -228,7 +250,7 @@ export const RoleSelectionView: React.FC = () => {
                 setSelectedRole('lister');
               }
             }}
-            className={`p-5 rounded-2xl border-2 transition-all duration-200 cursor-pointer flex items-start gap-4 select-none relative ${selectedRole === 'lister'
+            className={`relative p-3 sm:p-5 rounded-2xl border-2 transition-all duration-200 cursor-pointer flex items-start gap-4 select-none relative ${selectedRole === 'lister'
               ? isDark
                 ? 'bg-neutral-900 border-white text-white shadow-md'
                 : 'bg-white border-black text-black shadow-md'
@@ -239,7 +261,7 @@ export const RoleSelectionView: React.FC = () => {
           >
             {/* Icon Container */}
             <div
-              className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors ${selectedRole === 'lister'
+              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors ${selectedRole === 'lister'
                 ? isDark
                   ? 'bg-white text-black'
                   : 'bg-black text-white'
@@ -248,11 +270,11 @@ export const RoleSelectionView: React.FC = () => {
                   : 'bg-neutral-200/80 text-neutral-800'
                 }`}
             >
-              <Building2 className="w-6 h-6" />
+              <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
 
             {/* Content */}
-            <div className="flex-1 pr-6">
+            <div className="flex-1 min-w-0 pr-2 sm:pr-6">
               <h2
                 className={`text-base sm:text-lg font-bold leading-snug mb-1 ${selectedRole === 'lister'
                   ? isDark
@@ -275,13 +297,13 @@ export const RoleSelectionView: React.FC = () => {
                     : 'text-neutral-500'
                   }`}
               >
-                List and manage rental properties on MakaoHub.
+                List and manage rental properties on Rentike.
               </p>
             </div>
 
             {/* Selection Check indicator */}
             <div
-              className={`w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-all ${selectedRole === 'lister'
+              className={`absolute top-3 right-3 w-4 h-4 sm:w-5 sm:h-5 rounded-full border flex items-center justify-center ... shrink-0 mt-0.5 transition-all ${selectedRole === 'lister'
                 ? isDark
                   ? 'border-white bg-white text-black'
                   : 'border-black bg-black text-white'
@@ -316,7 +338,7 @@ export const RoleSelectionView: React.FC = () => {
 
       {/* Bottom spacer for optical balance */}
       <footer className="w-full py-2 flex justify-center opacity-0 pointer-events-none">
-        <span className="text-[10px]">MakaoHub</span>
+        <span className="text-[10px]">Rentike</span>
       </footer>
     </main>
   );

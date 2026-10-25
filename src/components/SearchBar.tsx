@@ -340,7 +340,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     <div id="makaohub-search-container" className={`relative w-full ${className}`} ref={dropdownRef}>
       <form onSubmit={handleFormSubmit} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
         {/* Slim premium search field (46-50px high) */}
-        <div className="relative flex-1">
+        <div className="relative flex-1 rounded-2xl bg-[#F7F4EE] dark:bg-[#181818] shadow-[6px_6px_14px_rgba(0,0,0,0.10),-6px_-6px_14px_rgba(255,255,255,0.85)] dark:shadow-[7px_7px_14px_rgba(0,0,0,0.75),-4px_-4px_10px_rgba(255,255,255,0.08)] sm:shadow-none sm:bg-transparent dark:sm:bg-transparent">
           <div className="absolute inset-y-0 left-0 pl-3.5 sm:pl-4 flex items-center pointer-events-none text-neutral-500 dark:text-neutral-400">
             <Search className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-neutral-600 dark:text-neutral-400" />
           </div>
@@ -360,33 +360,46 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             autoComplete="off"
-            className="w-full h-11 sm:h-12 bg-white dark:bg-neutral-950 text-neutral-900 dark:text-white border border-neutral-300 dark:border-neutral-800 rounded-xl font-medium text-xs sm:text-sm tracking-tight placeholder:text-neutral-400 dark:placeholder:text-neutral-500 pl-10 sm:pl-11 pr-10 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white transition-all shadow-2xs"
+            className="w-full h-12 pl-11 pr-24 rounded-2xl bg-transparent text-neutral-900 dark:text-white placeholder:text-neutral-500 dark:placeholder:text-neutral-500 outline-none border-0 focus:ring-0 text-sm sm:h-12 sm:border sm:border-neutral-300 dark:sm:border-neutral-800 sm:bg-white dark:sm:bg-neutral-950"
           />
 
           {inputValue && (
             <button
               type="button"
               onClick={handleClear}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-neutral-400 hover:text-neutral-700 dark:hover:text-white cursor-pointer"
+              className="absolute inset-y-0 right-12 sm:right-0 pr-1 sm:pr-3 flex items-center text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200"
               aria-label="Clear search"
             >
               <X className="w-4 h-4" />
             </button>
           )}
+          {showFiltersButton && (
+            <button
+              id="mobile-search-filter-button"
+              type="button"
+              onClick={() => setFilterDrawerOpen(true)}
+              aria-label="Open filters"
+              className={`absolute inset-y-0 right-2 my-auto w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isFilterActive
+                ? 'bg-[#C49A6C] text-black'
+                : 'bg-[#EEEAE2] dark:bg-[#202020] text-neutral-700 dark:text-neutral-200 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.10),inset_-2px_-2px_5px_rgba(255,255,255,0.65)] dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.45)]'
+                }`}
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="hidden">
           {/* Filters Button */}
           {showFiltersButton && (
             <button
               id="search-filter-button"
               type="button"
               onClick={() => setFilterDrawerOpen(true)}
-              className={`h-11 sm:h-12 flex items-center justify-center gap-2 px-4 font-bold text-xs sm:text-sm rounded-xl border transition-all cursor-pointer whitespace-nowrap ${
-                isFilterActive
-                  ? 'bg-black text-white dark:bg-white dark:text-black border-black dark:border-white shadow-sm'
-                  : 'bg-white dark:bg-neutral-950 hover:bg-neutral-50 dark:hover:bg-neutral-900 text-neutral-800 dark:text-neutral-200 border-neutral-300 dark:border-neutral-800 shadow-2xs hover:border-neutral-400'
-              }`}
+              className={`h-11 sm:h-12 flex items-center justify-center gap-2 px-4 font-bold text-xs sm:text-sm rounded-xl border transition-all cursor-pointer whitespace-nowrap ${isFilterActive
+                ? 'bg-black text-white dark:bg-white dark:text-black border-black dark:border-white shadow-sm'
+                : 'bg-white dark:bg-neutral-950 hover:bg-neutral-50 dark:hover:bg-neutral-900 text-neutral-800 dark:text-neutral-200 border-neutral-300 dark:border-neutral-800 shadow-2xs hover:border-neutral-400'
+                }`}
             >
               <SlidersHorizontal className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>Filters</span>
@@ -410,11 +423,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
       {/* Autocomplete Dropdown with Distinct LOCATIONS and PROPERTIES Sections */}
       {isOpen && flatSuggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 sm:right-auto sm:w-[480px] mt-1.5 bg-white dark:bg-neutral-950 rounded-2xl shadow-2xl border border-neutral-200 dark:border-neutral-800 py-2 z-50 animate-in fade-in zoom-in-95 overflow-hidden text-xs max-h-[420px] overflow-y-auto font-sans">
+        <div
+          className="absolute top-full left-0 right-0 sm:right-auto sm:w-[480px] mt-1.5 bg-[#F4EFE7] dark:bg-[#151515] border border-[#E7DED2] dark:border-neutral-800 rounded-2xl shadow-[6px_6px_14px_rgba(0,0,0,0.08),-6px_-6px_14px_rgba(255,255,255,0.8)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)] overflow-hidden z-50"
+        >
           {/* 1. LOCATIONS SECTION */}
           {locationSuggestions.length > 0 && (
             <div>
-              <div className="px-3.5 py-1.5 text-[10px] font-extrabold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider bg-neutral-50/80 dark:bg-neutral-900/60 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+              <div className="px-3.5 py-2 text-[10px] font-extrabold text-neutral-600 dark:text-neutral-400 uppercase tracking-wider border-b border-[#E7DED2] dark:border-neutral-800 bg-[#F8F3EB] dark:bg-[#181818] flex items-center justify-between">
                 <span>Locations</span>
                 <span className="text-[10px] lowercase text-neutral-400">interactive map navigation</span>
               </div>
@@ -428,11 +443,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                     type="button"
                     onClick={() => handleSelectSuggestion(item)}
                     onMouseEnter={() => setHighlightedIndex(globalIndex)}
-                    className={`w-full px-3.5 py-2.5 text-left flex items-start justify-between gap-3 transition-colors cursor-pointer border-b border-neutral-100/60 dark:border-neutral-900 last:border-0 ${
-                      isHighlighted
-                        ? 'bg-neutral-100 dark:bg-neutral-900 text-neutral-950 dark:text-white'
-                        : 'hover:bg-neutral-50 dark:hover:bg-neutral-900/60 text-neutral-800 dark:text-neutral-200'
-                    }`}
+                    className={`w-full px-3.5 py-2.5 text-left flex items-start justify-between gap-3 transition-colors ${isHighlighted
+                      ? 'bg-[#EAD7BF] dark:bg-[#24201C] text-[#9A5E1F] dark:text-[#E7C59B]'
+                      : 'bg-transparent text-neutral-800 dark:text-neutral-100 hover:bg-[#F2E7D8] dark:hover:bg-[#24201C]'
+                      }`}
                   >
                     <div className="flex items-start gap-2.5 min-w-0">
                       {getCategoryIcon(item.category)}
@@ -471,11 +485,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                     type="button"
                     onClick={() => handleSelectSuggestion(item)}
                     onMouseEnter={() => setHighlightedIndex(globalIndex)}
-                    className={`w-full px-3.5 py-2.5 text-left flex items-start justify-between gap-3 transition-colors cursor-pointer border-b border-neutral-100/60 dark:border-neutral-900 last:border-0 ${
-                      isHighlighted
-                        ? 'bg-neutral-100 dark:bg-neutral-900 text-neutral-950 dark:text-white'
-                        : 'hover:bg-neutral-50 dark:hover:bg-neutral-900/60 text-neutral-800 dark:text-neutral-200'
-                    }`}
+                    className={`w-full px-3.5 py-2.5 text-left flex items-start justify-between gap-3 transition-colors cursor-pointer border-b border-neutral-100/60 dark:border-neutral-900 last:border-0 ${isHighlighted
+                      ? 'bg-neutral-100 dark:bg-neutral-900 text-neutral-950 dark:text-white'
+                      : 'hover:bg-neutral-50 dark:hover:bg-neutral-900/60 text-neutral-800 dark:text-neutral-200'
+                      }`}
                   >
                     <div className="flex items-start gap-2.5 min-w-0">
                       {getCategoryIcon(item.category)}
@@ -497,7 +510,8 @@ export const SearchBar: React.FC<SearchBarProps> = ({
             </div>
           )}
         </div>
-      )}
-    </div>
+      )
+      }
+    </div >
   );
 };

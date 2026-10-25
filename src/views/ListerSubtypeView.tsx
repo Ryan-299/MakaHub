@@ -138,33 +138,42 @@ export const ListerSubtypeView: React.FC = () => {
       </header>
 
       {/* Main Content Column */}
-      <div className="max-w-2xl w-full text-center space-y-6 animate-in fade-in duration-300 my-auto py-6">
-        <div>
-          <div
-            className={`inline-block text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-3 ${isDark ? 'bg-white text-black' : 'bg-black text-white'
-              }`}
-          >
-            Lister Profile Setup
-          </div>
-          <h1
-            className={`font-editorial text-3xl sm:text-4xl font-normal tracking-tight mb-2 ${isDark ? 'text-white' : 'text-neutral-950'
-              }`}
-            style={{
-              fontFamily: "'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', Times, serif"
-            }}
-          >
-            What best describes you?
-          </h1>
-          <p
-            className={`font-body text-sm sm:text-base max-w-md mx-auto leading-relaxed ${isDark ? 'text-neutral-400' : 'text-neutral-600'
-              }`}
-            style={{
-              fontFamily: "'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif"
-            }}
-          >
-            Choose your lister profile category. This will be displayed on your property listings to build trust with tenants.
-          </p>
+      <div
+        className="w-[calc(100%-32px)] sm:w-full max-w-[760px] mx-auto text-center space-y-6 rounded-[28px] px-4 sm:px-8 md:px-10 py-7 sm:py-9 border animate-in fade-in"
+        style={{
+          backgroundColor: isDark ? '#0D0D0D' : '#FCFAF7',
+          borderColor: isDark
+            ? 'rgba(196, 154, 108, 0.65)'
+            : 'rgba(196, 154, 108, 0.45)',
+          boxShadow: isDark
+            ? '0 18px 50px rgba(0, 0, 0, 0.35)'
+            : '0 18px 50px rgba(28, 22, 16, 0.08)',
+        }}
+      >
+        <div
+          className={`inline-block text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-3 ${isDark ? 'bg-white text-black' : 'bg-black text-white'
+            }`}
+        >
+          Lister Profile Setup
         </div>
+        <h1
+          className={`font-editorial text-3xl sm:text-4xl font-normal tracking-tight mb-2 ${isDark ? 'text-white' : 'text-neutral-950'
+            }`}
+          style={{
+            fontFamily: "'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', Times, serif"
+          }}
+        >
+          What best describes you?
+        </h1>
+        <p
+          className={`font-body text-sm sm:text-base max-w-md mx-auto leading-relaxed ${isDark ? 'text-neutral-400' : 'text-neutral-600'
+            }`}
+          style={{
+            fontFamily: "'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif"
+          }}
+        >
+          Choose your lister profile category. This will be displayed on your property listings to build trust with tenants.
+        </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left font-body">
           {LISTER_SUBTYPES.map((item) => {
@@ -246,7 +255,7 @@ export const ListerSubtypeView: React.FC = () => {
           )}
 
           <p className="text-xs text-neutral-500 mt-2">
-            Used for your MakaoHub account and future payment services.
+            Used for your Rentike account and future payment services.
           </p>
           <button
             type="button"
@@ -258,10 +267,11 @@ export const ListerSubtypeView: React.FC = () => {
         </div>
       </div>
 
+
       {/* Bottom spacer */}
       <footer className="w-full py-2 flex justify-center opacity-0 pointer-events-none">
-        <span className="text-[10px]">MakaoHub</span>
+        <span className="text-[10px]">Rentike</span>
       </footer>
-    </main>
+    </main >
   );
 };

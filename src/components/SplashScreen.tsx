@@ -1,9 +1,8 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import mobileDarkSplash from '../assets/RentikeMobileViewDark.png';
-import mobileLightSplash from '../assets/RentikeMobileViewLight.png';
-import desktopDarkSplash from '../assets/Rentike Monochrome (DARK).png';
-import desktopLightSplash from '../assets/Rentike Monochrome (LIGHT).png';
+import rentikeDarkLogo from '../assets/rentike(dark).png';
+import rentikeLightLogo from '../assets/rentike(light).png';
+import shenPeacock from '../assets/peacock.png';
 import { ResolvedTheme } from '../types';
 
 interface SplashScreenProps {
@@ -23,13 +22,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
   const initialThemeRef = useRef<ResolvedTheme>(theme);
   const isDark = initialThemeRef.current === 'dark';
 
-  // Track responsive breakpoint (768px)
-  const [isDesktop, setIsDesktop] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth >= 768;
-    }
-    return true;
-  });
+
 
   // Lock body scrolling during splash display
   useEffect(() => {
@@ -46,18 +39,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     };
   }, [isOpen]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mediaQuery = window.matchMedia('(min-width: 768px)');
 
-    const handler = (e: MediaQueryListEvent) => {
-      setIsDesktop(e.matches);
-    };
-
-    setIsDesktop(mediaQuery.matches);
-    mediaQuery.addEventListener('change', handler);
-    return () => mediaQuery.removeEventListener('change', handler);
-  }, []);
 
   // Auto-dismiss automatically after durationMs (~5.0s prototype visibility)
   useEffect(() => {
@@ -70,16 +52,14 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
     return () => clearTimeout(timer);
   }, [isOpen, durationMs, onComplete]);
 
-  // Asset selection based on theme and device
-  const mobileSplashImage = isDark ? mobileDarkSplash : mobileLightSplash;
-  const desktopSplashImage = isDark ? desktopDarkSplash : desktopLightSplash;
-  const currentSplashImage = isDesktop ? desktopSplashImage : mobileSplashImage;
+  // Select logo based only on theme
+  const currentSplashImage = isDark ? rentikeLightLogo : rentikeDarkLogo;
 
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          id="makaohub-splash-screen"
+          id="rentike-splash-screen"
           initial={{ opacity: 1 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -87,29 +67,155 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           className={`fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center select-none overflow-hidden ${isDark ? 'bg-[#000000]' : 'bg-white'
             }`}
           style={{
-            backgroundColor: isDark ? '#000000' : '#FFFFFF'
+            backgroundColor: isDark ? '#000000' : '#F7F5F1',
           }}
+
         >
           {/* Full-bleed Responsive Splash Display without any overlay or obstruction */}
-          <div className="relative w-full h-full flex items-center justify-center p-0 m-0 overflow-hidden">
-            <picture className="w-full h-full flex items-center justify-center">
-              {/* Desktop source for >= 768px viewport */}
-              <source
-                media="(min-width: 768px)"
-                srcSet={desktopSplashImage}
-              />
-              {/* Mobile fallback image for < 768px viewport */}
-              <img
-                src={currentSplashImage}
-                alt={isDark ? 'MakaoHub Dark Splash Screen' : 'MakaoHub Light Splash Screen'}
-                className={`w-full h-full pointer-events-none select-none ${isDesktop && !isDark ? 'object-cover' : 'object-contain'
-                  }`}
-                draggable={false}
-              />
-            </picture>
+          <div className="relative w-full h-full flex flex-col items-center justify-center">
+            <div className="flex flex-col items-center xl:scale-[0.84] xl:-translate-y-6">
+              <motion.div
+                className="flex items-end justify-center h-[230px] sm:h-[260px] md:h-[320px] lg:h-[340px] xl:h-[240px]"
+                initial={{ opacity: 0, y: 16, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{
+                  duration: 0.7,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+              >
+
+                <img
+                  src={currentSplashImage}
+                  alt="Rentike"
+                  className="
+        pointer-events-none
+        select-none
+        object-contain
+        h-full
+        w-auto
+      "
+                  style={{
+                    transform: isDark
+                      ? 'translateY(24px) scale(1.55)'
+                      : 'translateY(0) scale(1)',
+                    transformOrigin: 'center',
+                  }}
+                  draggable={false}
+                />
+              </motion.div>
+
+              <h1
+                className="font-anurati text-[3.6rem] md:max-xl:text-[5.6rem] xl:text-[5rem]"
+                style={{
+                  marginTop: '10px',
+                  marginBottom: 0,
+
+                  fontWeight: 400,
+                  letterSpacing: '0.14em',
+                  lineHeight: 1,
+                  background: isDark
+                    ? 'linear-gradient(180deg, #FFFFFF 0%, #E8E8E8 38%, #AFAFAF 70%, #F2F2F2 100%)'
+                    : 'linear-gradient(180deg, #111111 0%, #3A3A3A 45%, #080808 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  textAlign: 'center',
+                }}
+              >
+                RENTIKE
+              </h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.45,
+                  delay: 0.55,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+                className="text-[0.56rem] md:max-xl:text-[0.88rem] xl:text-[0.75rem]"
+                style={{
+                  marginTop: '10px',
+                  marginBottom: 0,
+                  fontWeight: 500,
+                  letterSpacing: '0.28em',
+                  color: isDark ? '#C49A6C' : '#9B6A3D',
+                  textAlign: 'center',
+                }}
+              >
+                FIND YOUR NEXT HOME
+              </motion.p>
+            </div>
+
+            {/* Powered by Shen Studios */}
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 'clamp(28px, 5vh, 55px)',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 'clamp(0.48rem, 0.75vw, 0.62rem)',
+                  fontWeight: 500,
+                  letterSpacing: '0.28em',
+                  color: isDark ? '#8F8F8F' : '#777777',
+                  marginBottom: '12px',
+                }}
+              >
+                POWERED BY
+              </span>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '11px',
+                }}
+              >
+                <img
+                  src={shenPeacock}
+                  alt="Shen Studios"
+                  style={{
+                    width: 'clamp(27px, 3vw, 36px)',
+                    height: 'auto',
+                    objectFit: 'contain',
+                  }}
+                  draggable={false}
+                />
+
+                <div
+                  style={{
+                    width: '1px',
+                    height: '30px',
+                    backgroundColor: isDark ? '#C49A6C' : '#9B6A3D',
+                  }}
+                />
+
+                <span
+                  className="font-anurati text-[3.2rem] sm:text-[3.6rem] md:text-[5rem] lg:text-[5.6rem]"
+                  style={{
+                    fontSize: 'clamp(0.78rem, 1.35vw, 1.08rem)',
+                    letterSpacing: '0.10em',
+                    color: isDark ? '#E8E8E8' : '#171717',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  SHEN STUDIOS
+                </span>
+              </div>
+            </div>
+
           </div>
         </motion.div>
-      )}
-    </AnimatePresence>
+      )
+      }
+    </AnimatePresence >
   );
 };

@@ -29,8 +29,17 @@ export const ContactListerModal: React.FC<ContactListerModalProps> = ({
     e.preventDefault();
 
     try {
-      await sendEnquiry(property.id, name, phone, email, message);
-      setSubmitted(true);
+      const newEnquiryId = await sendEnquiry(
+        property.id,
+        name,
+        phone,
+        email,
+        message
+      );
+
+      onClose();
+      setTargetEnquiryId(newEnquiryId);
+      setCurrentView('seeker-enquiries');
     } catch (error) {
       console.error('Failed to send enquiry:', error);
     }

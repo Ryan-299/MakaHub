@@ -60,6 +60,56 @@ export default defineSchema({
     .index("by_lister", ["lister.id"])
     .index("by_location", ["location.county", "location.subCounty"]),
 
+  // Rental unit categories belonging to a physical property/building.
+  // One property can contain multiple unit types.
+  propertyUnitTypes: defineTable({
+    propertyId: v.id("properties"),
+
+    // Unit category and pricing
+    type: v.string(),
+    monthlyRent: v.number(),
+    deposit: v.number(),
+    serviceCharge: v.optional(v.number()),
+    agentFee: v.optional(v.number()),
+    viewingFee: v.optional(v.number()),
+    waterDeposit: v.optional(v.number()),
+    electricityDeposit: v.optional(v.number()),
+    otherFees: v.optional(v.number()),
+
+    // Availability for this specific unit category
+    vacancies: v.number(),
+    occupied: v.number(),
+    underRepair: v.number(),
+
+    // Features and media specific to this unit category
+    amenities: v.optional(v.array(v.string())),
+    description: v.optional(v.string()),
+    images: v.optional(v.array(v.string())),
+    coverPhoto: v.optional(v.string()),
+    video: v.optional(v.string()),
+    videoName: v.optional(v.string()),
+    videoSize: v.optional(v.number()),
+
+    // Convex Storage references
+    imageStorageIds: v.optional(v.array(v.id("_storage"))),
+    coverPhotoStorageId: v.optional(v.id("_storage")),
+    videoStorageId: v.optional(v.id("_storage")),
+
+    // How tenants pay for utilities
+    waterBillingMethod: v.optional(v.string()),
+    waterMonthlyCharge: v.optional(v.number()),
+    electricityBillingMethod: v.optional(v.string()),
+    electricityRate: v.optional(v.number()),
+
+    // Record timestamps
+    createdAt: v.string(),
+    updatedAt: v.optional(v.string()),
+  })
+    .index("by_property", ["propertyId"])
+    .index("by_property_type", ["propertyId", "type"]),
+
+
+
   users: defineTable({
     userId: v.string(),
     name: v.string(),
@@ -67,6 +117,7 @@ export default defineSchema({
     phone: v.string(),
     role: v.string(), // "seeker" | "lister" | "admin"
     listerSubtype: v.optional(v.string()),
+    bio: v.optional(v.string()),
     joinedAt: v.string(),
     avatar: v.string(),
     savedPropertyIds: v.array(v.string()),
@@ -114,7 +165,7 @@ export default defineSchema({
     authorId: v.optional(v.string()),
     authorName: v.string(),
     authorAvatar: v.optional(v.string()),
-    rating: v.number(),
+    rating: v.optional(v.number()),
     date: v.string(),
     updatedAt: v.optional(v.string()),
     comment: v.optional(v.string()),
@@ -172,6 +223,7 @@ export default defineSchema({
   notifications: defineTable({
     recipientUserId: v.string(),
     userId: v.optional(v.string()),
+    actorUserId: v.optional(v.string()),
     title: v.string(),
     message: v.string(),
     time: v.string(),

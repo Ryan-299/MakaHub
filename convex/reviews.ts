@@ -52,7 +52,7 @@ export const add = mutation({
     authorId: v.optional(v.string()),
     authorName: v.string(),
     authorAvatar: v.optional(v.string()),
-    rating: v.number(),
+    rating: v.optional(v.number()),
     date: v.string(),
     comment: v.optional(v.string()),
     wouldRecommend: v.optional(v.boolean()),
@@ -123,7 +123,7 @@ export const editReply = mutation({
 export const editReview = mutation({
   args: {
     reviewId: v.id("reviews"),
-    rating: v.number(),
+    rating: v.optional(v.number()),
     comment: v.optional(v.string()),
     wouldRecommend: v.optional(v.boolean()),
     updatedAt: v.string(),

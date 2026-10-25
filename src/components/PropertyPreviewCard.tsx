@@ -1,20 +1,48 @@
 import React from 'react';
-import { MapPin, ArrowRight, X, Building } from 'lucide-react';
+import {
+  MapPin,
+  ArrowRight,
+  X,
+  Building,
+  Car,
+  Footprints,
+  Navigation,
+} from 'lucide-react';
 import { PropertyListing } from '../types';
 import { useApp } from '../context/AppContext';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
+import type { Id } from '../../convex/_generated/dataModel';
 
 interface PropertyPreviewCardProps {
   property: PropertyListing;
   onClose?: () => void;
   showViewButton?: boolean;
+
+  travelInfo?: {
+    drivingMinutes: number | null;
+    walkingMinutes: number | null;
+    distanceKm: number | null;
+    walkingWarning: string | null;
+  } | null;
+
+  travelInfoLoading?: boolean;
 }
 
 export const PropertyPreviewCard: React.FC<PropertyPreviewCardProps> = ({
   property,
   onClose,
-  showViewButton = true
+  showViewButton = true,
+  travelInfo = null,
+  travelInfoLoading = false,
 }) => {
   const { setSelectedPropertyId, setCurrentView } = useApp();
+  const mixedUnitRecords = useQuery(
+    api.propertyUnitTypes.getByProperty,
+    property.type === 'Mixed Units'
+      ? { propertyId: property.id as Id<'properties'> }
+      : 'skip'
+  );
 
   const handleView = (e?: React.MouseEvent) => {
     if (!showViewButton) return;
@@ -25,7 +53,12 @@ export const PropertyPreviewCard: React.FC<PropertyPreviewCardProps> = ({
     setSelectedPropertyId(property.id);
     setCurrentView('property-detail');
   };
+  const availableUnitTypes = [...(mixedUnitRecords ?? [])]
+    .filter((unit) => unit.vacancies > 0)
+    .sort((a, b) => a.monthlyRent - b.monthlyRent);
 
+  const previewUnitTypes = availableUnitTypes.slice(0, 2);
+  const remainingUnitTypes = Math.max(0, availableUnitTypes.length - 2);
   const formattedRent = `KSh ${property.monthlyRent.toLocaleString()}/month`;
 
   const locationText = property.location.estate
@@ -41,10 +74,9 @@ export const PropertyPreviewCard: React.FC<PropertyPreviewCardProps> = ({
     >
       {/* Property Image & Badges */}
       <div
-        className={`relative h-36 w-full bg-neutral-100 dark:bg-[#1A1A1A] overflow-hidden ${
-          showViewButton ? 'cursor-pointer group' : ''
-        }`}
-        onClick={showViewButton ? handleView : undefined}
+        className={`relative h-36 w-full bg-neutral-100 dark:bg-[#1A1A1A] overflow-hidden ${showViewButton ? 'cursor-pointer group' : ''
+          }`}
+        onClick={(e) => e.stopPropagation()}
       >
         <img
           src={
@@ -53,14 +85,15 @@ export const PropertyPreviewCard: React.FC<PropertyPreviewCardProps> = ({
             'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80'
           }
           alt={property.name}
-          className={`w-full h-full object-cover ${
-            showViewButton ? 'group-hover:scale-105 transition-transform duration-300' : ''
-          }`}
+          className={`w-full h-full object-cover ${showViewButton ? 'group-hover:scale-105 transition-transform duration-300' : ''
+            }`}
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src =
               'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=600&q=80';
           }}
+
         />
+
 
         {/* Close Button */}
         {onClose && (
@@ -97,12 +130,11 @@ export const PropertyPreviewCard: React.FC<PropertyPreviewCardProps> = ({
       <div className="p-4 space-y-2.5">
         <div
           className={showViewButton ? 'cursor-pointer' : ''}
-          onClick={showViewButton ? handleView : undefined}
+          onClick={(e) => e.stopPropagation()}
         >
           <h4
-            className={`font-bold text-base text-neutral-950 dark:text-[#F5F5F5] line-clamp-1 leading-snug ${
-              showViewButton ? 'hover:text-neutral-700 dark:hover:text-[#D5D5D5] transition-colors' : ''
-            }`}
+            className={`font-bold text-base text-neutral-950 dark:text-[#F5F5F5] line-clamp-1 leading-snug ${showViewButton ? 'hover:text-neutral-700 dark:hover:text-[#D5D5D5] transition-colors' : ''
+              }`}
           >
             {property.name}
           </h4>
@@ -112,19 +144,89 @@ export const PropertyPreviewCard: React.FC<PropertyPreviewCardProps> = ({
             <span className="truncate">{locationText}</span>
           </div>
         </div>
+        {(travelInfoLoading || travelInfo) && (
+          <div className="mt-2">
+            {travelInfoLoading ? (
+              <span className="text-[10px] text-neutral-400 dark:text-[#7D7D7D]">
+                Calculating travel time...
+              </span>
+            ) : (
+              <div className="flex items-center flex-wrap gap-1.5">
+                {travelInfo?.drivingMinutes != null && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-neutral-100 dark:bg-[#181818] px-2 py-1 text-[10px] font-semibold text-neutral-700 dark:text-[#D5D5D5]">
+                    <Car className="w-3 h-3 text-[var(--rentike-bronze)]" />
+                    {travelInfo.drivingMinutes} min
+                  </span>
+                )}
+
+                {travelInfo?.walkingMinutes != null && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-neutral-100 dark:bg-[#181818] px-2 py-1 text-[10px] font-semibold text-neutral-700 dark:text-[#D5D5D5]">
+                    <Footprints className="w-3 h-3 text-[var(--rentike-bronze)]" />
+                    {travelInfo.walkingMinutes} min
+                  </span>
+                )}
+
+                {travelInfo?.distanceKm != null && (
+                  <span className="inline-flex items-center gap-1 rounded-lg bg-neutral-100 dark:bg-[#181818] px-2 py-1 text-[10px] font-semibold text-neutral-700 dark:text-[#D5D5D5]">
+                    <Navigation className="w-3 h-3 text-[var(--rentike-bronze)]" />
+                    {travelInfo.distanceKm} km
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
 
         {/* Price & Unit Breakdown */}
-        <div className="pt-2 border-t border-neutral-100 dark:border-[#262626] flex items-baseline justify-between">
-          <div>
-            <span className="text-[11px] font-semibold text-neutral-400 dark:text-[#7D7D7D] block">Monthly Rent</span>
-            <span className="text-base font-black text-neutral-950 dark:text-[#F5F5F5] tracking-tight">
-              {formattedRent}
+        {property.type === 'Mixed Units' ? (
+          <div className="pt-2 border-t border-neutral-100 dark:border-[#262626] space-y-2">
+            {previewUnitTypes.length > 0 ? (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  {previewUnitTypes.map((unit) => (
+                    <div key={unit._id} className="min-w-0">
+                      <p className="text-[11px] font-semibold text-neutral-600 dark:text-neutral-300 truncate">
+                        {unit.type}
+                      </p>
+                      <p className="text-sm font-bold text-neutral-950 dark:text-[#F5F5F5]">
+                        KSh {unit.monthlyRent.toLocaleString()}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                        {unit.vacancies} available
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {remainingUnitTypes > 0 && (
+                  <p className="text-xs font-medium text-[var(--rentike-bronze)]">
+                    +{remainingUnitTypes} more unit types
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                {mixedUnitRecords === undefined ? 'Loading unit prices...' : 'No vacancies available'}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="pt-2 border-t border-neutral-100 dark:border-[#262626] flex items-baseline justify-between gap-2">
+            <div>
+              <span className="text-[11px] font-semibold text-neutral-400 dark:text-[#7D7D7D] block">
+                Monthly Rent
+              </span>
+              <span className="text-base font-black text-neutral-950 dark:text-[#F5F5F5] tracking-tight">
+                {formattedRent}
+              </span>
+            </div>
+            <span className="text-[11px] font-bold text-neutral-600 dark:text-[#D5D5D5] bg-neutral-100 dark:bg-[#262626] px-2 py-1 rounded-lg">
+              {property.type}
             </span>
           </div>
-          <span className="text-[11px] font-bold text-neutral-600 dark:text-[#D5D5D5] bg-neutral-100 dark:bg-[#181818] px-2 py-0.5 rounded-md border border-neutral-200/60 dark:border-[#2A2A2A]">
-            {property.type}
-          </span>
-        </div>
+        )}
+
 
         {/* View Property Action Button */}
         {showViewButton && (

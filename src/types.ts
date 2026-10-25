@@ -11,14 +11,13 @@ export type ListerSubtype =
 
 export type PropertyType =
   | 'Single Room'
+  | 'Double Room'
   | 'Bedsitter'
   | '1 Bedroom'
   | '2 Bedroom'
   | '3 Bedroom'
   | '4+ Bedroom'
   | 'Studio'
-  | 'Entire House'
-  | 'Own Compound House'
   | 'Commercial / Shop';
 
 export type PropertyStatus = 'Pending' | 'Approved' | 'Rejected' | 'Flagged' | 'Archived';
@@ -107,7 +106,7 @@ export interface PropertyReview {
   authorId?: string;
   authorName: string;
   authorAvatar?: string;
-  rating: number;
+  rating?: number;
   date: string;
   comment?: string;
   wouldRecommend?: boolean;
@@ -122,6 +121,7 @@ export interface UserAccount {
   phone: string;
   role: UserRole;
   listerSubtype?: ListerSubtype;
+  bio?: string;
   joinedAt: string;
   avatar: string;
   savedPropertyIds: string[];
@@ -145,6 +145,7 @@ export interface UserNotification {
   id: string;
   recipientUserId: string;
   userId?: string;
+  actorUserId?: string;
   title: string;
   message: string;
   time: string;

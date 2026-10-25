@@ -23,10 +23,22 @@
 @layer base {
   :root {
     color-scheme: light;
+
+    --rentike-bg: #F7F3EC;
+    --rentike-surface: #F7F4EE;
+    --rentike-text: #111111;
+    --rentike-muted: #666666;
+    --rentike-bronze: #C49A6C;
   }
 
   html.dark {
     color-scheme: dark;
+
+    --rentike-bg: #0D0D0D;
+    --rentike-surface: #181818;
+    --rentike-text: #F5F5F5;
+    --rentike-muted: #A3A3A3;
+    --rentike-bronze: #C49A6C;
   }
 
   select option {
@@ -40,13 +52,31 @@
     background-color: #111111;
   }
 
+
   body {
     font-family: 'Manrope', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--rentike-bg);
+    color: var(--rentike-text);
+    transition: background-color 0.25s ease, color 0.25s ease;
+    margin: 0;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
   }
+
+  html,
+  #root {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+
 }
 
 .font-editorial {
   font-family: 'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', Times, serif;
+
 }
 
 .font-body {
@@ -193,4 +223,302 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* =========================================
+   RENTIKE — PREMIUM PROFILE DROPDOWN
+   ========================================= */
+
+#topbar-compact-profile-menu {
+  width: 288px;
+  max-width: calc(100vw - 24px);
+  padding: 8px;
+  background: #F7F3EC;
+  color: #242424;
+  border: 1px solid #E6DDD2;
+  border-radius: 20px;
+  box-shadow:
+    8px 8px 24px rgba(61, 48, 33, 0.12),
+    -4px -4px 16px rgba(255, 255, 255, 0.85);
+  overflow: hidden;
+}
+
+/* Account information */
+#topbar-compact-profile-menu>div:first-child {
+  padding: 16px 14px;
+  border-bottom: 1px solid #E6DDD2;
+}
+
+/* Account role badge */
+#topbar-compact-profile-menu>div:first-child>div:last-child {
+  width: fit-content;
+  padding: 5px 10px;
+  background: #EDE1D2;
+  color: #8B6544;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* Menu actions */
+#topbar-compact-profile-menu button {
+  min-height: 42px;
+  border-radius: 12px;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+#topbar-compact-profile-menu button:hover {
+  background: #EDE5DA;
+}
+
+/* Logout */
+#compact-profile-logout-btn {
+  color: #DC2626;
+}
+
+#compact-profile-logout-btn:hover {
+  background: rgba(220, 38, 38, 0.08) !important;
+}
+
+/* =========================================
+   DARK MODE
+   ========================================= */
+
+.dark #topbar-compact-profile-menu {
+  background: #181818;
+  color: #F5F1E8;
+  border-color: #333333;
+  box-shadow:
+    8px 8px 24px rgba(0, 0, 0, 0.55),
+    -3px -3px 12px rgba(255, 255, 255, 0.025);
+}
+
+.dark #topbar-compact-profile-menu>div:first-child {
+  border-bottom-color: #333333;
+}
+
+.dark #topbar-compact-profile-menu>div:first-child>div:last-child {
+  background: #352B22;
+  color: #C49A6C;
+}
+
+.dark #topbar-compact-profile-menu button:hover {
+  background: #292929;
+}
+
+.dark #compact-profile-logout-btn {
+  color: #F87171;
+}
+
+.dark #compact-profile-logout-btn:hover {
+  background: rgba(248, 113, 113, 0.1) !important;
+}
+
+/* =========================================
+   RENTIKE — LISTER DASHBOARD STATISTICS
+   Soft Neumorphic Design
+   ========================================= */
+
+:is(#lister-stat-active-listings,
+  #lister-stat-total-vacancies,
+  #lister-stat-views-month,
+  #lister-stat-seeker-enquiries) {
+  min-height: 148px;
+  padding: 16px;
+  background: #F7F3EC;
+  border: 1px solid #E7DCCF;
+  border-radius: 20px;
+  opacity: 1;
+
+  box-shadow:
+    5px 5px 13px rgba(60, 45, 30, 0.10),
+    -4px -4px 12px rgba(255, 255, 255, 0.9);
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* Card labels */
+:is(#lister-stat-active-listings,
+  #lister-stat-total-vacancies,
+  #lister-stat-views-month,
+  #lister-stat-seeker-enquiries)>div:first-child>span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.065em;
+  line-height: 1.5;
+  color: #756E65;
+}
+
+/* Icon containers */
+:is(#lister-stat-active-listings,
+  #lister-stat-total-vacancies,
+  #lister-stat-views-month,
+  #lister-stat-seeker-enquiries)>div:first-child>div {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 11px;
+}
+
+/* Individual icon colours */
+#lister-stat-active-listings>div:first-child>div {
+  background: #EFE4D6;
+  color: #A67C52;
+}
+
+#lister-stat-total-vacancies>div:first-child>div {
+  background: #E0F3EB;
+  color: #15866A;
+}
+
+#lister-stat-views-month>div:first-child>div {
+  background: #F0E6D8;
+  color: #997448;
+}
+
+#lister-stat-seeker-enquiries>div:first-child>div {
+  background: #E9E9F2;
+  color: #6E7089;
+}
+
+/* Large statistics numbers */
+:is(#lister-stat-active-listings,
+  #lister-stat-total-vacancies,
+  #lister-stat-views-month,
+  #lister-stat-seeker-enquiries)>div:nth-child(2) {
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: #242424;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Descriptions */
+:is(#lister-stat-active-listings,
+  #lister-stat-total-vacancies,
+  #lister-stat-views-month,
+  #lister-stat-seeker-enquiries)>p {
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* Hover interaction */
+@media (hover: hover) {
+
+  :is(#lister-stat-active-listings,
+    #lister-stat-total-vacancies,
+    #lister-stat-views-month,
+    #lister-stat-seeker-enquiries):hover {
+    transform: translateY(-2px);
+    border-color: #C49A6C;
+    background: #F7F3EC;
+
+    box-shadow:
+      7px 7px 16px rgba(60, 45, 30, 0.13),
+      -4px -4px 12px rgba(255, 255, 255, 0.9);
+  }
+}
+
+/* =========================================
+   DARK MODE
+   ========================================= */
+
+.dark :is(#lister-stat-active-listings,
+  #lister-stat-total-vacancies,
+  #lister-stat-views-month,
+  #lister-stat-seeker-enquiries) {
+  background: #181818;
+  border-color: #303030;
+  box-shadow:
+    5px 5px 15px rgba(0, 0, 0, 0.55),
+    -3px -3px 10px rgba(255, 255, 255, 0.025);
+}
+
+.dark :is(#lister-stat-active-listings,
+  #lister-stat-total-vacancies,
+  #lister-stat-views-month,
+  #lister-stat-seeker-enquiries)>div:first-child>span {
+  color: #A3A3A3;
+}
+
+.dark :is(#lister-stat-active-listings,
+  #lister-stat-total-vacancies,
+  #lister-stat-views-month,
+  #lister-stat-seeker-enquiries)>div:nth-child(2) {
+  color: #F5F1E8;
+}
+
+.dark #lister-stat-active-listings>div:first-child>div {
+  background: #352B22;
+  color: #C49A6C;
+}
+
+.dark #lister-stat-total-vacancies>div:first-child>div {
+  background: #12352C;
+  color: #6EE7B7;
+}
+
+.dark #lister-stat-views-month>div:first-child>div {
+  background: #352B22;
+  color: #D6AD7B;
+}
+
+.dark #lister-stat-seeker-enquiries>div:first-child>div {
+  background: #292938;
+  color: #B5B7E4;
+}
+
+@media (hover: hover) {
+
+  .dark :is(#lister-stat-active-listings,
+    #lister-stat-total-vacancies,
+    #lister-stat-views-month,
+    #lister-stat-seeker-enquiries):hover {
+    background: #181818;
+    border-color: #C49A6C;
+  }
+}
+
+/* Smaller mobile screens */
+@media (max-width: 390px) {
+
+  :is(#lister-stat-active-listings,
+    #lister-stat-total-vacancies,
+    #lister-stat-views-month,
+    #lister-stat-seeker-enquiries) {
+    min-height: 142px;
+    padding: 12px;
+  }
+
+  :is(#lister-stat-active-listings,
+    #lister-stat-total-vacancies,
+    #lister-stat-views-month,
+    #lister-stat-seeker-enquiries)>div:nth-child(2) {
+    font-size: 27px;
+  }
+}
+
+/* Hide footer only when a Lister conversation is open */
+
+/* Lister conversation: keep the chat screen stationary */
+body.rentike-lister-chat-open {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* Hide the footer only during an open conversation */
+body.rentike-lister-chat-open footer {
+  display: none;
+}
+
+/* Hide footer only while a Seeker conversation is open */
+body.rentike-seeker-chat-open footer {
+  display: none;
 }

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Building2,
   Key,
@@ -11,11 +11,52 @@ import {
   CheckCircle2,
   Phone,
   Mail,
-  Star
+  Star,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useQuery } from 'convex/react';
 import { api } from '../../convex/_generated/api';
+
+const AnimatedCount: React.FC<{ value: number; duration?: number }> = ({
+  value,
+  duration = 1200,
+}) => {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    const target = Math.max(0, Number(value) || 0);
+
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setDisplayValue(target);
+      return;
+    }
+
+    let animationFrame: number;
+    const startTime = performance.now();
+
+    const animate = (currentTime: number) => {
+      const progress = Math.min((currentTime - startTime) / duration, 1);
+
+      // Smooth ease-out animation
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+
+      setDisplayValue(Math.round(target * easedProgress));
+
+      if (progress < 1) {
+        animationFrame = requestAnimationFrame(animate);
+      }
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+
+    return () => cancelAnimationFrame(animationFrame);
+  }, [value, duration]);
+
+  return <span className="tabular-nums">{displayValue.toLocaleString()}</span>;
+};
+
 
 export const ListerDashboardView: React.FC = () => {
   const {
@@ -26,8 +67,12 @@ export const ListerDashboardView: React.FC = () => {
     setCurrentView,
     setSelectedPropertyId,
     setTargetEnquiryId,
-    setListerListingsFilter
+    setListerListingsFilter,
+    resolvedTheme,
+    toggleTheme
   } = useApp();
+
+  const isDark = resolvedTheme === 'dark';
   const viewsThisMonth = useQuery(api.properties.getViewsThisMonth);
   const viewsBreakdown = useQuery(api.properties.getViewsBreakdownThisMonth);
   const [viewsBreakdownOpen, setViewsBreakdownOpen] = useState(false);
@@ -79,40 +124,125 @@ export const ListerDashboardView: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-white dark:bg-[#000000] pb-24 text-neutral-900 dark:text-[#F5F5F5] font-sans transition-colors duration-200">
+    <div className="min-h-[calc(100vh-4rem)] bg-[var(--rentike-bg)] pb-24 text-neutral-900 dark:text-[#F5F5F5] font-sans transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8">
-        {/* 33. Greeting & Quick Action Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-neutral-200 dark:border-[#262626]">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider bg-black dark:bg-white text-white dark:text-black px-2.5 py-0.5 rounded">
-                Lister Portal
+
+        {/* 33. RENTIKE LISTER DASHBOARD HEADER */}
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5 pb-6 border-b border-[#E5DCD0] dark:border-neutral-800">
+
+          {/* Greeting and dashboard title */}
+          <div className="min-w-0 flex flex-col items-start">
+
+            <div className="w-full flex flex-wrap items-center gap-2 mb-3">
+              <span className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">
+                {getGreeting()}, {currentUser?.name || 'there'}
               </span>
-              <span className="text-xs text-neutral-500 dark:text-[#8A8A8A] font-semibold">
-                {currentUser?.listerSubtype || 'Landlord / Property Owner'}
+
+
+              <span className="px-2 py-1 rounded-full bg-[#EBDFD1] dark:bg-[#30271F] text-[#946B46] dark:text-[#C49A6C] text-[9px] font-bold uppercase tracking-wider">
+                {currentUser?.listerSubtype || 'Lister'}
               </span>
+
+              {/* Mobile theme toggle — matches seeker homepage */}
+              <button
+                type="button"
+                onClick={toggleTheme}
+                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                className="
+    sm:hidden ml-auto shrink-0
+    flex items-center
+    rounded-full p-1
+    border border-[#E2D3C2] dark:border-neutral-700
+    bg-[#F7F3EC] dark:bg-[#181818]
+    shadow-[4px_4px_10px_rgba(0,0,0,0.12),-3px_-3px_9px_rgba(255,255,255,0.85)]
+    dark:shadow-[4px_4px_10px_rgba(0,0,0,0.6)]
+    transition-colors
+  "
+              >
+                <span
+                  className={`w-8 h-8 rounded-full flex items-center justify-center ${!isDark
+                    ? 'bg-white text-neutral-600 shadow-sm'
+                    : 'text-neutral-500'
+                    }`}
+                >
+                  <Sun className="w-4 h-4" />
+                </span>
+
+                <span
+                  className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark
+                    ? 'bg-[#C49A6C] text-white shadow-sm'
+                    : 'text-[#B88792]'
+                    }`}
+                >
+                  <Moon className="w-4 h-4" />
+                </span>
+              </button>
+
             </div>
-            <h1 className="text-2xl sm:text-4xl font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] tracking-tight mt-1">
-              {getGreeting()}, {currentUser?.name || 'Mary'}
+
+            <h1
+              className="
+        font-editorial font-semibold
+        text-[34px] sm:text-[42px] lg:text-[48px]
+        leading-[1.05] tracking-tight
+        text-[#111111] dark:text-[#F5F5F5]
+      "
+            >
+              Your{' '}
+              <span className="text-[var(--rentike-bronze)]">
+                Dashboard
+              </span>
             </h1>
-            <p className="text-xs sm:text-sm text-neutral-500 dark:text-[#A3A3A3] mt-0.5">
-              Here is what is happening across your rental properties today.
+
+            <p className="mt-2 text-xs sm:text-sm text-neutral-500 dark:text-neutral-400">
+              Manage your properties, vacancies and enquiries.
             </p>
           </div>
 
-          {/* Clean Lister Actions: Add New Listing */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+
+          {/* Compact neumorphic Add New Listing button */}
+          <div className="w-fit shrink-0">
             <button
               type="button"
               id="btn-lister-add-property-primary"
               onClick={() => setCurrentView('add-property')}
-              className="bg-black hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-white font-bold px-4 sm:px-5 py-2.5 rounded-xl text-xs transition-all shadow-sm flex items-center gap-2 cursor-pointer"
+              className="
+      inline-flex items-center justify-center gap-2.5
+      w-auto px-3 py-2
+      rounded-xl
+      bg-[#F7F3EC] dark:bg-[#181818]
+      text-[#242424] dark:text-[#F5F1E8]
+      border border-[#E2D3C2] dark:border-[#34302B]
+      shadow-[4px_4px_10px_rgba(0,0,0,0.10),-3px_-3px_8px_rgba(255,255,255,0.85)]
+      dark:shadow-[4px_4px_12px_rgba(0,0,0,0.55)]
+      hover:border-[#C49A6C]
+      transition-all duration-200
+      active:scale-[0.97]
+      cursor-pointer
+    "
             >
-              <PlusCircle className="w-4 h-4" />
-              <span>+ Add New Listing</span>
+              <span
+                className="
+        flex items-center justify-center
+        w-8 h-8 rounded-lg
+        bg-[#EBDFD0] dark:bg-[#352A21]
+        text-[#946B46] dark:text-[#C49A6C]
+      "
+              >
+                <PlusCircle className="w-4 h-4" />
+              </span>
+
+              <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">
+                Add New Listing
+              </span>
+
+              <ArrowRight className="w-3.5 h-3.5 text-[#A67C52] dark:text-[#C49A6C]" />
             </button>
           </div>
+
         </div>
+
 
         {/* 34. SUMMARY STATISTICS TILES (Active Listings, Total Vacancies, Views This Month, Enquiries) */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -135,7 +265,7 @@ export const ListerDashboardView: React.FC = () => {
               </div>
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold text-neutral-950 dark:text-[#F5F5F5]">
-              {activeListingsCount}
+              <AnimatedCount value={activeListingsCount} />
             </div>
             <p className="text-[11px] text-neutral-500 dark:text-[#8A8A8A] truncate" title={locationSubtitle}>
               {locationSubtitle}
@@ -161,7 +291,7 @@ export const ListerDashboardView: React.FC = () => {
               </div>
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold text-neutral-950 dark:text-[#F5F5F5]">
-              {totalVacancies}
+              <AnimatedCount value={totalVacancies} />
             </div>
             <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold">Available for rent</p>
           </button>
@@ -182,7 +312,10 @@ export const ListerDashboardView: React.FC = () => {
               </div>
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold text-neutral-950 dark:text-[#F5F5F5]">
-              {viewsThisMonth ?? '—'}
+              {viewsThisMonth === undefined
+                ? '—'
+                : <AnimatedCount value={viewsThisMonth} />
+              }
             </div>
             <p className="text-[11px] text-neutral-500 dark:text-[#8A8A8A]">
               Unique seeker views this month
@@ -266,193 +399,14 @@ export const ListerDashboardView: React.FC = () => {
               </div>
             </div>
             <div className="text-2xl sm:text-3xl font-extrabold text-neutral-950 dark:text-[#F5F5F5]">
-              {listerEnquiries.length}
+              <AnimatedCount value={listerEnquiries.length} />
             </div>
             <p className="text-[11px] text-neutral-500 dark:text-[#8A8A8A]">Direct tenant leads</p>
           </button>
         </div>
 
-        {/* Main Lister Content: Quick Listings & Recent Enquiries */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Column: Managed Properties (7 cols) */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">My Managed Properties</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setListerListingsFilter('all');
-                  setCurrentView('my-listings');
-                }}
-                className="text-xs font-bold text-black dark:text-white hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <span>View All Listings ({listerListings.length})</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
 
-            <div className="space-y-3">
-              {listerListings.length === 0 ? (
-                <div className="bg-white dark:bg-[#111111] p-8 rounded-2xl border border-neutral-200 dark:border-[#292929] text-center space-y-3 shadow-2xs">
-                  <Building2 className="w-10 h-10 text-neutral-400 dark:text-[#7D7D7D] mx-auto" />
-                  <p className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5]">No properties listed yet</p>
-                  <p className="text-xs text-neutral-500 dark:text-[#8A8A8A] max-w-xs mx-auto">
-                    Create your first property listing to track vacancies and view analytics.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setCurrentView('add-property')}
-                    className="px-4 py-2 bg-black dark:bg-white text-white dark:text-black text-xs font-bold rounded-xl hover:bg-neutral-800 dark:hover:bg-neutral-200 cursor-pointer"
-                  >
-                    + Add New Listing
-                  </button>
-                </div>
-              ) : (
-                listerListings.slice(0, 3).map((prop) => (
-                  <div
-                    key={prop.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => {
-                      setSelectedPropertyId(prop.id);
-                      setCurrentView('property-detail');
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        setSelectedPropertyId(prop.id);
-                        setCurrentView('property-detail');
-                      }
-                    }}
-                    className="bg-white dark:bg-[#111111] p-4 rounded-2xl border border-neutral-200 dark:border-[#292929] hover:border-black dark:hover:border-white transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs hover:shadow-md cursor-pointer group focus:outline-hidden focus:ring-2 focus:ring-black dark:focus:ring-white"
-                  >
-                    <div className="flex items-center gap-3.5 flex-1 min-w-0">
-                      <img
-                        src={
-                          prop.coverPhoto ||
-                          prop.images?.[0] ||
-                          'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80'
-                        }
-                        alt={prop.name}
-                        className="w-16 h-16 rounded-xl object-cover border border-neutral-200 dark:border-[#292929] shrink-0 group-hover:scale-105 transition-transform duration-200"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src =
-                            'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=600&q=80';
-                        }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-sm text-neutral-900 dark:text-[#F5F5F5] group-hover:text-neutral-700 dark:group-hover:text-white transition-colors truncate">
-                            {prop.name}
-                          </span>
-                          <span className="text-[10px] bg-neutral-100 dark:bg-[#181818] text-neutral-800 dark:text-[#E0E0E0] font-semibold px-2 py-0.5 rounded shrink-0">
-                            {prop.type}
-                          </span>
-                          {prop.status === 'Rejected' && (
-                            <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-md bg-red-600 text-white">
-                              Rejected
-                            </span>
-                          )}
-                          {prop.status === 'Pending' && (
-                            <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-md bg-amber-500 text-black">
-                              Pending
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-neutral-500 dark:text-[#8A8A8A] truncate">
-                          {prop.location.estate}, {prop.location.subCounty}
-                        </p>
-                        <p className="text-xs font-extrabold text-neutral-950 dark:text-[#F5F5F5] mt-1">
-                          KSh {prop.monthlyRent.toLocaleString()} / mo
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex sm:flex-col items-end justify-between sm:justify-center border-t sm:border-t-0 pt-2 sm:pt-0 border-neutral-100 dark:border-[#262626] gap-1.5 shrink-0">
-                      <div className="text-xs font-bold">
-                        {prop.vacancies > 0 ? (
-                          <span className="text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-2.5 py-1 rounded-md border border-emerald-200 dark:border-emerald-800">
-                            {prop.vacancies} Vacant
-                          </span>
-                        ) : (
-                          <span className="text-neutral-500 dark:text-[#8A8A8A] bg-neutral-100 dark:bg-[#181818] px-2.5 py-1 rounded-md">
-                            Fully Occupied
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[11px] text-neutral-500 dark:text-[#8A8A8A] group-hover:text-black dark:group-hover:text-white font-semibold flex items-center gap-1 transition-colors">
-                        View Public Card →
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* 35. RECENT ENQUIRIES LIST (5 cols) */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-neutral-950 dark:text-[#F5F5F5]">Recent Enquiries</h2>
-              <button
-                type="button"
-                onClick={() => setCurrentView('lister-enquiries')}
-                className="text-xs font-bold text-black dark:text-white hover:underline cursor-pointer"
-              >
-                View All
-              </button>
-            </div>
-
-            <div className="bg-white dark:bg-[#111111] rounded-3xl p-5 border border-neutral-200 dark:border-[#292929] shadow-xs divide-y divide-neutral-100 dark:divide-[#262626]">
-              {listerEnquiries.length === 0 ? (
-                <div className="py-8 text-center text-xs text-neutral-400 dark:text-[#7D7D7D]">
-                  No enquiries yet.
-                </div>
-              ) : (
-                listerEnquiries.slice(0, 4).map((enq) => (
-                  <div
-                    key={enq.id}
-                    onClick={() => {
-                      setTargetEnquiryId(enq.id);
-                      setCurrentView('lister-enquiries');
-                    }}
-                    className="py-3.5 first:pt-0 last:pb-0 space-y-2 cursor-pointer rounded-xl hover:bg-neutral-50 dark:hover:bg-[#171717] transition-colors"
-                  >
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-black dark:bg-white text-white dark:text-black flex items-center justify-center font-bold text-xs">
-                          {enq.seekerName.charAt(0)}
-                        </div>
-                        <div>
-                          <span className="font-bold text-neutral-900 dark:text-[#F5F5F5] block leading-tight">{enq.seekerName}</span>
-                          <span className="text-[11px] text-neutral-500 dark:text-[#8A8A8A]">{enq.propertyName}</span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-neutral-400 dark:text-[#7D7D7D]">{enq.createdAt}</span>
-                    </div>
-
-                    <p className="text-xs text-neutral-600 dark:text-[#D4D4D4] bg-neutral-50 dark:bg-[#181818] p-2.5 rounded-xl border border-neutral-100 dark:border-[#262626] leading-relaxed italic">
-                      "{enq.message}"
-                    </p>
-
-                    <div className="flex items-center gap-2 pt-1">
-                      <a
-                        onClick={(e) => e.stopPropagation()}
-                        href={`tel:${enq.seekerPhone}`}
-                        className="flex-1 py-1.5 bg-black hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200 text-white rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
-                      >
-                        <Phone className="w-3 h-3" />
-                        <span>Call {enq.seekerPhone}</span>
-                      </a>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
 };
-

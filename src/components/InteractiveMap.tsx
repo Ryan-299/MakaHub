@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { PropertyListing } from '../types';
 import { PropertyPreviewCard } from './PropertyPreviewCard';
 import { Crosshair, ZoomIn, ZoomOut, RotateCcw, Loader2, Search } from 'lucide-react';
@@ -11,6 +12,12 @@ import {
   KENYA_WARD_COORDS
 } from '../utils/kenyaGeocoding';
 import { useApp } from '../context/AppContext';
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAPS_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID;
+setOptions({
+  key: GOOGLE_MAPS_API_KEY,
+  v: 'weekly',
+});
 
 interface InteractiveMapProps {
   properties: PropertyListing[];
@@ -31,13 +38,26 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   zoom = 13,
   showViewButton = true
 }) => {
-  const { filters, setSeekerLocation, mapTarget, setSelectedPropertyId } = useApp();
+  const { filters, seekerLocation, setSeekerLocation, mapTarget, setSelectedPropertyId, resolvedTheme } = useApp();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<{ [id: string]: L.Marker }>({});
   const userMarkerRef = useRef<L.Marker | null>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
-  
+  const googleMapInstanceRef = useRef<google.maps.Map | null>(null);
+  const googleMarkersRef = useRef<Record<string, google.maps.marker.AdvancedMarkerElement>>({});
+
+  const googleUserMarkerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+
+  const savedGoogleViewRef = useRef<{
+    lat: number;
+    lng: number;
+    zoom: number;
+  } | null>(null);
+
+  const restoringGoogleThemeRef = useRef(false);
+
+
   // Refs to track last navigated target ID and previous center to avoid snapping back
   const lastTargetIdRef = useRef<string | null>(null);
   const initialFitDoneRef = useRef<boolean>(false);
@@ -50,6 +70,18 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
   const [locationToast, setLocationToast] = useState<string | null>(null);
   const [showSearchThisArea, setShowSearchThisArea] = useState<boolean>(false);
 
+  const [googleMapReady, setGoogleMapReady] = useState(false);
+  const [googleMapGeneration, setGoogleMapGeneration] = useState(0);
+
+  const [travelInfo, setTravelInfo] = useState<{
+    drivingMinutes: number | null;
+    walkingMinutes: number | null;
+    distanceKm: number | null;
+    walkingWarning: string | null;
+  } | null>(null);
+
+  const [travelInfoLoading, setTravelInfoLoading] = useState(false);
+
   // Authoritative current active property derived reactively
   const activeProperty = useMemo(() => {
     const currentId = selectedPropertyId || activePropertyId;
@@ -59,6 +91,110 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     if (properties.length > 1 && found.vacancies <= 0) return null;
     return found;
   }, [properties, selectedPropertyId, activePropertyId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const calculateTravelInfo = async () => {
+      if (!googleMapReady || !seekerLocation || !activeProperty) {
+        setTravelInfo(null);
+        setTravelInfoLoading(false);
+        return;
+      }
+
+      const destination = resolvePropertyCoordinates(activeProperty.location);
+
+      if (
+        typeof destination.lat !== 'number' ||
+        typeof destination.lng !== 'number' ||
+        isNaN(destination.lat) ||
+        isNaN(destination.lng)
+      ) {
+        setTravelInfo(null);
+        setTravelInfoLoading(false);
+        return;
+      }
+
+      setTravelInfoLoading(true);
+      setTravelInfo(null);
+
+      try {
+        const { Route } =
+          await importLibrary('routes') as google.maps.RoutesLibrary;
+
+        const origin = {
+          lat: seekerLocation.lat,
+          lng: seekerLocation.lng,
+        };
+
+        const destinationPoint = {
+          lat: destination.lat,
+          lng: destination.lng,
+        };
+
+        const [drivingResult, walkingResult] = await Promise.all([
+          Route.computeRoutes({
+            origin,
+            destination: destinationPoint,
+            travelMode: 'DRIVING',
+            fields: ['distanceMeters', 'durationMillis'],
+          }),
+
+          Route.computeRoutes({
+            origin,
+            destination: destinationPoint,
+            travelMode: 'WALKING',
+            fields: ['distanceMeters', 'durationMillis', 'warnings'],
+          }),
+        ]);
+
+        if (cancelled) return;
+
+        const drivingRoute = drivingResult.routes?.[0];
+        const walkingRoute = walkingResult.routes?.[0];
+
+        const distanceMeters =
+          drivingRoute?.distanceMeters ??
+          walkingRoute?.distanceMeters ??
+          null;
+
+        setTravelInfo({
+          drivingMinutes:
+            drivingRoute?.durationMillis != null
+              ? Math.max(1, Math.ceil(drivingRoute.durationMillis / 60000))
+              : null,
+
+          walkingMinutes:
+            walkingRoute?.durationMillis != null
+              ? Math.max(1, Math.ceil(walkingRoute.durationMillis / 60000))
+              : null,
+
+          distanceKm:
+            distanceMeters != null
+              ? Math.round((distanceMeters / 1000) * 10) / 10
+              : null,
+
+          walkingWarning:
+            walkingRoute?.warnings?.[0] ?? null,
+        });
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('Unable to calculate travel time:', error);
+          setTravelInfo(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setTravelInfoLoading(false);
+        }
+      }
+    };
+
+    void calculateTravelInfo();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleMapReady, seekerLocation, activeProperty]);
 
   // Helper to show temporary toast messages on map
   const showToast = (msg: string) => {
@@ -92,55 +228,77 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     }
   }, [activeProperty]);
 
-  // 1. Initialize Map Instance (with OpenStreetMap tiles & event listeners)
-  useEffect(() => {
-    if (!mapContainerRef.current) return;
 
-    if (!mapInstanceRef.current) {
-      const initialPos = getInitialCenter();
-      const initialZoom = mapTarget?.zoom || zoom;
-      
-      const map = L.map(mapContainerRef.current, {
-        center: initialPos,
+  // 1. Initialize Google Map Instance and synchronize its theme
+  useEffect(() => {
+    let cancelled = false;
+    let createdMap: google.maps.Map | null = null;
+
+    const initializeGoogleMap = async () => {
+      if (!mapContainerRef.current) return;
+
+      const { Map } =
+        await importLibrary('maps') as google.maps.MapsLibrary;
+
+      if (cancelled || !mapContainerRef.current) return;
+
+      const [defaultLat, defaultLng] = getInitialCenter();
+
+      const savedView = savedGoogleViewRef.current;
+
+      const lat = savedView?.lat ?? defaultLat;
+      const lng = savedView?.lng ?? defaultLng;
+      const initialZoom =
+        savedView?.zoom ?? mapTarget?.zoom ?? zoom;
+
+      const map = new Map(mapContainerRef.current, {
+        center: { lat, lng },
         zoom: initialZoom,
         minZoom: 5,
         maxZoom: 19,
+        mapId: GOOGLE_MAPS_MAP_ID,
+        colorScheme:
+          resolvedTheme === 'dark'
+            ? google.maps.ColorScheme.DARK
+            : google.maps.ColorScheme.LIGHT,
         zoomControl: false,
-        scrollWheelZoom: true,
-        doubleClickZoom: true,
-        dragging: true,
-        touchZoom: true,
-        keyboard: true
+        streetViewControl: false,
+        mapTypeControl: false,
+        fullscreenControl: false,
+        rotateControl: false,
+        tilt: 0,
+        gestureHandling: 'greedy',
+        keyboardShortcuts: true,
       });
 
-      lastProgrammaticCenterRef.current = initialPos;
+      createdMap = map;
+      lastProgrammaticCenterRef.current = [lat, lng];
 
-      // Standard OSM tiles layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-        minZoom: 5
-      }).addTo(map);
-
-      // Dismiss preview card when clicking empty map canvas
-      map.on('click', () => {
+      map.addListener('click', () => {
         setActivePropertyId(null);
-        if (onSelectProperty) onSelectProperty(null);
+
+        if (onSelectProperty) {
+          onSelectProperty(null);
+        }
+
         setSelectedPropertyId(null);
       });
 
-      // Detect manual user drag / zoom to offer "Search this area"
-      map.on('dragend', () => {
+      map.addListener('dragend', () => {
         if (programmaticallyMovingRef.current) return;
+
         const currentCenter = map.getCenter();
+        if (!currentCenter) return;
+
         if (lastProgrammaticCenterRef.current) {
-          const dist = calculateDistanceInKm(
-            currentCenter.lat,
-            currentCenter.lng,
+          const distance = calculateDistanceInKm(
+            currentCenter.lat(),
+            currentCenter.lng(),
             lastProgrammaticCenterRef.current[0],
             lastProgrammaticCenterRef.current[1]
           );
-          if (dist > 1.2) {
+
+          if (distance > 1.2) {
             setShowSearchThisArea(true);
           }
         } else {
@@ -148,189 +306,437 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         }
       });
 
-      map.on('zoomend', () => {
-        if (programmaticallyMovingRef.current) return;
-      });
-
-      map.on('moveend', () => {
-        // Clear programmatic moving lock after flight ends
+      map.addListener('idle', () => {
         programmaticallyMovingRef.current = false;
       });
 
-      mapInstanceRef.current = map;
 
-      // Invalidate size to ensure accurate rendering in dynamic containers
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 100);
-    }
+      googleMapInstanceRef.current = map;
+      setGoogleMapReady(true);
+      setGoogleMapGeneration(prev => prev + 1);
+
+    };
+
+    void initializeGoogleMap();
 
     return () => {
-      // Cleanup is handled gracefully
-    };
-  }, []);
+      cancelled = true;
 
-  // 2. Map Target Synchronization (Triggered whenever location search or property selection occurs)
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map || !mapTarget) return;
+      if (createdMap) {
+        const center = createdMap.getCenter();
+        const currentZoom = createdMap.getZoom();
 
-    // Check if this is a new map target trigger
-    if (mapTarget.id !== lastTargetIdRef.current) {
-      lastTargetIdRef.current = mapTarget.id;
-      programmaticallyMovingRef.current = true;
-      lastProgrammaticCenterRef.current = [mapTarget.lat, mapTarget.lng];
-      setShowSearchThisArea(false);
+        if (center && currentZoom !== undefined) {
+          savedGoogleViewRef.current = {
+            lat: center.lat(),
+            lng: center.lng(),
+            zoom: currentZoom,
+          };
 
-      // 1. If a specific property was targeted:
-      if (mapTarget.propertyId) {
-        map.flyTo([mapTarget.lat, mapTarget.lng], 16, {
-          animate: true,
-          duration: 1.0
+          restoringGoogleThemeRef.current = true;
+        }
+
+
+        Object.keys(googleMarkersRef.current).forEach((id) => {
+          googleMarkersRef.current[id].map = null;
         });
-        setActivePropertyId(mapTarget.propertyId);
-        const prop = properties.find((p) => p.id === mapTarget.propertyId);
-        if (prop && onSelectProperty) {
-          onSelectProperty(prop);
+
+        googleMarkersRef.current = {};
+
+        if (googleUserMarkerRef.current) {
+          googleUserMarkerRef.current.map = null;
+          googleUserMarkerRef.current = null;
         }
-        if (mapTarget.locationName) {
-          showToast(`Viewing ${mapTarget.locationName}`);
+
+        google.maps.event.clearInstanceListeners(createdMap);
+
+        if (googleMapInstanceRef.current === createdMap) {
+          googleMapInstanceRef.current = null;
         }
+
+        setGoogleMapReady(false);
       }
-      // 2. If a geographic location was selected (County, Sub-County, Ward, Estate):
-      else if (mapTarget.reason === 'selection' || mapTarget.reason === 'search') {
-        const validListings = properties.length === 1
+    };
+  }, [resolvedTheme]);
+
+  // 2. Google Map Target Synchronization
+  useEffect(() => {
+    const map = googleMapInstanceRef.current;
+
+    if (!googleMapReady || !map || !mapTarget) return;
+
+    // Only respond once to each new target
+    if (mapTarget.id === lastTargetIdRef.current) return;
+
+    lastTargetIdRef.current = mapTarget.id;
+    programmaticallyMovingRef.current = true;
+    lastProgrammaticCenterRef.current = [mapTarget.lat, mapTarget.lng];
+    setShowSearchThisArea(false);
+
+    // 1. A specific property was selected
+    if (mapTarget.propertyId) {
+      map.panTo({
+        lat: mapTarget.lat,
+        lng: mapTarget.lng,
+      });
+
+      map.setZoom(16);
+
+      setActivePropertyId(mapTarget.propertyId);
+
+      const prop = properties.find(
+        (p) => p.id === mapTarget.propertyId
+      );
+
+      if (prop && onSelectProperty) {
+        onSelectProperty(prop);
+      }
+
+      if (mapTarget.locationName) {
+        showToast(`Viewing ${mapTarget.locationName}`);
+      }
+
+      return;
+    }
+
+    // 2. Geographic filter/search selected
+    if (
+      mapTarget.reason === 'selection' ||
+      mapTarget.reason === 'search'
+    ) {
+      const validListings =
+        properties.length === 1
           ? properties
           : properties.filter((p) => p.vacancies > 0);
 
-        const coordsList: [number, number][] = validListings
-          .map((p) => {
-            const coords = resolvePropertyCoordinates(p.location);
-            return [coords.lat, coords.lng] as [number, number];
-          })
-          .filter(([lat, lng]) => typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng));
+      const coordsList: [number, number][] = validListings
+        .map((p) => {
+          const coords = resolvePropertyCoordinates(p.location);
+          return [coords.lat, coords.lng] as [number, number];
+        })
+        .filter(
+          ([lat, lng]) =>
+            typeof lat === 'number' &&
+            typeof lng === 'number' &&
+            !isNaN(lat) &&
+            !isNaN(lng)
+        );
 
-        if (coordsList.length > 1) {
-          // If several matching properties exist, use Leaflet fitBounds() so all matching property markers are visible
-          const bounds = L.latLngBounds(coordsList);
-          if (bounds.isValid()) {
-            map.fitBounds(bounds, {
-              padding: [55, 55],
-              maxZoom: 16,
-              animate: true,
-              duration: 1.0
-            });
-            if (mapTarget.locationName) {
-              showToast(`Showing ${coordsList.length} properties in ${mapTarget.locationName}`);
-            }
-          }
-        } else if (coordsList.length === 1) {
-          // If only one matching property exists, center on that property and zoom appropriately
-          const [singleLat, singleLng] = coordsList[0];
-          map.flyTo([singleLat, singleLng], 15, {
-            animate: true,
-            duration: 1.0
-          });
-          if (mapTarget.locationName) {
-            showToast(`Showing 1 property in ${mapTarget.locationName}`);
-          }
-        } else {
-          // 0 matching properties: move map to selected geographic location
-          map.flyTo([mapTarget.lat, mapTarget.lng], mapTarget.zoom || 12, {
-            animate: true,
-            duration: 1.0
-          });
-          showToast('No MakaoHub listings found in this area yet.');
-        }
-      } else {
-        // General recenter or manual coordinate navigation
-        map.flyTo([mapTarget.lat, mapTarget.lng], mapTarget.zoom, {
-          animate: true,
-          duration: 1.0
+      // Several matching properties
+      if (coordsList.length > 1) {
+        const bounds = new google.maps.LatLngBounds();
+
+        coordsList.forEach(([lat, lng]) => {
+          bounds.extend({ lat, lng });
         });
-      }
-    }
-  }, [mapTarget, properties, onSelectProperty]);
 
+        map.fitBounds(bounds, 55);
+
+        google.maps.event.addListenerOnce(map, 'idle', () => {
+          const fittedZoom = map.getZoom();
+
+          if (fittedZoom !== undefined && fittedZoom > 16) {
+            map.setZoom(16);
+          }
+        });
+
+        if (mapTarget.locationName) {
+          showToast(
+            `Showing ${coordsList.length} properties in ${mapTarget.locationName}`
+          );
+        }
+      }
+
+      // One matching property
+      else if (coordsList.length === 1) {
+        const [singleLat, singleLng] = coordsList[0];
+
+        map.panTo({
+          lat: singleLat,
+          lng: singleLng,
+        });
+
+        map.setZoom(15);
+
+        if (mapTarget.locationName) {
+          showToast(
+            `Showing 1 property in ${mapTarget.locationName}`
+          );
+        }
+      }
+
+      // No matching properties — still move to selected area
+      else {
+        map.panTo({
+          lat: mapTarget.lat,
+          lng: mapTarget.lng,
+        });
+
+        map.setZoom(mapTarget.zoom || 12);
+
+        showToast('No Rentike listings in this area yet.');
+      }
+
+      return;
+    }
+
+    // 3. General recenter/manual coordinate navigation
+    map.panTo({
+      lat: mapTarget.lat,
+      lng: mapTarget.lng,
+    });
+
+    map.setZoom(mapTarget.zoom || 13);
+  }, [
+    mapTarget,
+    properties,
+    onSelectProperty,
+    googleMapReady,
+  ]);
   // 3. Render Property Pins
   useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
+    let cancelled = false;
 
-    // Remove previous property markers
-    Object.values(markersRef.current).forEach((marker: L.Marker) => {
-      if (marker && typeof marker.remove === 'function') {
-        marker.remove();
-      }
-    });
-    markersRef.current = {};
+    const renderGooglePropertyPins = async () => {
+      const map = googleMapInstanceRef.current;
+      if (!googleMapReady || !map) return;
 
-    // Filter to listings with vacancies > 0 (or single property if passed in detail view)
-    const validListings = properties.length === 1
-      ? properties
-      : properties.filter((p) => p.vacancies > 0);
+      const { AdvancedMarkerElement } =
+        await importLibrary('marker') as google.maps.MarkerLibrary;
 
-    const bounds = L.latLngBounds([]);
+      if (cancelled) return;
 
-    validListings.forEach((prop) => {
-      const { lat, lng } = resolvePropertyCoordinates(prop.location);
-      if (typeof lat !== 'number' || typeof lng !== 'number' || isNaN(lat) || isNaN(lng)) {
-        return;
-      }
+      // Remove previous Google property markers
+      Object.values(googleMarkersRef.current).forEach((marker) => {
+        Object.keys(googleMarkersRef.current).forEach((id) => {
+          googleMarkersRef.current[id].map = null;
+        });
+      });
+      googleMarkersRef.current = {};
 
-      const isSelected = selectedPropertyId === prop.id || activeProperty?.id === prop.id;
+      // Filter to listings with vacancies > 0
+      // (or single property if passed in detail view)
+      const validListings =
+        properties.length === 1
+          ? properties
+          : properties.filter((p) => p.vacancies > 0);
 
-      // MakaoHub House Pin HTML
-      const pinHtml = `
-        <div id="property-pin-${prop.id}" class="makaohub-property-pin ${isSelected ? 'active' : ''}" title="${prop.name} (KSh ${prop.monthlyRent.toLocaleString()})">
-          <div class="pin-head">
-            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
-              <path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            </svg>
-          </div>
-          <div class="pin-tip"></div>
-        </div>
-      `;
+      const bounds = new google.maps.LatLngBounds();
 
-      const customIcon = L.divIcon({
-        className: 'makaohub-property-pin-wrapper',
-        html: pinHtml,
-        iconSize: [32, 40],
-        iconAnchor: [16, 40],
-        popupAnchor: [0, -42]
+      validListings.forEach((prop) => {
+        const { lat, lng } = resolvePropertyCoordinates(prop.location);
+
+        if (
+          typeof lat !== 'number' ||
+          typeof lng !== 'number' ||
+          isNaN(lat) ||
+          isNaN(lng)
+        ) {
+          return;
+        }
+
+        const isSelected =
+          selectedPropertyId === prop.id ||
+          activeProperty?.id === prop.id;
+
+        // Rentike teardrop property pin
+        const markerContent = document.createElement('div');
+
+        markerContent.style.width = isSelected ? '44px' : '40px';
+        markerContent.style.height = isSelected ? '44px' : '40px';
+        markerContent.style.transformOrigin = 'bottom center';
+        markerContent.style.transition = 'transform 0.2s ease';
+        markerContent.style.filter = isSelected
+          ? 'drop-shadow(0 7px 14px rgba(139, 107, 67, 0.32))'
+          : 'drop-shadow(0 5px 10px rgba(0, 0, 0, 0.22))';
+
+        const pinColor = 'var(--rentike-bronze)';
+        const propertyLabel =
+          prop.type ||
+          prop.propertyType ||
+          prop.unitType ||
+          prop.listingType ||
+          'Property';
+
+        markerContent.innerHTML = `
+<div
+  title="${prop.name}"
+  style="
+    position: relative;
+    width: 40px;
+    height: 46px;
+    display: flex;
+    justify-content: center;
+    overflow: visible;
+  "
+>
+  <!-- Neumorphic house marker -->
+  <div
+    style="
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: ${isSelected ? '#B9835A' : '#F8F5EF'};
+      border: 1px solid rgba(139,107,67,0.18);
+      box-shadow:
+        inset 2px 2px 4px rgba(255,255,255,0.9),
+        inset -3px -3px 6px rgba(139,107,67,0.10),
+        0 6px 14px rgba(0,0,0,0.18);
+      z-index: 2;
+    "
+  >
+    <svg
+      width="21"
+      height="21"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M3 11.5L12 4L21 11.5"
+        stroke="${isSelected ? '#FFFFFF' : '#8B6B43'}"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M5.5 10V20H18.5V10"
+        stroke="${isSelected ? '#FFFFFF' : '#8B6B43'}"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        d="M9.5 20V14H14.5V20"
+        stroke="${isSelected ? '#FFFFFF' : '#8B6B43'}"
+        stroke-width="2.2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </div>
+
+  <!-- Pointer -->
+  <div
+    style="
+      position: absolute;
+      bottom: 1px;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      background: ${isSelected ? '#B9835A' : '#F8F5EF'};
+      border-right: 1px solid rgba(139,107,67,0.18);
+      border-bottom: 1px solid rgba(139,107,67,0.18);
+      transform: translateX(-50%) rotate(45deg);
+      z-index: 1;
+    "
+  ></div>
+
+  <!-- Property type label -->
+  <div
+    style="
+      position: absolute;
+      top: 51px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+      font-size: 10px;
+      line-height: 1;
+      font-weight: 700;
+      font-family: sans-serif;
+      background: ${isSelected ? '#B9835A' : '#F8F5EF'};
+      color: ${isSelected ? '#FFFFFF' : '#8B6B43'};
+      border: 1px solid rgba(139,107,67,0.18);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.13);
+      pointer-events: none;
+    "
+  >
+    ${propertyLabel}
+  </div>
+</div>
+`;
+
+        const marker = new AdvancedMarkerElement({
+          map,
+          position: { lat, lng },
+          content: markerContent,
+          title: prop.name,
+          zIndex: isSelected ? 1000 : 100,
+        });
+
+        marker.addListener('click', () => {
+          setActivePropertyId(prop.id);
+
+          if (onSelectProperty) {
+            onSelectProperty(prop);
+          }
+
+          setSelectedPropertyId(prop.id);
+
+          // Smoothly move the Google map toward the selected property
+          map.panTo({ lat, lng });
+        });
+
+        googleMarkersRef.current[prop.id] = marker;
+        bounds.extend({ lat, lng });
       });
 
-      const marker = L.marker([lat, lng], {
-        icon: customIcon,
-        zIndexOffset: isSelected ? 1000 : 100
-      }).addTo(map);
+      // Initial map framing
+      if (
+        !initialFitDoneRef.current &&
+        !mapTarget &&
+        !selectedPropertyId
+      ) {
+        initialFitDoneRef.current = true;
 
-      marker.on('click', (e) => {
-        L.DomEvent.stopPropagation(e);
-        setActivePropertyId(prop.id);
-        if (onSelectProperty) onSelectProperty(prop);
-        setSelectedPropertyId(prop.id);
-        
-        // Pan smoothly to make sure pin and preview are comfortably visible
-        map.panTo([lat, lng], { animate: true, duration: 0.5 });
+        if (validListings.length > 1 && !bounds.isEmpty()) {
+          map.fitBounds(bounds, 55);
+
+          google.maps.event.addListenerOnce(map, 'idle', () => {
+            const fittedZoom = map.getZoom();
+
+            if (fittedZoom !== undefined && fittedZoom > 15) {
+              map.setZoom(15);
+            }
+          });
+        } else if (validListings.length === 1) {
+          const { lat, lng } = resolvePropertyCoordinates(
+            validListings[0].location
+          );
+
+          map.setCenter({ lat, lng });
+          map.setZoom(15);
+        }
+      }
+    };
+
+    void renderGooglePropertyPins();
+
+    return () => {
+      cancelled = true;
+
+      Object.keys(googleMarkersRef.current).forEach((id) => {
+        googleMarkersRef.current[id].map = null;
       });
 
-      markersRef.current[prop.id] = marker;
-      bounds.extend([lat, lng]);
-    });
+      googleMarkersRef.current = {};
+    };
+  }, [
+    properties,
+    selectedPropertyId,
+    activeProperty?.id,
+    onSelectProperty,
 
-    // 4. Initial Mount Bounds (Only done once if no mapTarget is set)
-    if (!initialFitDoneRef.current && !mapTarget && !selectedPropertyId) {
-      initialFitDoneRef.current = true;
-      if (validListings.length > 1 && bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [55, 55], maxZoom: 15, animate: false });
-      } else if (validListings.length === 1) {
-        const { lat, lng } = resolvePropertyCoordinates(validListings[0].location);
-        map.setView([lat, lng], 15, { animate: false });
-      }
-    }
-  }, [properties, selectedPropertyId, activeProperty?.id, onSelectProperty, setSelectedPropertyId]);
+    setSelectedPropertyId,
+    googleMapReady,
+    googleMapGeneration,
+  ]);
+
 
   // 5. Center on externally selected property if changed
   useEffect(() => {
@@ -353,57 +759,290 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     setIsLocating(true);
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         setIsLocating(false);
+
         const { latitude, longitude } = position.coords;
         const userPos: [number, number] = [latitude, longitude];
-        setUserLocation(userPos);
-        setSeekerLocation({ lat: latitude, lng: longitude });
 
-        const map = mapInstanceRef.current;
-        if (!map) return;
+        setUserLocation(userPos);
+        setSeekerLocation({
+          lat: latitude,
+          lng: longitude,
+        });
+
+        const map = googleMapInstanceRef.current;
+
+        if (!map) {
+          showToast('Map is still loading.');
+          return;
+        }
 
         programmaticallyMovingRef.current = true;
+        initialFitDoneRef.current = true;
         lastProgrammaticCenterRef.current = userPos;
         setShowSearchThisArea(false);
 
-        // Center on user position with neighbourhood-level zoom
-        map.flyTo(userPos, 15, { animate: true, duration: 1.0 });
+        map.panTo({
+          lat: latitude,
+          lng: longitude,
+        });
 
-        // Update or create user location marker
-        if (userMarkerRef.current) {
-          userMarkerRef.current.setLatLng(userPos);
+        map.setZoom(13);
+
+        if (googleUserMarkerRef.current) {
+          googleUserMarkerRef.current.position = {
+            lat: latitude,
+            lng: longitude,
+          };
         } else {
-          const userIcon = L.divIcon({
-            className: 'user-live-location-wrapper',
-            html: `
-              <div class="user-live-location-pin" title="Your Current Location">
-                <div class="pulse"></div>
-                <div class="dot"></div>
-              </div>
-            `,
-            iconSize: [28, 28],
-            iconAnchor: [14, 14]
-          });
+          const { AdvancedMarkerElement } =
+            (await importLibrary('marker')) as google.maps.MarkerLibrary;
 
-          const uMarker = L.marker(userPos, { icon: userIcon, zIndexOffset: 2000 }).addTo(map);
-          userMarkerRef.current = uMarker;
+          const markerContent = document.createElement('div');
+
+          markerContent.innerHTML = `
+  <div
+    title="Your Current Location"
+    style="
+      position: relative;
+      width: 24px;
+      height: 24px;
+      overflow: visible;
+    "
+  >
+    <div
+      style="
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 48px;
+        height: 48px;
+        border-radius: 9999px;
+        transform: translate(-50%, -50%);
+        background: rgba(66, 133, 244, 0.12);
+        border: 1px solid rgba(66, 133, 244, 0.28);
+      "
+    ></div>
+
+    <div
+      class="rentike-location-pulse"
+      style="
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 48px;
+        height: 48px;
+        border-radius: 9999px;
+        transform: translate(-50%, -50%) scale(0.8);
+        background: rgba(66, 133, 244, 0.28);
+        opacity: 0.55;
+        pointer-events: none;
+      "
+    ></div>
+
+    <div
+      style="
+        position: absolute;
+        inset: 0;
+        border-radius: 9999px;
+        box-sizing: border-box;
+        background: #4285F4;
+        border: 4px solid white;
+        box-shadow:
+          0 0 0 3px rgba(66, 133, 244, 0.22),
+          0 3px 10px rgba(0, 0, 0, 0.28);
+      "
+    ></div>
+  </div>
+`;
+
+          const pulseRing =
+            markerContent.querySelector<HTMLElement>('.rentike-location-pulse');
+
+          pulseRing?.animate(
+            [
+              {
+                transform: 'translate(-50%, -50%) scale(0.8)',
+                opacity: 0.55,
+              },
+              {
+                transform: 'translate(-50%, -50%) scale(1.55)',
+                opacity: 0,
+              },
+            ],
+            {
+              duration: 1800,
+              iterations: Infinity,
+              easing: 'ease-out',
+            }
+          );
+          googleUserMarkerRef.current = new AdvancedMarkerElement({
+            map,
+            position: {
+              lat: latitude,
+              lng: longitude,
+            },
+            content: markerContent,
+            title: 'Your Current Location',
+            zIndex: 2000,
+          });
         }
 
         showToast('Centered on your current location.');
       },
-      (error) => {
+
+      () => {
         setIsLocating(false);
-        showToast('Location access was not enabled. You can browse listings on the map freely.');
+
+        showToast(
+          'Location access was not enabled. You can browse listings on the map freely.'
+        );
       },
+
       {
         enableHighAccuracy: true,
         timeout: 9000,
-        maximumAge: 60000
+        maximumAge: 60000,
       }
     );
   };
 
+  useEffect(() => {
+    if (!googleMapReady) return;
+
+    const map = googleMapInstanceRef.current;
+    if (!map) return;
+
+    // Keep the current map position when switching themes.
+    if (restoringGoogleThemeRef.current) {
+      restoringGoogleThemeRef.current = false;
+
+      // Restore the blue current-location marker.
+      if (seekerLocation) {
+        void importLibrary('marker').then(({ AdvancedMarkerElement }) => {
+          if (googleMapInstanceRef.current !== map) return;
+
+          if (googleUserMarkerRef.current) {
+            googleUserMarkerRef.current.map = null;
+          }
+
+          const dot = document.createElement('div');
+
+          dot.style.cssText = `
+          width: 22px;
+          height: 22px;
+          border-radius: 9999px;
+          background: #4285F4;
+          border: 4px solid white;
+          box-shadow:
+            0 0 0 6px rgba(66,133,244,0.18),
+            0 2px 8px rgba(0,0,0,0.28);
+        `;
+
+          googleUserMarkerRef.current = new AdvancedMarkerElement({
+            map,
+            position: {
+              lat: seekerLocation.lat,
+              lng: seekerLocation.lng,
+            },
+            content: dot,
+            title: 'Your Current Location',
+            zIndex: 2000,
+          });
+        });
+      }
+
+      return;
+    }
+
+    let cancelled = false;
+
+
+    const applyKnownLocation = async () => {
+      if (mapTarget) return;
+
+      if (seekerLocation) {
+        programmaticallyMovingRef.current = true;
+        initialFitDoneRef.current = true;
+        lastProgrammaticCenterRef.current = [
+          seekerLocation.lat,
+          seekerLocation.lng,
+        ];
+        setShowSearchThisArea(false);
+
+        map.panTo({
+          lat: seekerLocation.lat,
+          lng: seekerLocation.lng,
+        });
+
+        map.setZoom(13);
+
+        if (googleUserMarkerRef.current) {
+          googleUserMarkerRef.current.position = {
+            lat: seekerLocation.lat,
+            lng: seekerLocation.lng,
+          };
+        } else {
+          const { AdvancedMarkerElement } =
+            (await importLibrary('marker')) as google.maps.MarkerLibrary;
+
+          if (cancelled) return;
+
+          const markerContent = document.createElement('div');
+
+          markerContent.innerHTML = `
+          <div
+            title="Your Current Location"
+            style="
+              width: 22px;
+              height: 22px;
+              border-radius: 9999px;
+              background: #4285F4;
+              border: 4px solid white;
+              box-shadow:
+                0 0 0 6px rgba(66, 133, 244, 0.18),
+                0 2px 8px rgba(0,0,0,0.28);
+            "
+          ></div>
+        `;
+
+          googleUserMarkerRef.current = new AdvancedMarkerElement({
+            map,
+            position: {
+              lat: seekerLocation.lat,
+              lng: seekerLocation.lng,
+            },
+            content: markerContent,
+            title: 'Your Current Location',
+            zIndex: 2000,
+          });
+        }
+
+        return;
+      }
+
+      if (!navigator.geolocation || !navigator.permissions) return;
+
+      try {
+        const permission = await navigator.permissions.query({
+          name: 'geolocation',
+        });
+
+        if (!cancelled && permission.state === 'granted') {
+          handleUseMyLocation();
+        }
+      } catch {
+        // Keep the normal map view.
+      }
+    };
+
+    void applyKnownLocation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [googleMapReady, seekerLocation, mapTarget]);
   // Zoom controls
   const handleZoomIn = () => {
     mapInstanceRef.current?.zoomIn();
@@ -501,20 +1140,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       {/* Leaflet map DOM element */}
       <div ref={mapContainerRef} className="w-full h-full z-0 bg-neutral-100 dark:bg-neutral-900" />
 
-      {/* Floating "Search this area" Button (Requirement 4) */}
-      {showSearchThisArea && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] animate-in fade-in zoom-in-95 duration-200">
-          <button
-            type="button"
-            id="map-search-this-area-btn"
-            onClick={handleSearchThisArea}
-            className="flex items-center gap-1.5 px-4 py-2 bg-neutral-950 text-white dark:bg-white dark:text-neutral-950 text-xs font-bold rounded-full shadow-xl border border-neutral-800 dark:border-neutral-200 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-          >
-            <Search className="w-3.5 h-3.5" />
-            <span>Search this area</span>
-          </button>
-        </div>
-      )}
+
 
       {/* Floating Status Notification Toast */}
       {locationToast && !showSearchThisArea && (
@@ -523,16 +1149,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         </div>
       )}
 
-      {/* No listings banner inside map container if area has 0 listings */}
-      {properties.length === 0 && !locationToast && !showSearchThisArea && (
-        <div
-          id="no-listings-map-banner"
-          className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-neutral-900/95 dark:bg-black/95 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-xl border border-neutral-700/60 dark:border-neutral-800 flex items-center gap-2 backdrop-blur-md animate-in fade-in slide-in-from-top-2 pointer-events-none"
-        >
-          <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-          <span>No MakaoHub listings found in this area yet.</span>
-        </div>
-      )}
+
 
       {/* Map Control Actions Toolbar (Top Right) */}
       <div className="absolute top-4 right-4 z-10 flex flex-col gap-2 font-sans">
@@ -578,11 +1195,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           id="map-locate-me-btn"
           onClick={handleUseMyLocation}
           disabled={isLocating}
-          className={`w-10 h-10 rounded-xl shadow-md border flex items-center justify-center transition-transform active:scale-95 cursor-pointer ${
-            userLocation
-              ? 'bg-blue-600 text-white border-blue-700'
-              : 'bg-white dark:bg-[#111111] hover:bg-neutral-50 dark:hover:bg-[#1A1A1A] text-neutral-900 dark:text-[#F5F5F5] border-neutral-200 dark:border-[#303030]'
-          }`}
+          className={`w-10 h-10 rounded-xl shadow-md border flex items-center justify-center transition-transform active:scale-95 ${isLocating || seekerLocation ? 'bg-blue-600 text-white border-blue-700' : 'bg-white dark:bg-[#111111] hover:bg-neutral-50 dark:hover:bg-[#1A1A1A] text-neutral-900 dark:text-[#F5F5F5]'}`}
           aria-label="Use My Location"
           title="Use My Location (GPS)"
         >
@@ -613,6 +1226,8 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
               setSelectedPropertyId(null);
             }}
             showViewButton={showViewButton}
+            travelInfo={travelInfo}
+            travelInfoLoading={travelInfoLoading}
           />
         </div>
       )}

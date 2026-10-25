@@ -1,7 +1,12 @@
+
 import React, { useEffect, useRef, useState } from 'react';
-import L from 'leaflet';
+import { useApp } from '../context/AppContext';
+import { importLibrary } from '@googlemaps/js-api-loader';
 import { MapPin, CheckCircle2, Crosshair, Loader2 } from 'lucide-react';
-import { geocodeKenyanHierarchy, GeocodedLocation } from '../utils/kenyaGeocoding';
+import {
+  geocodeKenyanHierarchy,
+  GeocodedLocation
+} from '../utils/kenyaGeocoding';
 
 interface PropertyLocationPickerMapProps {
   initialLat?: number;
@@ -15,7 +20,10 @@ interface PropertyLocationPickerMapProps {
   onLocationSelect?: (coords: { lat: number; lng: number }) => void;
   onChange?: (lat: number, lng: number) => void;
   selectedEstateName?: string;
+  unitTypeLabel?: string;
 }
+
+const GOOGLE_MAPS_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID;
 
 export const PropertyLocationPickerMap: React.FC<PropertyLocationPickerMapProps> = ({
   initialLat,
@@ -28,128 +36,402 @@ export const PropertyLocationPickerMap: React.FC<PropertyLocationPickerMapProps>
   estate,
   onLocationSelect,
   onChange,
-  selectedEstateName
+  selectedEstateName,
+  unitTypeLabel = 'Building Location'
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
-  const [hasSelected, setHasSelected] = useState(true);
+  const { resolvedTheme } = useApp();
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
+  const unitTypeLabelRef = useRef<HTMLDivElement | null>(null);
+  const listenersRef = useRef<google.maps.MapsEventListener[]>([]);
+  const callbacksRef = useRef({ onLocationSelect, onChange });
+
+  const [mapReady, setMapReady] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [hasSelected, setHasSelected] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
-  const [activeAreaLabel, setActiveAreaLabel] = useState<string>('');
-  const lastGeocodedKeyRef = useRef<string>('');
+  const [activeAreaLabel, setActiveAreaLabel] = useState('');
 
   const effectiveLat = initialLat ?? lat ?? -1.2223;
   const effectiveLng = initialLng ?? lng ?? 36.9015;
 
+
+
+
+  // Keep callback references current without rebuilding the map.
+  callbacksRef.current = { onLocationSelect, onChange };
+  // Update the building marker label when property types change.
+  useEffect(() => {
+    if (unitTypeLabelRef.current) {
+      unitTypeLabelRef.current.textContent = unitTypeLabel;
+    }
+  }, [unitTypeLabel]);
+
   const notifyLocationChange = (newLat: number, newLng: number) => {
-    if (typeof onLocationSelect === 'function') {
-      onLocationSelect({ lat: newLat, lng: newLng });
-    }
-    if (typeof onChange === 'function') {
-      onChange(newLat, newLng);
-    }
+    callbacksRef.current.onLocationSelect?.({
+      lat: newLat,
+      lng: newLng
+    });
+
+    callbacksRef.current.onChange?.(newLat, newLng);
+
     setHasSelected(true);
   };
 
-  // Initialize interactive pin dropper map
+  const notifyRef = useRef(notifyLocationChange);
+  notifyRef.current = notifyLocationChange;
+
+  // Initialize Google Maps once for this component instance.
   useEffect(() => {
-    if (!mapContainerRef.current) return;
+    let cancelled = false;
+    let createdMap: google.maps.Map | null = null;
+    let createdMarker: google.maps.marker.AdvancedMarkerElement | null = null;
+    const listeners: google.maps.MapsEventListener[] = [];
 
-    if (!mapInstanceRef.current) {
-      const map = L.map(mapContainerRef.current, {
-        center: [effectiveLat, effectiveLng],
-        zoom: 14,
-        maxZoom: 19,
-        zoomControl: true
-      });
+    const initializeMap = async () => {
+      if (!mapContainerRef.current) return;
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
-        maxZoom: 19
-      }).addTo(map);
+      try {
+        if (!import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
+          throw new Error('Google Maps API key is not configured.');
+        }
 
-      // Custom black pin icon matching MakaoHub styling
-      const pinIcon = L.divIcon({
-        className: 'custom-pin-icon',
-        html: `
-          <div class="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center shadow-2xl border-2 border-white transform -translate-x-1/2 -translate-y-full hover:scale-110 transition-transform">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
-              <circle cx="12" cy="10" r="3"/>
-            </svg>
-          </div>
-        `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 32]
-      });
+        if (!GOOGLE_MAPS_MAP_ID) {
+          throw new Error('Google Maps Map ID is not configured.');
+        }
 
-      const marker = L.marker([effectiveLat, effectiveLng], {
-        draggable: true,
-        icon: pinIcon
-      }).addTo(map);
+        const { Map } =
+          await importLibrary('maps') as google.maps.MapsLibrary;
 
-      marker.on('dragend', () => {
-        const pos = marker.getLatLng();
-        notifyLocationChange(pos.lat, pos.lng);
-      });
+        const { AdvancedMarkerElement } =
+          await importLibrary('marker') as google.maps.MarkerLibrary;
 
-      map.on('click', (e) => {
-        marker.setLatLng(e.latlng);
-        notifyLocationChange(e.latlng.lat, e.latlng.lng);
-      });
+        if (cancelled || !mapContainerRef.current) return;
 
-      mapInstanceRef.current = map;
-      markerRef.current = marker;
-    }
+        const isDark = document.documentElement.classList.contains('dark');
+
+        const map = new Map(mapContainerRef.current, {
+          center: {
+            lat: effectiveLat,
+            lng: effectiveLng
+          },
+          zoom: 14,
+          minZoom: 5,
+          maxZoom: 19,
+          mapId: GOOGLE_MAPS_MAP_ID,
+          colorScheme: isDark
+            ? google.maps.ColorScheme.DARK
+            : google.maps.ColorScheme.LIGHT,
+          zoomControl: true,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          rotateControl: false,
+          clickableIcons: false,
+          gestureHandling: 'greedy'
+        });
+
+        createdMap = map;
+
+        // Rentike bronze building pin.
+
+
+        const pinElement = document.createElement('div');
+
+        // Match the seeker-side Rentike house marker.
+        pinElement.style.cssText = `
+  width: 40px;
+  height: 46px;
+  position: relative;
+  overflow: visible;
+  cursor: grab;
+  filter: drop-shadow(0 5px 10px rgba(0,0,0,0.22));
+`;
+
+        pinElement.innerHTML = `
+  <div
+    style="
+      position: relative;
+      width: 40px;
+      height: 46px;
+      display: flex;
+      justify-content: center;
+      overflow: visible;
+    "
+  >
+    <!-- Neumorphic house marker -->
+    <div
+      style="
+        width: 40px;
+        height: 40px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #F8F5EF;
+        border: 1px solid rgba(139,107,67,0.18);
+        box-shadow:
+          inset 2px 2px 4px rgba(255,255,255,0.9),
+          inset -3px -3px 6px rgba(139,107,67,0.10),
+          0 6px 14px rgba(0,0,0,0.18);
+        z-index: 2;
+      "
+    >
+      <svg
+        width="21"
+        height="21"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M3 11.5L12 4L21 11.5"
+          stroke="#8B6B43"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M5.5 10V20H18.5V10"
+          stroke="#8B6B43"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M9.5 20V14H14.5V20"
+          stroke="#8B6B43"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </div>
+
+    <!-- Pointer -->
+    <div
+      style="
+        position: absolute;
+        bottom: 1px;
+        left: 50%;
+        width: 10px;
+        height: 10px;
+        background: #F8F5EF;
+        border-right: 1px solid rgba(139,107,67,0.18);
+        border-bottom: 1px solid rgba(139,107,67,0.18);
+        transform: translateX(-50%) rotate(45deg);
+        z-index: 1;
+      "
+    ></div>
+    
+    <!-- Dynamic property type label -->
+<div data-unit-type-label="true"
+      style="
+       position: absolute;
+top: 44px;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 4px 8px;
+        border-radius: 999px;
+        white-space: nowrap;
+        font-size: 10px;
+        line-height: 1;
+        font-weight: 700;
+        font-family: sans-serif;
+        background: #F8F5EF;
+        color: #8B6B43;
+        border: 1px solid rgba(139,107,67,0.18);
+        box-shadow: 0 3px 8px rgba(0,0,0,0.13);
+        pointer-events: none;
+      "
+    >
+      ${unitTypeLabel}
+    </div>
+
+  </div>
+`;
+
+        unitTypeLabelRef.current = pinElement.querySelector(
+          '[data-unit-type-label]'
+        ) as HTMLDivElement | null;
+
+
+
+
+        // Marker is created but not displayed until location selection.
+        const marker = new AdvancedMarkerElement({
+          position: {
+            lat: effectiveLat,
+            lng: effectiveLng
+          },
+          content: pinElement,
+          gmpDraggable: true,
+          title: 'Building location'
+        });
+
+        createdMarker = marker;
+
+        const selectLocation = (newLat: number, newLng: number) => {
+          marker.position = {
+            lat: newLat,
+            lng: newLng
+          };
+
+          marker.map = map;
+          notifyRef.current(newLat, newLng);
+        };
+
+        // Tap anywhere to place the building pin.
+        listeners.push(
+          map.addListener('click', (event: google.maps.MapMouseEvent) => {
+            if (!event.latLng) return;
+
+            selectLocation(
+              event.latLng.lat(),
+              event.latLng.lng()
+            );
+          })
+        );
+
+        // Drag the pin to refine the building location.
+        listeners.push(
+          marker.addListener('dragend', () => {
+            const position = marker.position;
+
+            if (!position) return;
+
+            const newLat =
+              typeof position.lat === 'function'
+                ? position.lat()
+                : position.lat;
+
+            const newLng =
+              typeof position.lng === 'function'
+                ? position.lng()
+                : position.lng;
+
+            if (
+              typeof newLat === 'number' &&
+              typeof newLng === 'number'
+            ) {
+              selectLocation(newLat, newLng);
+            }
+          })
+        );
+
+        if (cancelled) {
+          listeners.forEach((listener) => listener.remove());
+          marker.map = null;
+          return;
+        }
+
+
+        mapInstanceRef.current = map;
+
+        map.setOptions({
+          colorScheme:
+            document.documentElement.classList.contains('dark')
+              ? google.maps.ColorScheme.DARK
+              : google.maps.ColorScheme.LIGHT,
+        });
+
+        markerRef.current = marker;
+        listenersRef.current = listeners;
+
+        setMapReady(true);
+        setMapError(null);
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Google Maps initialization failed:', error);
+          setMapError('Unable to load Google Maps. Please try again.');
+        }
+      }
+    };
+
+    void initializeMap();
 
     return () => {
-      // Keep map instance during typical lifecycle or cleanup on unmount
+      cancelled = true;
+
+      listeners.forEach((listener) => listener.remove());
+
+      if (createdMarker) {
+        createdMarker.map = null;
+      }
+
+      if (mapInstanceRef.current === createdMap) {
+        mapInstanceRef.current = null;
+      }
+
+      if (markerRef.current === createdMarker) {
+        markerRef.current = null;
+      }
+
+      listenersRef.current = [];
     };
-  }, []);
+  }, [resolvedTheme]);
 
-  // Automatically follow the selected Kenyan location hierarchy:
-  // County -> zoom ~8
-  // Sub-County -> zoom ~11
-  // Ward -> zoom ~14
+  // Automatically navigate the selected Kenyan location hierarchy.
+  // County approximately zoom 8
+  // Sub-County approximately zoom 11
+  // Ward approximately zoom 14
+  // This does NOT confirm or save building coordinates.
   useEffect(() => {
-    if (!county) return;
+    if (!mapReady || !county || !mapInstanceRef.current) return;
 
-    const currentKey = `${county}::${subCounty || ''}::${ward || ''}`;
-    if (currentKey === lastGeocodedKeyRef.current) return;
-    lastGeocodedKeyRef.current = currentKey;
-
-    let isMounted = true;
+    let cancelled = false;
     const abortController = new AbortController();
 
     const targetLabel = ward || subCounty || county;
+    // Clear the previous building pin when the selected area changes.
+    if (markerRef.current) {
+      markerRef.current.map = null;
+    }
+
+    setHasSelected(false);
+
     setActiveAreaLabel(targetLabel);
     setIsLocating(true);
 
-    geocodeKenyanHierarchy(county, subCounty, ward, abortController.signal)
+    geocodeKenyanHierarchy(
+      county,
+      subCounty,
+      ward,
+      abortController.signal
+    )
       .then((geocoded: GeocodedLocation) => {
-        if (!isMounted) return;
+        if (cancelled) return;
+
         setIsLocating(false);
 
-        if (mapInstanceRef.current && markerRef.current) {
-          mapInstanceRef.current.flyTo([geocoded.lat, geocoded.lng], geocoded.zoom, {
-            duration: 1.2,
-            easeLinearity: 0.25
-          });
+        if (!mapInstanceRef.current) return;
 
-          markerRef.current.setLatLng([geocoded.lat, geocoded.lng]);
-          notifyLocationChange(geocoded.lat, geocoded.lng);
-        }
+        // Navigate only. Do not change the confirmed building pin.
+        mapInstanceRef.current.panTo({
+          lat: geocoded.lat,
+          lng: geocoded.lng
+        });
+
+        mapInstanceRef.current.setZoom(geocoded.zoom);
       })
-      .catch(() => {
-        if (isMounted) setIsLocating(false);
+      .catch((error) => {
+        if (cancelled) return;
+
+        setIsLocating(false);
+
+        if (error?.name !== 'AbortError') {
+          console.warn('Could not centre selected area:', error);
+        }
       });
 
     return () => {
-      isMounted = false;
+      cancelled = true;
       abortController.abort();
     };
-  }, [county, subCounty, ward]);
+  }, [mapReady, county, subCounty, ward]);
 
+  // Find and select the lister's physical GPS location.
   const handleUseCurrentLocation = () => {
     if (!navigator.geolocation) {
       alert('Your browser does not support location services.');
@@ -157,26 +439,41 @@ export const PropertyLocationPickerMap: React.FC<PropertyLocationPickerMapProps>
     }
 
     setIsLocating(true);
+    setActiveAreaLabel('your current location');
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setIsLocating(false);
+
         const currentLat = position.coords.latitude;
         const currentLng = position.coords.longitude;
 
-        if (mapInstanceRef.current && markerRef.current) {
-          mapInstanceRef.current.flyTo([currentLat, currentLng], 17, {
-            duration: 1.2
-          });
+        const map = mapInstanceRef.current;
+        const marker = markerRef.current;
 
-          markerRef.current.setLatLng([currentLat, currentLng]);
-        }
+        if (!map || !marker) return;
 
-        notifyLocationChange(currentLat, currentLng);
+        map.panTo({
+          lat: currentLat,
+          lng: currentLng
+        });
+
+        map.setZoom(17);
+
+        marker.position = {
+          lat: currentLat,
+          lng: currentLng
+        };
+
+        marker.map = map;
+
+        notifyRef.current(currentLat, currentLng);
       },
       () => {
         setIsLocating(false);
+
         alert(
-          'MakaoHub could not get your location. Please allow location access or move the pin manually.'
+          'Rentike could not get your location. Please allow location access or place the pin manually.'
         );
       },
       {
@@ -187,53 +484,147 @@ export const PropertyLocationPickerMap: React.FC<PropertyLocationPickerMapProps>
     );
   };
 
-  const displayLocationSummary = selectedEstateName || ward || subCounty || county || 'Property Location';
+  const displayLocationSummary =
+    selectedEstateName ||
+    estate ||
+    ward ||
+    subCounty ||
+    county ||
+    'Property Location';
 
   return (
     <div className="space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <label className="text-sm font-bold text-neutral-900 block">
+          <label className="text-sm font-bold text-[#242424] dark:text-[#F5F1E8] block">
             Set Exact Building Location on Map
           </label>
-          <p className="text-xs text-neutral-500">
-            Map automatically centers on your selected area. Click anywhere or drag the black pin to position the exact building.
+
+          <p className="text-xs text-[#766B60] dark:text-[#A3A3A3] mt-1">
+            Select your area, then tap the map or drag the pin to mark your building.
           </p>
         </div>
 
         <button
           type="button"
           onClick={handleUseCurrentLocation}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-semibold rounded-xl transition-colors cursor-pointer self-start sm:self-auto border border-neutral-200"
+          disabled={!mapReady || isLocating}
+
+          className="
+  flex items-center justify-center gap-2
+  px-4 py-2.5
+  bg-[#F7F3EC] dark:bg-[#24201C]
+  hover:bg-[#F0E5D8] dark:hover:bg-[#34291F]
+  text-[#946B46] dark:text-[#E8BE92]
+  border border-[#E2D3C2] dark:border-[#40362E]
+  rounded-xl text-xs font-semibold
+  shadow-[3px_3px_8px_rgba(104,73,43,0.12),-3px_-3px_8px_rgba(255,255,255,0.85)]
+  dark:shadow-[3px_3px_8px_rgba(0,0,0,0.45),-2px_-2px_6px_rgba(255,255,255,0.03)]
+  active:shadow-[inset_2px_2px_5px_rgba(104,73,43,0.18)]
+  transition-all duration-200
+  cursor-pointer
+  disabled:opacity-50 disabled:cursor-not-allowed
+  self-start sm:self-auto
+"
+
         >
           <Crosshair className="w-3.5 h-3.5" />
           <span>Use My Current Location</span>
         </button>
       </div>
 
-      {/* Map Element */}
-      <div className="relative w-full h-72 sm:h-80 rounded-2xl overflow-hidden border border-neutral-300 shadow-inner">
-        <div ref={mapContainerRef} className="w-full h-full z-0 bg-neutral-100" />
+      {/* Interactive Google Map */}
+      <div className="
+        relative w-full h-72 sm:h-80
+        rounded-2xl overflow-hidden
+        border border-[#E2D3C2] dark:border-[#40362E]
+        shadow-[inset_2px_2px_5px_rgba(104,73,43,0.08)]
+        dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.4)]
+      ">
+        <div
+          ref={mapContainerRef}
+          className="w-full h-full bg-[#F7F3EC] dark:bg-[#181818]"
+        />
 
-        {/* Loading overlay indicator while centering/geocoding */}
-        {isLocating && (
-          <div className="absolute top-3 right-3 z-10 bg-white/90 text-neutral-900 text-xs font-bold px-3 py-1.5 rounded-xl shadow-md border border-neutral-200 flex items-center gap-2 backdrop-blur-md animate-pulse">
-            <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
-            <span>Centering map on {activeAreaLabel || 'selected area'}...</span>
+        {mapError && (
+          <div className="
+            absolute inset-0 z-20
+            flex items-center justify-center p-5
+            bg-[#F7F3EC] dark:bg-[#181818]
+            text-center text-xs font-medium
+            text-[#946B46] dark:text-[#E8BE92]
+          ">
+            {mapError}
           </div>
         )}
 
-        {/* Selected confirmation badge (strictly NO raw lat/long exposed) */}
+        {isLocating && (
+          <div className="
+            absolute top-3 right-3 z-10
+            bg-[#F7F3EC]/95 dark:bg-[#181818]/95
+            text-[#242424] dark:text-[#F5F1E8]
+            text-xs font-semibold px-3 py-2 rounded-xl
+            shadow-md border border-[#E2D3C2] dark:border-[#40362E]
+            flex items-center gap-2 backdrop-blur-md
+          ">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#946B46]" />
+            <span>
+              Centering on {activeAreaLabel || 'selected area'}...
+            </span>
+          </div>
+        )}
+
+
         {hasSelected && (
-          <div className="absolute bottom-3 left-3 right-3 sm:right-auto z-10 bg-black/90 text-white text-xs font-semibold px-3.5 py-2 rounded-xl shadow-lg flex items-center gap-2 backdrop-blur-md">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <div className="truncate">
-              <span className="font-bold">Pin position:</span>{' '}
-              <span className="text-neutral-200">{displayLocationSummary}</span>
-              <span className="text-[10px] text-neutral-400 ml-2 hidden sm:inline">(Drag pin to refine)</span>
+          <div
+            className="
+      absolute bottom-3 left-3 right-3 sm:right-auto z-10
+      bg-[#181818]/95 text-white
+      text-xs font-semibold px-3.5 py-2 rounded-xl
+      shadow-lg flex items-center gap-2
+      pointer-events-none
+    "
+          >
+            <CheckCircle2
+              className="w-4 h-4 text-[#C49A6C] shrink-0"
+            />
+
+            <div className="flex flex-col gap-0.5">
+              <span className="font-semibold">
+                Building Location Pinned
+              </span>
+
+              <span className="text-[10px] font-normal text-[#CFC5B9]">
+                Drag the marker to refine its position
+              </span>
             </div>
           </div>
         )}
+
+
+        {!hasSelected && mapReady && (
+          <div className="absolute bottom-3 left-0 right-0 z-10 flex justify-center pointer-events-none px-3">
+            <div
+              className="
+        flex items-center gap-2
+        w-fit max-w-full
+        px-3.5 py-2
+        bg-[#181818]/95
+        text-white
+        rounded-full
+        border border-[#C49A6C]/30
+        shadow-[0_3px_10px_rgba(0,0,0,0.16)]
+        backdrop-blur-sm
+      "
+            >
+              <MapPin className="w-3.5 h-3.5 shrink-0 text-[#C49A6C]" />
+              <span className="text-[11px] font-medium whitespace-nowrap">
+                Tap map to place pin
+              </span>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );

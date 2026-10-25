@@ -60,19 +60,18 @@ export const AdminPropertyReviewModal: React.FC<AdminPropertyReviewModalProps> =
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-xs font-sans">
       <div className="bg-white dark:bg-[#111111] rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl border border-neutral-200 dark:border-[#292929] animate-in zoom-in-95 duration-150 overflow-hidden relative text-neutral-900 dark:text-[#F5F5F5]">
-        
+
         {/* Sticky Header */}
         <div className="px-5 sm:px-6 py-4 border-b border-neutral-200 dark:border-[#262626] flex items-center justify-between bg-white dark:bg-[#111111] shrink-0">
           <div className="min-w-0 pr-3">
             <div className="flex flex-wrap items-center gap-2">
               <span
-                className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                  property.status === 'Approved'
-                    ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/40'
-                    : property.status === 'Pending'
+                className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full ${property.status === 'Approved'
+                  ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900/40'
+                  : property.status === 'Pending'
                     ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40'
                     : 'bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-900/40'
-                }`}
+                  }`}
               >
                 {property.status === 'Approved' ? 'Approved & Live' : property.status === 'Pending' ? 'Pending Moderation' : 'Rejected'}
               </span>

@@ -46,9 +46,11 @@ export type AppView =
   | 'search-results'
   | 'map-explore'
   | 'property-detail'
+  | 'public-lister-profile'
   | 'saved'
   | 'notifications'
   | 'profile'
+  | 'my-profile'
   | 'lister-dashboard'
   | 'my-listings'
   | 'add-property'
@@ -76,10 +78,16 @@ interface AppContextType {
   setCurrentUser: (user: UserAccount | null) => void;
   selectedPropertyId: string | null;
   setSelectedPropertyId: (id: string | null) => void;
+  selectedListerId: string | null;
+  setSelectedListerId: (id: string | null) => void;
   targetReviewId: string | null;
   setTargetReviewId: (id: string | null) => void;
   targetEnquiryId: string | null;
   setTargetEnquiryId: (id: string | null) => void;
+  messageTab: 'inbox' | 'activity' | 'system';
+  setMessageTab: (tab: 'inbox' | 'activity' | 'system') => void;
+  desktopSidebarExpanded: boolean;
+  setDesktopSidebarExpanded: (expanded: boolean) => void;
   targetMessageId: string | null;
   setTargetMessageId: (id: string | null) => void;
 
@@ -104,6 +112,7 @@ interface AppContextType {
   properties: PropertyListing[];
   availableProperties: PropertyListing[]; // Vacancies > 0 & Status === 'Approved'
   filteredProperties: PropertyListing[]; // Matching current search & filter criteria
+
   savedProperties: PropertyListing[];
   toggleSaveProperty: (id: string) => void;
   isPropertySaved: (id: string) => boolean;
@@ -113,8 +122,8 @@ interface AppContextType {
   listerTotalVacancies: number;
   listerEnquiries: ListerEnquiry[];
   seekerEnquiries: ListerEnquiry[];
-  listerListingsFilter: 'all' | 'active' | 'vacancies';
-  setListerListingsFilter: (filter: 'all' | 'active' | 'vacancies') => void;
+  listerListingsFilter: 'all' | 'active' | 'vacancies' | 'rejected';
+  setListerListingsFilter: (filter: 'all' | 'active' | 'vacancies' | 'rejected') => void;
   editingPropertyId: string | null;
   setEditingPropertyId: (id: string | null) => void;
   addProperty: (propertyData: Omit<PropertyListing, 'id' | 'createdAt' | 'status' | 'rating' | 'reviewCount' | 'timePosted'>) => Promise<string> | string;
@@ -159,7 +168,7 @@ interface AppContextType {
   deleteReviewReply: (reviewId: string) => void;
   editReview: (
     reviewId: string,
-    rating: number,
+    rating?: number,
     comment?: string,
     wouldRecommend?: boolean
   ) => void;
@@ -256,11 +265,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [previousView, setPreviousView] = useState<AppView | null>(null);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [selectedListerId, setSelectedListerId] = useState<string | null>(null);
   const [targetReviewId, setTargetReviewId] = useState<string | null>(null);
   const [targetEnquiryId, setTargetEnquiryId] = useState<string | null>(null);
+  const [messageTab, setMessageTab] =
+    useState<'inbox' | 'activity' | 'system'>('inbox');
+  const [desktopSidebarExpanded, setDesktopSidebarExpanded] =
+    useState(false);
   const [targetMessageId, setTargetMessageId] = useState<string | null>(null);
   const [editingPropertyId, setEditingPropertyId] = useState<string | null>(null);
-  const [listerListingsFilter, setListerListingsFilter] = useState<'all' | 'active' | 'vacancies'>('all');
+  const [listerListingsFilter, setListerListingsFilter] = useState<'all' | 'active' | 'vacancies' | 'rejected'>('all');
   const [adminActiveTab, setAdminActiveTab] = useState<AdminTab>('overview');
   const [adminActivity, setAdminActivity] = useState<AdminActivityItem[]>(() => {
     const local = localStorage.getItem('makaohub_admin_activity');
@@ -466,6 +480,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           role: savedRole,
           listerSubtype:
             savedUser.listerSubtype as ListerSubtype | undefined,
+          bio: savedUser.bio ?? '',
           joinedAt: savedUser.joinedAt || new Date().toISOString(),
           avatar: savedUser.avatar || clerkUser.imageUrl || '',
           savedPropertyIds: savedUser.savedPropertyIds || [],
@@ -606,6 +621,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Main Data States
   const [properties, setProperties] = useState<PropertyListing[]>([]);
+  const [isPropertiesLoading, setIsPropertiesLoading] = useState(true);
 
   const [reviews, setReviews] = useState<PropertyReview[]>([]);
 
@@ -632,16 +648,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return INITIAL_NOTIFICATIONS;
   });
-  // Desktop / Windows popup notifications
+
+  // Desktop notifications: prevent old and duplicate popups.
   const desktopNotificationIdsRef = useRef<Set<string>>(new Set());
   const desktopNotificationUserRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!currentUser || typeof window === 'undefined' || !('Notification' in window)) {
+    if (
+      !currentUser ||
+      typeof window === 'undefined' ||
+      !('Notification' in window)
+    ) {
+      desktopNotificationUserRef.current = null;
+      desktopNotificationIdsRef.current.clear();
       return;
     }
 
     const currentUserId = currentUser.id;
+    const storageKey = `rentike-desktop-notifications-${currentUserId}`;
+    const initializedKey = `${storageKey}-initialized`;
 
     const myNotifications = notifications.filter((notification) => {
       const recipientId =
@@ -650,32 +675,91 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return recipientId === currentUserId;
     });
 
-    // When the account first loads or changes, remember existing notifications.
-    // This prevents old notifications from suddenly popping up.
+    // Restore displayed IDs for this account.
     if (desktopNotificationUserRef.current !== currentUserId) {
       desktopNotificationUserRef.current = currentUserId;
-      desktopNotificationIdsRef.current = new Set(
-        myNotifications.map((notification) => notification.id)
+
+      let storedIds: string[] = [];
+
+      try {
+        storedIds = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        if (!Array.isArray(storedIds)) storedIds = [];
+      } catch {
+        storedIds = [];
+      }
+
+      desktopNotificationIdsRef.current = new Set(storedIds);
+    }
+
+    // On first initialization, record existing notifications
+    // without displaying desktop popups.
+    if (!localStorage.getItem(initializedKey)) {
+      const existingIds = myNotifications.map((notification) =>
+        String(notification.id)
       );
+
+      const allIds = new Set([
+        ...desktopNotificationIdsRef.current,
+        ...existingIds,
+      ]);
+
+      desktopNotificationIdsRef.current = allIds;
+
+      try {
+        localStorage.setItem(storageKey, JSON.stringify([...allIds]));
+        localStorage.setItem(initializedKey, 'true');
+      } catch (error) {
+        console.warn('Unable to save notification history:', error);
+      }
+
       return;
     }
 
-    const newNotifications = myNotifications.filter(
-      (notification) =>
-        !desktopNotificationIdsRef.current.has(notification.id)
-    );
+    const displayedIds = desktopNotificationIdsRef.current;
 
-    newNotifications.forEach((notification) => {
-      desktopNotificationIdsRef.current.add(notification.id);
+    myNotifications.forEach((notification) => {
+      const notificationId = String(notification.id);
+
+      if (notification.read || displayedIds.has(notificationId)) {
+        return;
+      }
+
+      // Re-check shared storage to reduce duplicate popups
+      // when another browser tab has already displayed this ID.
+      let sharedIds: string[] = [];
+
+      try {
+        const parsed = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        sharedIds = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        sharedIds = [];
+      }
+
+      if (sharedIds.includes(notificationId)) {
+        displayedIds.add(notificationId);
+        return;
+      }
+
+      displayedIds.add(notificationId);
+
+      try {
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify([...new Set([...sharedIds, notificationId])])
+        );
+      } catch (error) {
+        console.warn('Unable to save notification ID:', error);
+      }
 
       if (Notification.permission === 'granted') {
-        new Notification(notification.title || 'MakaoHub', {
+        new Notification(notification.title || 'Rentike', {
           body: notification.message,
           icon: '/favicon3.png',
         });
       }
     });
   }, [notifications, currentUser]);
+
 
   // Ask for desktop notification permission on the user's next click
   useEffect(() => {
@@ -1011,6 +1095,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     let latestSaveCounts: Record<string, number> = {};
     const processDocs = (convexDocs: any) => {
+      if (Array.isArray(convexDocs)) {
+        setIsPropertiesLoading(false);
+      }
       if (Array.isArray(convexDocs) && convexDocs.length > 0) {
         setProperties((prev) => {
           const convexListings: PropertyListing[] = convexDocs.map((doc: any) => ({
@@ -1126,8 +1213,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // Convex real-time synchronization for User Notifications
+
   useEffect(() => {
-    if (!isConvexConfigured || !convexClient || !currentUser?.id) return;
+    if (
+      !isConvexConfigured ||
+      !convexClient ||
+      !isConvexAuthenticated ||
+      !currentUser?.id
+    ) return;
+
 
     const processConvexNotifs = (convexDocs: any) => {
       const docs = Array.isArray(convexDocs) ? convexDocs : [];
@@ -1136,6 +1230,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         id: doc._id || doc.id,
         recipientUserId: doc.recipientUserId,
         userId: doc.userId || doc.recipientUserId,
+        actorUserId: doc.actorUserId,
         title: doc.title,
         message: doc.message,
         time: doc.time || new Date().toISOString(),
@@ -1175,7 +1270,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn('Convex notifications subscription notice:', e);
     }
-  }, [currentUser?.id]);
+  }, [currentUser?.id, isConvexAuthenticated]);
 
   // Roles determination
   const isSeekerMode = currentUser?.role === 'seeker';
@@ -1348,6 +1443,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               id: `notif-save-${Date.now()}`,
               recipientUserId: prop.lister.id,
               userId: prop.lister.id,
+              actorUserId: currentUser.id,
               title: 'Property Saved',
               message: `${currentUser.name} saved your property ${prop.name}.`,
               time: now,
@@ -1362,6 +1458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             await convexClient.mutation(api.notifications.send, {
               recipientUserId: saveNotif.recipientUserId,
               userId: saveNotif.userId,
+              actorUserId: saveNotif.actorUserId,
               title: saveNotif.title,
               message: saveNotif.message,
               time: saveNotif.time,
@@ -1429,7 +1526,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       console.error('Failed to save MakaoHub user to Convex:', error);
     }
+    if (role === 'seeker') {
+      const welcomeTime = new Date().toISOString();
 
+      const welcomeNotification: UserNotification = {
+        id: `notif-welcome-${updated.id}`,
+        recipientUserId: updated.id,
+        userId: updated.id,
+        title: 'Welcome to Rentike 👋',
+        message:
+          'Welcome to Rentike. Discover homes, list properties, and connect directly — all in one place',
+        time: welcomeTime,
+        createdAt: welcomeTime,
+        read: false,
+        type: 'system',
+      };
+
+      setNotifications((prev) => {
+        const alreadyExists = prev.some(
+          (notification) =>
+            notification.type === 'system' &&
+            notification.title === 'Welcome to Rentike 👋' &&
+            (notification.recipientUserId === updated.id ||
+              notification.userId === updated.id)
+        );
+
+        return alreadyExists
+          ? prev
+          : [welcomeNotification, ...prev];
+      });
+
+      if (isConvexConfigured && convexClient) {
+        convexClient
+          .mutation(api.notifications.send, {
+            recipientUserId: welcomeNotification.recipientUserId,
+            userId: welcomeNotification.userId,
+            title: welcomeNotification.title,
+            message: welcomeNotification.message,
+            time: welcomeNotification.time,
+            type: welcomeNotification.type,
+          })
+          .catch((error) => {
+            console.error('Failed to send welcome notification:', error);
+          });
+      }
+    }
     if (role === 'seeker') {
       setCurrentView('tenant-home');
     } else if (role === 'lister') {
@@ -2441,25 +2582,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (prop && prop.lister?.id) {
       const now = Date.now();
       const nowIso = new Date(now).toISOString();
-      const starsLabel = reviewData.rating === 1 ? '1 star' : `${reviewData.rating} stars`;
       const createdNotifications: UserNotification[] = [];
 
-      // 1. STAR RATING NOTIFICATION
-      const ratingNotif: UserNotification = {
-        id: `notif-rating-${now}`,
-        recipientUserId: prop.lister.id,
-        userId: prop.lister.id,
-        title: 'New Property Rating',
-        message: `${reviewData.authorName} rated ${prop.name} ${starsLabel}.`,
-        time: nowIso,
-        createdAt: nowIso,
-        read: false,
-        type: 'review',
-        targetPropertyId: propertyId,
-        targetReviewId: newRev.id
-      };
-      createdNotifications.push(ratingNotif);
+      // 1. STAR RATING NOTIFICATION — only when the seeker actually rated
+      if (typeof reviewData.rating === 'number') {
+        const starsLabel =
+          reviewData.rating === 1 ? '1 star' : `${reviewData.rating} stars`;
 
+        const ratingNotif: UserNotification = {
+          id: `notif-rating-${now}`,
+          recipientUserId: prop.lister.id,
+          userId: prop.lister.id,
+          actorUserId: authorId,
+          title: 'New Property Rating',
+          message: `${reviewData.authorName} rated ${prop.name} ${starsLabel}.`,
+          time: nowIso,
+          createdAt: nowIso,
+          read: false,
+          type: 'review',
+          targetPropertyId: propertyId,
+          targetReviewId: newRev.id
+        };
+
+        createdNotifications.push(ratingNotif);
+      }
       // 2. COMMENT NOTIFICATION (Only if seeker wrote a text comment)
       const rawComment = (reviewData.comment || '').trim();
       if (rawComment) {
@@ -2473,6 +2619,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           id: `notif-comment-${now + 1}`,
           recipientUserId: prop.lister.id,
           userId: prop.lister.id,
+          actorUserId: authorId,
           title: 'New Property Comment',
           message: `${reviewData.authorName} commented on ${prop.name}:\n${commentSnippet}`,
           time: new Date(now + 1).toISOString(),
@@ -2487,12 +2634,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       setNotifications((prev) => [...createdNotifications, ...prev]);
       // Persist review notifications to Convex so the lister receives them
+
       if (isConvexConfigured && convexClient) {
         createdNotifications.forEach((notif) => {
           convexClient
             .mutation(api.notifications.send, {
               recipientUserId: notif.recipientUserId,
               userId: notif.userId,
+              actorUserId: notif.actorUserId,
               title: notif.title,
               message: notif.message,
               time: notif.time,
@@ -2505,7 +2654,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             });
         });
       }
+
     }
+
   };
 
   const addReviewReply = (reviewId: string, replyText: string) => {
@@ -2536,6 +2687,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setReviews((prev) =>
       prev.map((r) => (r.id === reviewId ? { ...r, reply } : r))
     );
+    if (targetRev.authorId) {
+      const notificationTime = new Date().toISOString();
+
+      const replyNotification: UserNotification = {
+        id: `notif-review-reply-${Date.now()}`,
+        recipientUserId: targetRev.authorId,
+        userId: targetRev.authorId,
+        title: 'New Review Reply',
+        message: `${currentUser.name || 'Property Lister'} replied to your comment on ${prop.name}`,
+        time: notificationTime,
+        createdAt: notificationTime,
+        read: false,
+        type: 'review',
+        targetPropertyId: prop.id,
+        targetReviewId: reviewId,
+      };
+
+      setNotifications((prev) => [replyNotification, ...prev]);
+
+      if (isConvexConfigured && convexClient) {
+        convexClient
+          .mutation(api.notifications.send, {
+            recipientUserId: replyNotification.recipientUserId,
+            userId: replyNotification.userId,
+            title: replyNotification.title,
+            message: replyNotification.message,
+            time: replyNotification.time,
+            type: replyNotification.type,
+            targetPropertyId: replyNotification.targetPropertyId,
+            targetReviewId: replyNotification.targetReviewId,
+          })
+          .catch((error) => {
+            console.error('Failed to send review reply notification:', error);
+          });
+      }
+    }
 
     // PASTE HERE — line 2168
     if (isConvexConfigured && convexClient) {
@@ -2659,7 +2846,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
   const editReview = (
     reviewId: string,
-    rating: number,
+    rating?: number,
     comment?: string,
     wouldRecommend?: boolean
   ) => {
@@ -2916,6 +3103,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
     }
+    return enquiryId;
   };
 
   const sendEnquiryReply = async (enquiryId: string, replyText: string) => {
@@ -3061,15 +3249,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const markEnquiryAsRead = (enquiryId: string) => {
+  const markEnquiryAsRead = async (enquiryId: string) => {
     const isLister = currentUser?.role === 'lister';
+
+    if (isConvexConfigured && convexClient) {
+      try {
+        await convexClient.mutation(api.enquiries.markAsRead, {
+          enquiryId: enquiryId as any,
+        });
+      } catch (error) {
+        console.error('Failed to mark enquiry as read in Convex:', error);
+        return;
+      }
+    }
+
     setEnquiries((prev) =>
       prev.map((e) => {
         if (e.id !== enquiryId) return e;
+
         return {
           ...e,
           readByLister: isLister ? true : e.readByLister,
-          readBySeeker: !isLister ? true : e.readBySeeker
+          readBySeeker: !isLister ? true : e.readBySeeker,
         };
       })
     );
@@ -3168,10 +3369,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentUser,
         selectedPropertyId,
         setSelectedPropertyId,
+        selectedListerId,
+        setSelectedListerId,
         targetReviewId,
         setTargetReviewId,
         targetEnquiryId,
         setTargetEnquiryId,
+        messageTab,
+        setMessageTab,
+        desktopSidebarExpanded,
+        setDesktopSidebarExpanded,
         targetMessageId,
         setTargetMessageId,
         isSeekerMode,
@@ -3188,6 +3395,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         properties,
         availableProperties,
         filteredProperties,
+        isPropertiesLoading,
         savedProperties,
         toggleSaveProperty,
         isPropertySaved,
