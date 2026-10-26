@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Search, Building2, ArrowLeft, Sun, Moon, Check } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import rentikeDarkThemeIcon from '../assets/rentike(light).png';
-import rentikeLightThemeIcon from '../assets/rentike(dark).png';
+import rentikeDarkThemeIcon from '../assets/2D dark (1).webp';
+import rentikeLightThemeIcon from '../assets/2D light mode.webp';
 
 export const RoleSelectionView: React.FC = () => {
   const {
