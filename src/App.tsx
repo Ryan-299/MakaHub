@@ -688,7 +688,20 @@ export default function App() {
           : desktopSidebarExpanded ? 'md:pl-72' : 'md:pl-28'
           }`}
       >
-        {renderView()}
+        {(!isLoaded || (isSignedIn && currentView === 'welcome')) ? (
+          <div
+            className="flex min-h-[100dvh] w-full flex-col items-center justify-center gap-4"
+            style={{
+              backgroundColor: resolvedTheme === 'dark' ? '#000000' : '#F7F5F1',
+              color: resolvedTheme === 'dark' ? '#F7F5F1' : '#111111',
+            }}
+          >
+            <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#C49A6C]/25 border-t-[#C49A6C]" />
+            <p className="text-sm">Opening your account...</p>
+          </div>
+        ) : (
+          renderView()
+        )}
       </div>
 
 
