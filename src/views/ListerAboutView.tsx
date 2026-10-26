@@ -52,7 +52,7 @@ const roleStyles: Record<
 };
 
 export const ListerAboutView: React.FC = () => {
-    const { currentUser, setCurrentView, resolvedTheme } = useApp();
+    const { currentUser, setCurrentUser, setCurrentView, resolvedTheme } = useApp();
 
     const isDark = resolvedTheme === 'dark';
     const [bio, setBio] = useState(currentUser?.bio ?? '');
@@ -90,6 +90,11 @@ export const ListerAboutView: React.FC = () => {
                 bio: trimmedBio,
             });
 
+            setCurrentUser({
+                ...currentUser,
+                bio: trimmedBio,
+            });
+
             setCurrentView('lister-dashboard');
         } catch (err) {
             console.error('Failed to save lister bio:', err);
@@ -109,7 +114,14 @@ export const ListerAboutView: React.FC = () => {
             className={`min-h-[100dvh] w-full px-5 py-6 sm:px-8 sm:py-10 ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-950'
                 }`}
         >
-            <div className="mx-auto flex min-h-[calc(100dvh-80px)] w-full max-w-[680px] flex-col">
+
+            <div
+                className={`mx-auto flex w-full max-w-[780px] flex-col rounded-[28px] border px-6 py-8 sm:px-10 sm:py-10 ${isDark
+                    ? 'border-[#7A5B3C] bg-[#111111]'
+                    : 'border-[#E5C8A6] bg-[#FFFCF8]'
+                    }`}
+            >
+
 
                 {/* Header */}
                 <header className="flex items-center justify-between gap-3">
@@ -189,8 +201,8 @@ export const ListerAboutView: React.FC = () => {
                             rows={6}
                             placeholder="Share a little about yourself, your experience, and the properties you manage..."
                             className={`w-full resize-none rounded-2xl border p-4 text-sm sm:text-base leading-relaxed outline-none transition-colors focus:border-[#C49A6C] ${isDark
-                                    ? 'bg-[#171717] border-neutral-700 text-white placeholder:text-neutral-500'
-                                    : 'bg-[#FCFAF7] border-neutral-300 text-neutral-950 placeholder:text-neutral-400'
+                                ? 'bg-[#171717] border-neutral-700 text-white placeholder:text-neutral-500'
+                                : 'bg-[#FCFAF7] border-neutral-300 text-neutral-950 placeholder:text-neutral-400'
                                 }`}
                         />
 
