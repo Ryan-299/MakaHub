@@ -64,7 +64,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-          className={`fixed inset-0 z-[99999] w-screen h-screen flex items-center justify-center select-none overflow-hidden ${isDark ? 'bg-[#000000]' : 'bg-white'
+          className={`fixed inset-0 z-[99999] w-full h-[100dvh] flex items-center justify-center select-none overflow-hidden ${isDark ? 'bg-[#000000]' : 'bg-white'
             }`}
           style={{
             backgroundColor: isDark ? '#000000' : '#F7F5F1',
@@ -149,7 +149,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
             <div
               style={{
                 position: 'absolute',
-                bottom: 'clamp(28px, 5vh, 55px)',
+                bottom: 'max(65px, env(safe-area-inset-bottom, 0px))',
                 left: '50%',
                 transform: 'translateX(-50%)',
                 display: 'flex',
