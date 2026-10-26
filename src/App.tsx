@@ -14,6 +14,7 @@ import { SignupView } from './views/SignupView';
 import { LoginView } from './views/LoginView';
 import { RoleSelectionView } from './views/RoleSelectionView';
 import { ListerSubtypeView } from './views/ListerSubtypeView';
+import { ListerAboutView } from './views/ListerAboutView';
 import { ListerPhoneView } from './views/ListerPhoneView';
 import { TenantHomeView } from './views/TenantHomeView';
 import { MapExploreView } from './views/MapExploreView';
@@ -388,10 +389,14 @@ export default function App() {
         return <LoginView />;
       case 'role-selection':
         return <RoleSelectionView />;
+
       case 'lister-subtype':
         return <ListerSubtypeView />;
+      case 'lister-about':
+        return <ListerAboutView />;
       case 'lister-phone':
         return <ListerPhoneView />;
+
       case 'tenant-home':
         return <TenantHomeView />;
       case 'map-explore':

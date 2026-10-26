@@ -39,7 +39,7 @@ export type AppView =
   | 'signup'
   | 'role-selection'
   | 'lister-subtype'
-  | 'lister-subtype'
+  | 'lister-about'
   | 'lister-phone'
   | 'tenant-home'
   | 'tenant-home'
@@ -1606,7 +1606,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return [...prev, updated];
       });
 
-      setCurrentView('lister-dashboard');
+      setCurrentView('lister-about');
     } catch (error) {
       console.error('Failed to save lister subtype to Convex:', error);
       throw new Error('Unable to save your lister category. Please try again.');
