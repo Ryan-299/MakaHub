@@ -206,6 +206,7 @@ export default function App() {
   const {
     currentView,
     currentUser,
+    isLoggingOut,
     setCurrentView,
     filterDrawerOpen,
     setFilterDrawerOpen,
@@ -695,7 +696,7 @@ export default function App() {
           : desktopSidebarExpanded ? 'md:pl-72' : 'md:pl-28'
           }`}
       >
-        {(!isLoaded || (isSignedIn && currentView === 'welcome')) ? (
+        {(isLoggingOut || !isLoaded || (isSignedIn && currentView === 'welcome')) ? (
           <div
             className="flex min-h-[100dvh] w-full flex-col items-center justify-center gap-4"
             style={{
@@ -704,7 +705,9 @@ export default function App() {
             }}
           >
             <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#C49A6C]/25 border-t-[#C49A6C]" />
-            <p className="text-sm">Opening your account...</p>
+            <p className="text-sm">
+              {isLoggingOut ? 'Logging out...' : 'Opening your account...'}
+            </p>
           </div>
         ) : (
           renderView()

@@ -70,6 +70,7 @@ export type AppView =
   | 'admin-activity';
 
 interface AppContextType {
+  isLoggingOut: boolean;
   // Navigation & User
   currentView: AppView;
   previousView: AppView | null;
@@ -261,6 +262,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentView, setCurrentViewState] = useState<AppView>('welcome');
   const [previousView, setPreviousView] = useState<AppView | null>(null);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [selectedListerId, setSelectedListerId] = useState<string | null>(null);
   const [targetReviewId, setTargetReviewId] = useState<string | null>(null);
@@ -1663,12 +1665,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const logoutUser = async () => {
-    await signOut();
 
-    setCurrentUser(null);
-    setCurrentView('welcome');
+  const logoutUser = async () => {
+    setIsLoggingOut(true);
+
+    try {
+      await signOut();
+      setCurrentUser(null);
+      setCurrentView('welcome');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
+
   const deleteAccount = async () => {
     if (!clerkUser) {
       throw new Error("No signed-in user.");
@@ -3347,6 +3356,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         assignListerSubtype,
         loginUser,
         logoutUser,
+        isLoggingOut,
         deleteAccount,
         updateCurrentUserName,
         properties,
