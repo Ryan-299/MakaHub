@@ -705,9 +705,9 @@ export default function App() {
             }}
           >
             <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#C49A6C]/25 border-t-[#C49A6C]" />
-            <p className="text-sm">
-              {isLoggingOut ? 'Logging out...' : 'Opening your account...'}
-            </p>
+            {isLoggingOut && (
+              <p className="text-sm">Logging out...</p>
+            )}
           </div>
         ) : (
           renderView()
