@@ -677,7 +677,9 @@ export default function App() {
 
 
       {/* Main Top Header - hidden on Auth pages */}
-      {!['welcome', 'signup', 'login', 'role-selection', 'lister-subtype'].includes(currentView) && <Navbar />}
+
+      {!['welcome', 'signup', 'login', 'role-selection', 'lister-subtype', 'lister-about'].includes(currentView) && <Navbar />}
+
 
       {/* Slide-over Filter Drawer for Kenyan Hierarchy */}
       <FilterDrawer
@@ -688,7 +690,7 @@ export default function App() {
       {/* Main Dynamic View Screen */}
 
       <div
-        className={`flex-1 w-full min-w-0 transition-[padding] duration-300 ${['welcome', 'login', 'signup', 'role-selection', 'lister-subtype'].includes(currentView)
+        className={`flex-1 w-full min-w-0 transition-[padding] duration-300 ${['welcome', 'login', 'signup', 'role-selection', 'lister-subtype', 'lister-about'].includes(currentView)
           ? ''
           : desktopSidebarExpanded ? 'md:pl-72' : 'md:pl-28'
           }`}
@@ -709,17 +711,19 @@ export default function App() {
         )}
       </div>
 
-
-      <MobileNavbar />
+      {currentView !== 'lister-about' && <MobileNavbar />}
 
       {/* Footer with sidebar-aware spacing */}
+
       {![
         'welcome',
         'signup',
         'login',
         'role-selection',
-        'lister-subtype'
+        'lister-subtype',
+        'lister-about'
       ].includes(currentView) && (
+
           <div
             className={`w-full min-w-0 transition-[padding] duration-300 ${['welcome', 'login', 'signup', 'role-selection', 'lister-subtype'].includes(currentView)
               ? ''
