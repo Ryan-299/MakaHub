@@ -87,7 +87,8 @@ export default function App() {
     const minimumSplashTimer = window.setTimeout(() => {
       sessionStorage.setItem('rentike-splash-shown', 'true');
       setMinimumSplashDone(true);
-    }, 3200);
+    }, 2000);
+
     return () => {
       window.clearTimeout(minimumSplashTimer);
     };

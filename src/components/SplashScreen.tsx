@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import rentikeDarkLogo from '../assets/rentike(dark).png';
-import rentikeLightLogo from '../assets/rentike(light).png';
+import rentikeDarkLogo from '../assets/2D light mode.webp';
+import rentikeLightLogo from '../assets/2D dark (1).webp';
 import shenPeacock from '../assets/peacock.png';
 import { ResolvedTheme } from '../types';
 
@@ -95,9 +95,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({
         w-auto
       "
                   style={{
-                    transform: isDark
-                      ? 'translateY(24px) scale(1.55)'
-                      : 'translateY(0) scale(1)',
+                    transform: 'translateY(0) scale(1)',
                     transformOrigin: 'center',
                   }}
                   draggable={false}
