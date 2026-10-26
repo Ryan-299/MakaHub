@@ -216,7 +216,7 @@ export const LoginView: React.FC = () => {
     try {
       const { error } = await signIn.sso({
         strategy: 'oauth_google',
-        redirectCallbackUrl: window.location.origin,
+        redirectCallbackUrl: `${window.location.origin}/sso-callback`,
         redirectUrl: window.location.origin,
       });
       console.timeEnd('Google login start');
