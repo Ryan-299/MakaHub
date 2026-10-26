@@ -45,40 +45,23 @@ export const ListerSubtypeView: React.FC = () => {
   const { currentUser, assignListerSubtype, setCurrentView, resolvedTheme, setTheme } = useApp();
   const isDark = resolvedTheme === 'dark';
   const [selectedSubtype, setSelectedSubtype] = useState<ListerSubtype>('Landlord / Property Owner');
-  const [phone, setPhone] = useState('');
+
   const [error, setError] = useState('');
+
   const handleContinue = async () => {
     setError('');
 
-    const cleaned = phone.replace(/[\s-]/g, '');
-
-    let normalizedPhone = cleaned;
-
-    if (cleaned.startsWith('+254')) {
-      normalizedPhone = cleaned;
-    } else if (cleaned.startsWith('254')) {
-      normalizedPhone = `+${cleaned}`;
-    } else if (cleaned.startsWith('0')) {
-      normalizedPhone = `+254${cleaned.slice(1)}`;
-    } else if (/^[71]\d{8}$/.test(cleaned)) {
-      normalizedPhone = `+254${cleaned}`;
-    }
-
-    if (!/^\+254[71]\d{8}$/.test(normalizedPhone)) {
-      setError('Please enter a valid Kenyan phone number.');
-      return;
-    }
-
     try {
-      await assignListerSubtype(selectedSubtype, normalizedPhone);
+      await assignListerSubtype(selectedSubtype);
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
-          : 'Unable to save this phone number. Please try again.'
+          : 'Unable to save your lister category. Please try again.'
       );
     }
   };
+
   const toggleThemeMode = () => {
     if (resolvedTheme === 'dark') {
       setTheme('light');
@@ -257,28 +240,14 @@ export const ListerSubtypeView: React.FC = () => {
           })}
         </div>
 
+
         <div className="mt-8 w-full max-w-md mx-auto">
-          <label className="block text-sm font-semibold mb-2">
-            Phone Number
-          </label>
-
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+254XXXXXXXXX"
-            className="w-full px-4 py-3 rounded-xl border border-neutral-300 bg-transparent"
-          />
-
           {error && (
-            <p className="mt-2 text-sm text-red-500">
+            <p className="mb-3 text-sm text-red-500">
               {error}
             </p>
           )}
 
-          <p className="text-xs text-neutral-500 mt-2">
-            Used for your Rentike account and future payment services.
-          </p>
           <button
             type="button"
             onClick={handleContinue}
@@ -287,6 +256,7 @@ export const ListerSubtypeView: React.FC = () => {
             Continue
           </button>
         </div>
+
       </div>
 
 

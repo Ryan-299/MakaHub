@@ -100,10 +100,7 @@ interface AppContextType {
   // Auth simulation
   signupNewUser: (name: string, email: string, phone: string) => void;
   assignRole: (role: UserRole) => void;
-  assignListerSubtype: (
-    subtype: ListerSubtype,
-    phone: string
-  ) => Promise<void>;
+  assignListerSubtype: (subtype: ListerSubtype) => Promise<void>;
   loginUser: (role: UserRole) => void;
   logoutUser: () => void;
   updateCurrentUserName: (name: string) => Promise<void>;
@@ -503,16 +500,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (savedRole === 'seeker') {
           setCurrentViewState('tenant-home');
         } else if (savedRole === 'lister') {
-          const restoredPhone = (restoredUser.phone || '').replace(/[\s-]/g, '');
-
-          const hasValidPhone =
-            /^\+254[71]\d{8}$/.test(restoredPhone) &&
-            restoredPhone !== '+254700000000';
-
           if (!restoredUser.listerSubtype) {
             setCurrentViewState('lister-subtype');
-          } else if (!hasValidPhone) {
-            setCurrentViewState('lister-phone');
           } else {
             setCurrentViewState('lister-dashboard');
           }
@@ -1579,19 +1568,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentView('admin-dashboard');
     }
   };
-  const assignListerSubtype = async (
-    subtype: ListerSubtype,
-    phone: string
-  ) => {
+
+  const assignListerSubtype = async (subtype: ListerSubtype) => {
     if (!currentUser) return;
 
     const updated: UserAccount = {
       ...currentUser,
-      phone,
       role: 'lister',
       listerSubtype: subtype,
     };
-
 
     try {
       if (isConvexConfigured && convexClient) {
@@ -1599,7 +1584,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           userId: updated.id,
           name: updated.name,
           email: updated.email,
-          phone: updated.phone,
           role: 'lister',
           listerSubtype: subtype,
           joinedAt: updated.joinedAt,
@@ -1608,14 +1592,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       }
 
-      // Only update the app after Convex accepts the phone number
       setCurrentUser(updated);
 
       setUsers((prev) => {
         const exists = prev.some((u) => u.id === updated.id);
 
         if (exists) {
-          return prev.map((u) => (u.id === updated.id ? updated : u));
+          return prev.map((u) =>
+            u.id === updated.id ? updated : u
+          );
         }
 
         return [...prev, updated];
@@ -1624,23 +1609,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentView('lister-dashboard');
     } catch (error) {
       console.error('Failed to save lister subtype to Convex:', error);
-
-      const rawMessage =
-        error instanceof Error ? error.message : '';
-
-      if (rawMessage.includes('already linked to another MakaoHub account')) {
-        throw new Error(
-          'This phone number is already linked to another MakaoHub account.'
-        );
-      }
-
-      if (rawMessage.includes('valid Kenyan phone number')) {
-        throw new Error('Please enter a valid Kenyan phone number.');
-      }
-
-      throw new Error(
-        'Unable to save this phone number. Please try again.'
-      );
+      throw new Error('Unable to save your lister category. Please try again.');
     }
   };
 
@@ -1663,20 +1632,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (found) {
       if (found.role === 'admin') {
         setCurrentView('admin-dashboard');
+
       } else if (found.role === 'lister') {
-        const savedPhone = (found.phone || '').replace(/[\s-]/g, '');
-
-        const hasValidPhone =
-          /^\+254[71]\d{8}$/.test(savedPhone) &&
-          savedPhone !== '+254700000000';
-
         if (!found.listerSubtype) {
           setCurrentView('lister-subtype');
-        } else if (!hasValidPhone) {
-          setCurrentView('lister-phone');
         } else {
           setCurrentView('lister-dashboard');
         }
+
       } else {
         setCurrentView(targetView);
       }
@@ -1769,18 +1732,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
+
     if (targetMode === 'lister') {
       if (currentUser.role === 'lister') {
-        const savedPhone = (currentUser.phone || '').replace(/[\s-]/g, '');
-
-        const hasValidPhone =
-          /^\+254[71]\d{8}$/.test(savedPhone) &&
-          savedPhone !== '+254700000000';
-
         if (!currentUser.listerSubtype) {
           setCurrentView('lister-subtype');
-        } else if (!hasValidPhone) {
-          setCurrentView('lister-phone');
         } else {
           setCurrentView('lister-dashboard');
         }
@@ -1788,6 +1744,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       return;
     }
+
 
     if (targetMode === 'admin' && currentUser.role === 'admin') {
       setCurrentView('admin-dashboard');
