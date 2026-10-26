@@ -175,66 +175,88 @@ export const ListerSubtypeView: React.FC = () => {
           Choose your lister profile category. This will be displayed on your property listings to build trust with tenants.
         </p>
 
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left font-body">
           {LISTER_SUBTYPES.map((item) => {
             const Icon = item.icon;
             const isSelected = selectedSubtype === item.title;
+
+            const roleColors: Record<string, string> = {
+              'Landlord / Property Owner': '#B8895E',
+              'Caretaker': '#438D80',
+              'Property Manager': '#547AB0',
+              'Real Estate Agent': '#8E70AB',
+              'Property Agency': '#BD8550',
+              'Property Company': '#718397',
+              'Property Developer': '#B07A87',
+            };
+
+            const accent = roleColors[item.title] || '#B8895E';
+
             return (
               <button
                 key={item.title}
                 type="button"
+                aria-pressed={isSelected}
                 onClick={() => setSelectedSubtype(item.title)}
-                className={`p-4 rounded-2xl border text-left transition-all duration-150 cursor-pointer flex items-start gap-3.5 select-none ${isSelected
-                  ? isDark
-                    ? 'bg-neutral-900 text-white border-white shadow-md scale-[1.01]'
-                    : 'bg-white text-black border-black shadow-md scale-[1.01]'
-                  : isDark
-                    ? 'bg-neutral-950/80 hover:bg-neutral-900 text-neutral-300 border-neutral-800 hover:border-neutral-700'
-                    : 'bg-neutral-50/70 hover:bg-neutral-100 text-neutral-800 border-neutral-200 hover:border-neutral-300'
-                  }`}
-              >
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${isSelected
-                    ? isDark
-                      ? 'bg-white text-black'
-                      : 'bg-black text-white'
+                className="relative flex w-full min-h-[116px] items-start gap-3.5 rounded-2xl border px-4 py-4 text-left cursor-pointer transition-colors duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{
+                  backgroundColor: isSelected
+                    ? `${accent}${isDark ? '1A' : '0D'}`
                     : isDark
-                      ? 'bg-neutral-900 text-neutral-300'
-                      : 'bg-neutral-200/80 text-neutral-800'
-                    }`}
+                      ? '#171717'
+                      : '#FFFFFF',
+                  borderColor: isSelected
+                    ? accent
+                    : isDark
+                      ? '#343434'
+                      : '#E7DED2',
+                  outlineColor: accent,
+                }}
+              >
+                {/* Role icon */}
+                <div
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                  style={{
+                    backgroundColor: `${accent}${isDark ? '26' : '1A'}`,
+                    color: accent,
+                  }}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className="h-5 w-5" strokeWidth={2} />
                 </div>
-                <div>
+
+                {/* Role information */}
+                <div className="min-w-0 flex-1 pr-5">
                   <h4
-                    className={`text-sm font-bold leading-snug ${isSelected
-                      ? isDark
-                        ? 'text-white'
-                        : 'text-black'
-                      : isDark
-                        ? 'text-neutral-100'
-                        : 'text-neutral-900'
+                    className={`text-sm font-semibold leading-snug ${isDark ? 'text-white' : 'text-neutral-950'
                       }`}
                   >
                     {item.title}
                   </h4>
+
                   <p
-                    className={`text-xs mt-0.5 leading-relaxed ${isSelected
-                      ? isDark
-                        ? 'text-neutral-300'
-                        : 'text-neutral-700'
-                      : isDark
-                        ? 'text-neutral-400'
-                        : 'text-neutral-500'
+                    className={`mt-1 text-xs leading-relaxed ${isDark ? 'text-neutral-400' : 'text-neutral-500'
                       }`}
                   >
                     {item.description}
                   </p>
                 </div>
+
+                {/* Selected indicator */}
+                {isSelected && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold text-white"
+                    style={{ backgroundColor: accent }}
+                  >
+                    ✓
+                  </span>
+                )}
               </button>
             );
           })}
         </div>
+
         <div className="mt-8 w-full max-w-md mx-auto">
           <label className="block text-sm font-semibold mb-2">
             Phone Number
