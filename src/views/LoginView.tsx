@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSignIn } from '@clerk/react';
 import { Eye, EyeOff, ArrowLeft, Sun, Moon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import rentikeDarkThemeIcon from '../assets/rentike(light).png';
-import rentikeLightThemeIcon from '../assets/rentike(dark).png';
+import rentikeDarkThemeIcon from '../assets/2D dark (1).webp';
+import rentikeLightThemeIcon from '../assets/2D light mode.webp';
 export const LoginView: React.FC = () => {
   const { loginUser, setCurrentView, resolvedTheme, setTheme } = useApp();
   const { signIn, fetchStatus } = useSignIn();
