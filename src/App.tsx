@@ -683,7 +683,9 @@ export default function App() {
       {/* Main Dynamic View Screen */}
 
       <div
-        className={`flex-1 w-full min-w-0 transition-[padding] duration-300 ${desktopSidebarExpanded ? 'md:pl-72' : 'md:pl-28'
+        className={`flex-1 w-full min-w-0 transition-[padding] duration-300 ${['welcome', 'login', 'signup', 'role-selection', 'lister-subtype'].includes(currentView)
+          ? ''
+          : desktopSidebarExpanded ? 'md:pl-72' : 'md:pl-28'
           }`}
       >
         {renderView()}
@@ -701,7 +703,9 @@ export default function App() {
         'lister-subtype'
       ].includes(currentView) && (
           <div
-            className={`w-full min-w-0 transition-[padding] duration-300 ${desktopSidebarExpanded ? 'md:pl-72' : 'md:pl-28'
+            className={`w-full min-w-0 transition-[padding] duration-300 ${['welcome', 'login', 'signup', 'role-selection', 'lister-subtype'].includes(currentView)
+              ? ''
+              : desktopSidebarExpanded ? 'md:pl-72' : 'md:pl-28'
               }`}
           >
             <Footer />

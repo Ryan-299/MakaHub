@@ -1,10 +1,8 @@
 import React from 'react';
 import { Sun, Moon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import darkLogo from '../assets/MAKAOHUB LOGO NO BACKGROUND (Dark Mode).png';
-import lightLogo from '../assets/official no white background image.png';
-import rentikeDarkThemeIcon from "../assets/rentike(light).png";
-import rentikeLightThemeIcon from "../assets/rentike(dark).png";
+import rentikeDarkThemeIcon from '../assets/2D dark (1).webp';
+import rentikeLightThemeIcon from '../assets/2D light mode.webp';
 
 export const WelcomeView: React.FC = () => {
   const { setCurrentView, resolvedTheme, setTheme } = useApp();
