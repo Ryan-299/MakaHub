@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useSignUp, useSignIn } from '@clerk/react';
 import { Sun, Moon, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import rentikeDarkThemeIcon from '../assets/rentike(light).png';
-import rentikeLightThemeIcon from '../assets/rentike(dark).png';
+import rentikeDarkThemeIcon from '../assets/2D dark (1).webp';
+import rentikeLightThemeIcon from '../assets/2D light mode.webp';
 
 export const SignupView: React.FC = () => {
   const [acceptedLegal, setAcceptedLegal] = React.useState(false);
@@ -350,7 +350,7 @@ export const SignupView: React.FC = () => {
             : '0 18px 50px rgba(28, 22, 16, 0.08)',
         }}
       >
-        {/* 1. Large MakaoHub Logo */}
+        {/* 1. Large Rentike Logo */}
         <div className="mb-5 flex flex-col items-center">
           <img
             src={isDark ? rentikeDarkThemeIcon : rentikeLightThemeIcon}
@@ -569,7 +569,7 @@ export const SignupView: React.FC = () => {
               className={`text-[12px] leading-5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
                 }`}
             >
-              I agree to MakaoHub&apos;s{' '}
+              I agree to Rentike&apos;s{' '}
               <a
                 href="/terms"
                 target="_blank"
@@ -741,7 +741,7 @@ export const SignupView: React.FC = () => {
 
       {/* Bottom spacer for optical balance */}
       <footer className="w-full py-2 flex justify-center opacity-0 pointer-events-none">
-        <span className="text-[10px]">MakaoHub</span>
+        <span className="text-[10px]">Rentike</span>
       </footer>
     </main>
   );
