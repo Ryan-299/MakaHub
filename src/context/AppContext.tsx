@@ -1666,6 +1666,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
 
+
   const logoutUser = async () => {
     setIsLoggingOut(true);
 
@@ -1673,10 +1674,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await signOut();
       setCurrentUser(null);
       setCurrentView('welcome');
-    } finally {
+    } catch (error) {
       setIsLoggingOut(false);
+      throw error;
     }
   };
+
+  useEffect(() => {
+    if (isLoggingOut && isLoaded && !isSignedIn) {
+      setIsLoggingOut(false);
+    }
+  }, [isLoggingOut, isLoaded, isSignedIn]);
+
 
   const deleteAccount = async () => {
     if (!clerkUser) {
