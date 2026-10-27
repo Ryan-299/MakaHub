@@ -47,6 +47,7 @@ export const UserProfileView: React.FC = () => {
   const {
     currentUser,
     switchUserMode,
+    isListerMode,
     logoutUser,
     deleteAccount,
     updateCurrentUserName,
@@ -571,7 +572,7 @@ export const UserProfileView: React.FC = () => {
 
             </div>
             {/* Lister My Profile Card */}
-            {currentUser?.role === 'lister' && (
+            {isListerMode && (
               <div className="bg-[#F7F3EC] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_8px_18px_rgba(0,0,0,0.08)] mb-6">
                 <button
                   type="button"
@@ -604,15 +605,19 @@ export const UserProfileView: React.FC = () => {
             <div className="bg-[#F7F3EC] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[8px_8px_18px_rgba(28,22,16,0.12),-8px_-8px_18px_rgba(255,255,255,0.95)] dark:shadow-[8px_8px_18px_rgba(0,0,0,0.50),-5px_-5px_12px_rgba(255,255,255,0.035)]">
               <button
                 type="button"
+
                 onClick={() => {
-                  if (currentUser?.role === 'lister') {
-                    setCurrentView('add-property');
+                  if (isListerMode) {
+                    switchUserMode('seeker');
+                  } else if (currentUser?.role === 'lister') {
+                    switchUserMode('lister');
                   } else {
                     setCurrentView('role-selection');
                   }
 
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
+
                 className="w-full flex items-center justify-between gap-4 rounded-2xl px-4 py-4 text-left transition-all hover:bg-black/5 dark:hover:bg-white/5"
               >
                 <div className="flex items-center gap-4 min-w-0">
@@ -622,11 +627,13 @@ export const UserProfileView: React.FC = () => {
 
                   <div className="min-w-0">
                     <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">
-                      Switch to Lister
+                      {isListerMode ? 'Switch to Seeker' : 'Switch to Lister'}
                     </h3>
 
                     <p className="mt-0.5 text-xs text-neutral-500 dark:text-[#8A8A8A]">
-                      Manage listings and enquiries.
+                      {isListerMode
+                        ? 'Browse rental homes and discover properties.'
+                        : 'Manage listings and enquiries.'}
                     </p>
                   </div>
                 </div>
