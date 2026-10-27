@@ -134,7 +134,7 @@ export const AdminDashboardView: React.FC = () => {
                 Super Admin
               </span>
               <span className="text-xs text-neutral-500 dark:text-[#A3A3A3] font-semibold">
-                MakaoHub Kenya Moderation Engine
+                Rentike Moderation Engine
               </span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] tracking-tight mt-1">
@@ -308,8 +308,8 @@ export const AdminDashboardView: React.FC = () => {
             type="button"
             onClick={() => handleNavigateTab('all-properties', 'Vacant')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'all-properties' && propertyStatusFilter === 'Vacant'
-                ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
-                : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
+              ? 'bg-white dark:bg-[#1E1E1E] text-black dark:text-white shadow-xs'
+              : 'text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white'
               }`}
           >
             Vacant Units ({totalVacancies})
