@@ -192,7 +192,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
         >
           {/* NEW DESKTOP SIDEBAR */}
           <div
-            className={`hidden md:flex fixed top-4 bottom-4 left-4 z-50 flex-col rounded-[28px] border border-white/60 bg-[#F7F3EC]/[0.92] backdrop-blur-xl shadow-[0_18px_50px_rgba(28,22,16,0.12)] dark:border-white/10 dark:bg-[#151515]/[0.90] dark:shadow-[0_18px_50px_rgba(0,0,0,0.45)] transition-all duration-300 overflow-visible ${desktopExpanded ? 'w-64' : 'w-20'
+            className={`hidden md:flex fixed top-4 bottom-4 left-4 z-[110] flex-col rounded-[28px] border border-white/60 bg-[#F7F3EC]/[0.92] backdrop-blur-xl shadow-[0_18px_50px_rgba(28,22,16,0.12)] dark:border-white/10 dark:bg-[#151515]/[0.90] dark:shadow-[0_18px_50px_rgba(0,0,0,0.45)] transition-all duration-300 overflow-visible ${desktopExpanded ? 'w-64' : 'w-20'
 
               }`}
           >
