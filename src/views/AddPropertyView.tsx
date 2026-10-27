@@ -739,6 +739,7 @@ export const AddPropertyView: React.FC = () => {
 
 
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -748,6 +749,25 @@ export const AddPropertyView: React.FC = () => {
       setPhotoError('Please select a property type.');
       return;
     }
+
+    if (
+      typeof lat !== 'number' ||
+      !Number.isFinite(lat) ||
+      typeof lng !== 'number' ||
+      !Number.isFinite(lng)
+    ) {
+      window.alert(
+        'Please set the exact building location on the map before submitting your property.'
+      );
+
+      document.getElementById('property-location-map')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+
+      return;
+    }
+
 
     // Save Mixed Units separately from the existing single-unit flow.
     if (selectedUnitTypes.length > 1) {
@@ -1827,8 +1847,7 @@ export const AddPropertyView: React.FC = () => {
                 </div>
 
                 {/* Pin-Drop Location Map */}
-                <div>
-
+                <div id="property-location-map">
 
                   <div className="rounded-2xl border border-neutral-200 dark:border-[#292929] overflow-hidden">
                     <PropertyLocationPickerMap
