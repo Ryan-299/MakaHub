@@ -263,6 +263,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [previousView, setPreviousView] = useState<AppView | null>(null);
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isBrowsingAsSeeker, setIsBrowsingAsSeeker] = useState(false);
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [selectedListerId, setSelectedListerId] = useState<string | null>(null);
   const [targetReviewId, setTargetReviewId] = useState<string | null>(null);
@@ -1264,8 +1265,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser?.id, isConvexAuthenticated]);
 
   // Roles determination
-  const isSeekerMode = currentUser?.role === 'seeker';
-  const isListerMode = currentUser?.role === 'lister';
+
+  const isSeekerMode =
+    currentUser?.role === 'seeker' ||
+    (currentUser?.role === 'lister' && isBrowsingAsSeeker);
+
+  const isListerMode =
+    currentUser?.role === 'lister' && !isBrowsingAsSeeker;
+
   const isAdmin = currentUser?.role === 'admin';
 
   // Rule #22: Vacancies > 0 & Status === 'Approved' appear in Seeker availability & live map!
@@ -1671,9 +1678,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsLoggingOut(true);
 
     try {
+
       await signOut();
+      setIsBrowsingAsSeeker(false);
       setCurrentUser(null);
       setCurrentView('welcome');
+
     } catch (error) {
       setIsLoggingOut(false);
       throw error;
@@ -1746,13 +1756,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentUser) return;
 
     if (targetMode === 'seeker') {
+      setIsBrowsingAsSeeker(true);
       setCurrentView('tenant-home');
       return;
     }
 
 
+
     if (targetMode === 'lister') {
       if (currentUser.role === 'lister') {
+        setIsBrowsingAsSeeker(false);
         if (!currentUser.listerSubtype) {
           setCurrentView('lister-subtype');
         } else {
