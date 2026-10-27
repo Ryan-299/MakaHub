@@ -468,7 +468,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const restoredUser: UserAccount = {
           id: savedUser.userId,
-          name: clerkUser.fullName || savedUser.name || 'MakaoHub User',
+
+          name: savedUser.name || clerkUser.fullName || 'Rentike User',
+
           email:
             clerkUser.primaryEmailAddress?.emailAddress ||
             savedUser.email ||
