@@ -264,7 +264,7 @@ export const Navbar: React.FC = () => {
       {/* 3. NEW SEEKER TOP BAR */}
       <header
         id="makaohub-topbar"
-        className="hidden sm:block bg-[var(--rentike-bg)] border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-40 transition-colors"
+        className="relative z-[100] hidden sm:block bg-[var(--rentike-bg)] border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-40 transition-colors"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between md:justify-end h-16 sm:h-17">
