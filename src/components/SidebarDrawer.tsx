@@ -171,7 +171,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
         className={`${isOpen
           ? 'fixed inset-0 z-50 overflow-hidden animate-in fade-in duration-200'
           : 'hidden md:block'
-          } md:!fixed md:inset-y-0 md:left-0 md:w-20 md:z-[60] md:overflow-visible`}
+          } md:!fixed md:inset-y-0 md:left-0 md:w-20 md:z-[120] md:overflow-visible`}
 
 
       >
