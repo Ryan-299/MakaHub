@@ -2040,6 +2040,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           coverPhotoStorageId: updatedData.coverPhotoStorageId,
           videoStorageId: updatedData.videoStorageId,
           description: updatedData.description,
+          contactPhone: updatedData.lister?.phone,
           timePosted: 'Updated just now',
         }).filter(([, value]) => value !== undefined)
       ) as any;

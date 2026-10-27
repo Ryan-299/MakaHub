@@ -97,6 +97,11 @@ export const AddPropertyView: React.FC = () => {
     () => editingProperty?.description || ''
   );
 
+  // Contact number for this specific property
+  const [contactPhone, setContactPhone] = useState(
+    () => editingProperty?.lister?.phone || ''
+  );
+
 
   // 2. Location Details
   const [county, setCounty] = useState(() => editingProperty?.location?.county || 'Nairobi');
@@ -281,6 +286,7 @@ export const AddPropertyView: React.FC = () => {
       setName(editingProperty.name || '');
       setType(editingProperty.type || '1 Bedroom');
       setDescription(editingProperty.description || '');
+      setContactPhone(editingProperty.lister?.phone || '');
       setCounty(editingProperty.location?.county || '');
       setSubCounty(editingProperty.location?.subCounty || '');
       setWard(editingProperty.location?.ward || '');
@@ -944,7 +950,9 @@ export const AddPropertyView: React.FC = () => {
             name: currentUser.name || 'Lister',
             type: 'Landlord / Property Owner',
             avatar: currentUser.avatar || '',
-            phone: currentUser.phone || undefined,
+            phone: contactPhone.trim().startsWith('0')
+              ? `+254${contactPhone.trim().slice(1)}`
+              : contactPhone.trim(),
             email: currentUser.email || undefined,
             verified: true,
           },
@@ -1059,6 +1067,10 @@ export const AddPropertyView: React.FC = () => {
           name,
           type,
           description,
+          lister: {
+            ...editingProperty.lister,
+            phone: contactPhone.trim(),
+          },
           location: {
             county,
             subCounty,
@@ -1126,9 +1138,22 @@ export const AddPropertyView: React.FC = () => {
           imageStorageIds: imageStorageIds.length > 0 ? imageStorageIds : undefined,
           coverPhotoStorageId,
           videoStorageId,
+
           video: videoUrl || undefined,
           videoName: videoFile?.name,
-          videoSize: videoFile?.size
+          videoSize: videoFile?.size,
+          lister: {
+            id: currentUser?.id || '',
+            name: currentUser?.name || 'Lister',
+            type: currentUser?.listerSubtype || 'Landlord / Property Owner',
+            avatar: currentUser?.avatar || '',
+            phone: contactPhone.trim().startsWith('0')
+              ? `+254${contactPhone.trim().slice(1)}`
+              : contactPhone.trim(),
+            email: currentUser?.email || '',
+            verified: true,
+          }
+
         });
         createdPropertyIdRef.current = createdPropertyId;
       }
@@ -1836,6 +1861,37 @@ export const AddPropertyView: React.FC = () => {
                 </div>
               </div>
             </div> {/* End of Property Location wrapper */}
+
+            {/* Property Contact Phone Number */}
+            <div className="space-y-3">
+              <label
+                htmlFor="property-contact-phone"
+                className="block text-lg font-bold text-[#242424] dark:text-[#F5F1E8]"
+              >
+                Contact Phone Number
+                <span className="ml-1 text-[#B4534C]">*</span>
+              </label>
+
+              <input
+                id="property-contact-phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="off"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                placeholder="e.g. 0712345678 or +254712345678"
+                pattern="0[17][0-9]{8}|\+254[17][0-9]{8}"
+                title="Enter a valid Kenyan number, such as 0712345678 or +254712345678"
+                required
+                className="w-full px-4 py-3 rounded-xl bg-[#F7F3EC] dark:bg-[#151515] text-[#242424] dark:text-[#F5F1E8] border border-[#E2D3C2] dark:border-[#40362E] focus:outline-none focus:ring-2 focus:ring-[#C49A6C]/30"
+              />
+
+              <p className="text-xs text-[#77716C] dark:text-[#A3A3A3]">
+                Seekers will use this number to contact you directly about this property.
+
+              </p>
+            </div>
+
 
             {/* Section 5: Monthly Rent & Move-In Costs (KSh) */}
 

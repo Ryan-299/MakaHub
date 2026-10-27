@@ -255,10 +255,20 @@ export const add = mutation({
       throw new Error("You must be signed in.");
     }
 
+
     if (args.lister.id !== identity.subject) {
       throw new Error("You can only create listings as yourself.");
     }
+
+    // Require a valid contact phone number for this property
+    const contactPhone = args.lister.phone?.trim().replace(/[\s()-]/g, '') ?? '';
+
+    if (!/^(?:0[17]\d{8}|\+254[17]\d{8})$/.test(contactPhone)) {
+      throw new Error("A valid Kenyan contact phone number is required.");
+    }
+
     const propertyId = await ctx.db.insert("properties", {
+
       ...args,
       agentFee: args.agentFee ?? 0,
       viewingFee: args.viewingFee ?? 0,
@@ -382,11 +392,26 @@ export const addWithUnits = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
 
+
     if (!identity || args.lister.id !== identity.subject) {
       throw new Error("You must be signed in as the listing owner.");
     }
 
+    // Require a valid contact number for this property
+    const contactPhone = args.lister.phone?.trim().replace(/[\s()-]/g, '') ?? '';
+
+
+    if (!/^(?:0[17]\d{8}|\+254[17]\d{8})$/.test(contactPhone)) {
+      throw new Error("A valid Kenyan contact phone number is required.");
+    }
+
+    const normalizedPhone = contactPhone.startsWith('0')
+      ? `+254${contactPhone.slice(1)}`
+      : contactPhone;
+
+
     if (args.unitTypes.length < 2) {
+
       throw new Error("Select at least two unit types.");
     }
 
@@ -521,6 +546,7 @@ export const updateProperty = mutation({
     videoStorageId: v.optional(v.id("_storage")),
 
     description: v.optional(v.string()),
+    contactPhone: v.optional(v.string()),
     timePosted: v.optional(v.string()),
   },
 
@@ -540,9 +566,31 @@ export const updateProperty = mutation({
       throw new Error("You can only edit your own property.");
     }
 
-    const { id, ...updates } = args;
 
-    await ctx.db.patch(doc._id, updates);
+    const { id, contactPhone, ...updates } = args;
+
+    if (contactPhone !== undefined) {
+      const phone = contactPhone.trim().replace(/[\s()-]/g, '');
+
+      if (!/^(?:0[17]\d{8}|\+254[17]\d{8})$/.test(phone)) {
+        throw new Error('Enter a valid Kenyan contact phone number.');
+      }
+
+      const normalizedPhone = phone.startsWith('0')
+        ? `+254${phone.slice(1)}`
+        : phone;
+
+      await ctx.db.patch(doc._id, {
+        ...updates,
+        lister: {
+          ...doc.lister,
+          phone: normalizedPhone,
+        },
+      });
+    } else {
+      await ctx.db.patch(doc._id, updates);
+    }
+
     const isResubmission =
       doc.status === "Rejected" && updates.status === "Pending";
 
