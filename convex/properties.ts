@@ -410,9 +410,8 @@ export const addWithUnits = mutation({
       : contactPhone;
 
 
-    if (args.unitTypes.length < 2) {
-
-      throw new Error("Select at least two unit types.");
+    if (args.unitTypes.length < 1) {
+      throw new Error("Select at least one unit type.");
     }
 
     if (new Set(args.unitTypes.map((unit) => unit.type)).size !== args.unitTypes.length) {
