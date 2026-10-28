@@ -810,108 +810,88 @@ export const AddPropertyView: React.FC = () => {
       setPhotoError(null);
 
       try {
-        let singleUnitImageIds: Id<'_storage'>[] = [];
+        // Mixed Units uploads a separate building cover.
+        // Single Property photos are uploaded by the shared unit loop below.
+        let buildingCoverId: Id<'_storage'> | undefined;
 
-        if (isSingleUnitSubmission) {
-          for (const file of photoFiles) {
-            if (!file) {
-              throw new Error('Missing original property photo.');
-            }
-
-            setUploadProgressText(
-              `Uploading property photo ${singleUnitImageIds.length + 1} of ${photoFiles.length}...`
-            );
-
-            const storageId = await uploadFileToConvex(file);
-            singleUnitImageIds.push(storageId as Id<'_storage'>);
-          }
-        } else {
+        if (!isSingleUnitSubmission) {
           setUploadProgressText('Uploading building cover...');
+          buildingCoverId = (await uploadFileToConvex(photoFiles[0])) as Id<'_storage'>;
         }
 
-        const buildingCoverId = isSingleUnitSubmission
-          ? singleUnitImageIds[0]
-          : (await uploadFileToConvex(photoFiles[0])) as Id<'_storage'>;
-
         const unitTypes = [];
+        // Shared submission pathway for Single Property and Mixed Units.
+        for (const unitType of selectedUnitTypes) {
+          const details = isSingleUnitSubmission
+            ? {
+              monthlyRent,
+              deposit,
+              serviceCharge,
+              waterDeposit,
+              electricityDeposit,
+              agentFee,
+              viewingFee,
+              vacancies: vacant,
+              occupied,
+              underRepair,
+            }
+            : mixedUnitDetails[unitType];
 
-        if (isSingleUnitSubmission) {
-          const videoStorageId = videoFile
-            ? (await uploadFileToConvex(videoFile)) as Id<'_storage'>
+          const media = isSingleUnitSubmission
+            ? {
+              images,
+              photoFiles,
+              videoUrl,
+              videoFile,
+            }
+            : mixedUnitMedia[unitType];
+          setUploadProgressText(`Uploading ${unitType} media...`);
+
+          const imageIds: Id<'_storage'>[] = [];
+
+          for (const file of media.photoFiles) {
+            if (!file) {
+              throw new Error(`Missing original image for ${unitType}.`);
+            }
+
+            const storageId = await uploadFileToConvex(file);
+            imageIds.push(storageId as Id<'_storage'>);
+            if (isSingleUnitSubmission && imageIds.length === 1) {
+              buildingCoverId = imageIds[0];
+            }
+          }
+
+          const videoId = media.videoFile
+            ? await uploadFileToConvex(media.videoFile)
             : undefined;
 
           const numberValue = (value: string): number =>
             value.trim() === '' ? 0 : Number(value);
 
           unitTypes.push({
-            type: selectedUnitTypes[0],
-            monthlyRent: numberValue(monthlyRent),
-            deposit: numberValue(deposit),
-            serviceCharge: numberValue(serviceCharge),
-            waterDeposit: numberValue(waterDeposit),
-            electricityDeposit: numberValue(electricityDeposit),
-            agentFee: numberValue(agentFee),
-            viewingFee: numberValue(viewingFee),
-            vacancies: numberValue(vacant),
-            occupied: numberValue(occupied),
-            underRepair: numberValue(underRepair),
+            type: unitType,
+            monthlyRent: numberValue(details.monthlyRent),
+            deposit: numberValue(details.deposit),
+            serviceCharge: numberValue(details.serviceCharge),
+            waterDeposit: numberValue(details.waterDeposit),
+            electricityDeposit: numberValue(details.electricityDeposit),
+            agentFee: numberValue(details.agentFee),
+            viewingFee: numberValue(details.viewingFee),
+            vacancies: numberValue(details.vacancies),
+            occupied: numberValue(details.occupied),
+            underRepair: numberValue(details.underRepair),
             amenities: [...amenities],
             images: [] as string[],
-            imageStorageIds: singleUnitImageIds,
-            coverPhotoStorageId: buildingCoverId,
-            videoStorageId,
-            videoName: videoFile?.name,
-            videoSize: videoFile?.size,
+            imageStorageIds: imageIds,
+            coverPhotoStorageId: imageIds[0],
+            videoStorageId: videoId
+              ? (videoId as Id<'_storage'>)
+              : undefined,
+            videoName: media.videoFile?.name,
+            videoSize: media.videoFile?.size,
           });
-        } else {
-          for (const unitType of selectedUnitTypes) {
-            const details = mixedUnitDetails[unitType];
-            const media = mixedUnitMedia[unitType];
-
-            setUploadProgressText(`Uploading ${unitType} media...`);
-
-            const imageIds: Id<'_storage'>[] = [];
-
-            for (const file of media.photoFiles) {
-              if (!file) {
-                throw new Error(`Missing original image for ${unitType}.`);
-              }
-
-              const storageId = await uploadFileToConvex(file);
-              imageIds.push(storageId as Id<'_storage'>);
-            }
-
-            const videoId = media.videoFile
-              ? await uploadFileToConvex(media.videoFile)
-              : undefined;
-
-            const numberValue = (value: string): number =>
-              value.trim() === '' ? 0 : Number(value);
-
-            unitTypes.push({
-              type: unitType,
-              monthlyRent: numberValue(details.monthlyRent),
-              deposit: numberValue(details.deposit),
-              serviceCharge: numberValue(details.serviceCharge),
-              waterDeposit: numberValue(details.waterDeposit),
-              electricityDeposit: numberValue(details.electricityDeposit),
-              agentFee: numberValue(details.agentFee),
-              viewingFee: numberValue(details.viewingFee),
-              vacancies: numberValue(details.vacancies),
-              occupied: numberValue(details.occupied),
-              underRepair: numberValue(details.underRepair),
-              amenities: [...amenities],
-              images: [] as string[],
-              imageStorageIds: imageIds,
-              coverPhotoStorageId: imageIds[0],
-              videoStorageId: videoId
-                ? (videoId as Id<'_storage'>)
-                : undefined,
-              videoName: media.videoFile?.name,
-              videoSize: media.videoFile?.size,
-            });
-          }
         }
+
 
         const values = unitTypes.flatMap((unit) => [
           unit.monthlyRent,
@@ -941,7 +921,9 @@ export const AddPropertyView: React.FC = () => {
         }
 
         setUploadProgressText('Saving building and unit types...');
-
+        if (!buildingCoverId) {
+          throw new Error('Property cover photo was not uploaded.');
+        }
         await convexClient.mutation(api.properties.addWithUnits, {
           name: name.trim(),
           type: isSingleUnitSubmission ? selectedUnitTypes[0] : 'Mixed Units',
