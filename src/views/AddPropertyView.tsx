@@ -1060,12 +1060,11 @@ export const AddPropertyView: React.FC = () => {
 
       const coverPhotoStorageId = imageStorageIds.length > 0 ? imageStorageIds[0] : undefined;
 
-      isSubmittedRef.current = true;
+
       const submittedImages = [...images];
       const coverPhoto = submittedImages[0] || '';
 
-      // Register all submitted media in the session registry
-      registerSubmittedMedia([...submittedImages, coverPhoto, videoUrl]);
+
 
       // Parse all numeric values (empty string converts to 0)
       const parsedMonthlyRent = monthlyRent.trim() !== '' ? Number(monthlyRent) : 0;
@@ -1153,13 +1152,13 @@ export const AddPropertyView: React.FC = () => {
           occupied: parsedOccupied,
           underRepair: parsedUnderRepair,
           amenities: [...amenities],
-          images: submittedImages,
-          coverPhoto,
+          images: [],
+          coverPhoto: '',
           imageStorageIds: imageStorageIds.length > 0 ? imageStorageIds : undefined,
           coverPhotoStorageId,
           videoStorageId,
 
-          video: videoUrl || undefined,
+          video: undefined,
           videoName: videoFile?.name,
           videoSize: videoFile?.size,
           lister: {
