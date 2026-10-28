@@ -382,7 +382,7 @@ export const AddPropertyView: React.FC = () => {
     }
 
 
-    const maxPhotos = selectedUnitTypes.length > 1 ? 1 : 10;
+    const maxPhotos = !isEditMode ? 1 : 10
     const remainingSlots = maxPhotos - images.length;
 
     if (remainingSlots <= 0) {
@@ -786,17 +786,9 @@ export const AddPropertyView: React.FC = () => {
         );
         return;
       }
-
-      if (isSingleUnitSubmission) {
-        if (images.length === 0 || photoFiles.length !== images.length || photoFiles.some((file) => !file)) {
-          setPhotoError('Please add valid property photos before submitting.');
-          return;
-        }
-      } else {
-        if (images.length !== 1 || !photoFiles[0]) {
-          setPhotoError('Add exactly one new building cover photo.');
-          return;
-        }
+      if (images.length !== 1 || !photoFiles[0]) {
+        setPhotoError('Add exactly one new building cover photo.');
+        return;
       }
 
       if (!name.trim() || !county || !subCounty || !ward || !estate.trim()) {
@@ -810,41 +802,16 @@ export const AddPropertyView: React.FC = () => {
       setPhotoError(null);
 
       try {
-        // Mixed Units uploads a separate building cover.
-        // Single Property photos are uploaded by the shared unit loop below.
-        let buildingCoverId: Id<'_storage'> | undefined;
-
-        if (!isSingleUnitSubmission) {
-          setUploadProgressText('Uploading building cover...');
-          buildingCoverId = (await uploadFileToConvex(photoFiles[0])) as Id<'_storage'>;
-        }
+        setUploadProgressText('Uploading building cover...');
+        const buildingCoverId = (await uploadFileToConvex(photoFiles[0])) as Id<'_storage'>;
 
         const unitTypes = [];
-        // Shared submission pathway for Single Property and Mixed Units.
-        for (const unitType of selectedUnitTypes) {
-          const details = isSingleUnitSubmission
-            ? {
-              monthlyRent,
-              deposit,
-              serviceCharge,
-              waterDeposit,
-              electricityDeposit,
-              agentFee,
-              viewingFee,
-              vacancies: vacant,
-              occupied,
-              underRepair,
-            }
-            : mixedUnitDetails[unitType];
 
-          const media = isSingleUnitSubmission
-            ? {
-              images,
-              photoFiles,
-              videoUrl,
-              videoFile,
-            }
-            : mixedUnitMedia[unitType];
+        // Process all selected property types using the existing Mixed Units loop.
+        for (const unitType of selectedUnitTypes) {
+          const details = mixedUnitDetails[unitType];
+          const media = mixedUnitMedia[unitType];
+
           setUploadProgressText(`Uploading ${unitType} media...`);
 
           const imageIds: Id<'_storage'>[] = [];
@@ -856,9 +823,6 @@ export const AddPropertyView: React.FC = () => {
 
             const storageId = await uploadFileToConvex(file);
             imageIds.push(storageId as Id<'_storage'>);
-            if (isSingleUnitSubmission && imageIds.length === 1) {
-              buildingCoverId = imageIds[0];
-            }
           }
 
           const videoId = media.videoFile
@@ -892,7 +856,6 @@ export const AddPropertyView: React.FC = () => {
           });
         }
 
-
         const values = unitTypes.flatMap((unit) => [
           unit.monthlyRent,
           unit.deposit,
@@ -921,9 +884,7 @@ export const AddPropertyView: React.FC = () => {
         }
 
         setUploadProgressText('Saving building and unit types...');
-        if (!buildingCoverId) {
-          throw new Error('Property cover photo was not uploaded.');
-        }
+
         await convexClient.mutation(api.properties.addWithUnits, {
           name: name.trim(),
           type: isSingleUnitSubmission ? selectedUnitTypes[0] : 'Mixed Units',
@@ -1930,7 +1891,7 @@ export const AddPropertyView: React.FC = () => {
             <div className="rounded-2xl border border-[#E2D3C2] bg-[#F8F5EF] p-6 sm:p-8 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.04)] dark:bg-[#151515] dark:border-neutral-800">
 
 
-              {selectedUnitTypes.length <= 1 ? (
+              {isEditMode ? (
                 <>
 
                   {/* Row 1: Monthly Rent, Security Deposit, Service Charge */}
@@ -2155,7 +2116,7 @@ export const AddPropertyView: React.FC = () => {
             <div className="rounded-2xl border border-[#E2D3C2] bg-[#F8F5EF] p-6 sm:p-8 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.04)] dark:bg-[#151515] dark:border-neutral-800">
 
 
-              {selectedUnitTypes.length <= 1 ? (
+              {isEditMode ? (
                 <>
 
 
@@ -2355,13 +2316,13 @@ export const AddPropertyView: React.FC = () => {
                       : 'bg-neutral-100 dark:bg-[#181818] text-neutral-600 dark:text-[#A3A3A3]'
                       }`}
                   >
-                    {selectedUnitTypes.length > 1 ? 'Cover Photo' : 'Property Photos'} ({images.length}/{selectedUnitTypes.length > 1 ? 1 : 10})
+                    {!isEditMode ? 'Cover Photo' : 'Property Photos'} ({images.length}/{!isEditMode ? 1 : 10})
                   </span>
                 </div>
               </div>
 
               <p className="text-xs text-neutral-500 dark:text-[#8A8A8A]">
-                {selectedUnitTypes.length > 1
+                {!isEditMode
                   ? 'Upload one cover photo of the building. JPG, JPEG, PNG or WebP.'
                   : 'Upload up to 10 property photos. JPG, JPEG, PNG or WebP. The first photo will be used as the cover.'}
               </p>
@@ -2532,7 +2493,7 @@ export const AddPropertyView: React.FC = () => {
               )}
 
 
-              {selectedUnitTypes.length > 1 && (
+              {!isEditMode && selectedUnitTypes.length >= 1 && (
                 <div className="mt-6 border-t border-[#E2D3C2] pt-6">
                   <h3 className="mb-2 text-base font-semibold text-[#242424] dark:text-white">
                     Unit Photos
