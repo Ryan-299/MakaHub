@@ -731,10 +731,12 @@ border border-[#E7DED2] dark:border-neutral-800
                       });
                     }}
                     aria-label={`View photo ${index + 1}`}
+
                     className={`h-2 rounded-full transition-all duration-200 ${activePhotoIdx === index
-                      ? 'w-5 bg-white'
-                      : 'w-2 bg-white/55'
+                      ? 'w-5 bg-[#C79B70]'
+                      : 'w-2 bg-[#F3EEE6]'
                       }`}
+
                   />
                 ))}
               </div>
