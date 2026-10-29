@@ -712,8 +712,10 @@ export const updateVacancies = mutation({
   },
 });
 
+
 export const remove = mutation({
   args: { id: v.id("properties") },
+
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
 
@@ -723,52 +725,84 @@ export const remove = mutation({
 
     const requester = await ctx.db
       .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", identity.subject)
+      )
       .first();
 
     if (!requester) {
       throw new Error("User account not found.");
     }
-    try {
-      const doc = await ctx.db.get(args.id);
-      if (doc) {
-        const isOwner = doc.lister.id === identity.subject;
-        const isAdmin = requester.role === "admin";
 
-        if (!isOwner && !isAdmin) {
-          throw new Error("You are not authorized to delete this property.");
-        }
-        // Clean up storage items if present
-        if (doc.imageStorageIds && Array.isArray(doc.imageStorageIds)) {
-          for (const storageId of doc.imageStorageIds) {
-            try {
-              await ctx.storage.delete(storageId);
-            } catch {
-              // ignore
-            }
-          }
-        }
-        if (doc.coverPhotoStorageId) {
-          try {
-            await ctx.storage.delete(doc.coverPhotoStorageId);
-          } catch {
-            // ignore
-          }
-        }
-        if (doc.videoStorageId) {
-          try {
-            await ctx.storage.delete(doc.videoStorageId);
-          } catch {
-            // ignore
-          }
-        }
-        await ctx.db.delete(doc._id);
+    const doc = await ctx.db.get(args.id);
+
+    if (!doc) return;
+
+    const isOwner = doc.lister.id === identity.subject;
+    const isAdmin = requester.role === "admin";
+
+    if (!isOwner && !isAdmin) {
+      throw new Error(
+        "You are not authorized to delete this property."
+      );
+    }
+
+    // Find unit types belonging ONLY to this property.
+    const unitTypes = await ctx.db
+      .query("propertyUnitTypes")
+      .withIndex("by_property", (q) =>
+        q.eq("propertyId", doc._id)
+      )
+      .collect();
+
+    // Gather media IDs without duplicates.
+    const storageIds = new Set(doc.imageStorageIds ?? []);
+
+    if (doc.coverPhotoStorageId) {
+      storageIds.add(doc.coverPhotoStorageId);
+    }
+
+    if (doc.videoStorageId) {
+      storageIds.add(doc.videoStorageId);
+    }
+
+    for (const unit of unitTypes) {
+      for (const id of unit.imageStorageIds ?? []) {
+        storageIds.add(id);
       }
-    } catch (error) {
-      throw error;
+
+      if (unit.coverPhotoStorageId) {
+        storageIds.add(unit.coverPhotoStorageId);
+      }
+
+      if (unit.videoStorageId) {
+        storageIds.add(unit.videoStorageId);
+      }
+    }
+
+    // Remove every associated unit record.
+    for (const unit of unitTypes) {
+      await ctx.db.delete(unit._id);
+    }
+
+    // Remove the main property.
+    await ctx.db.delete(doc._id);
+
+    // Clean up associated storage files.
+    for (const storageId of storageIds) {
+      try {
+        await ctx.storage.delete(storageId);
+      } catch (error) {
+        console.warn(
+          "Unable to delete property media:",
+          storageId,
+          error
+        );
+      }
     }
   },
 });
+
 export const recordView = mutation({
   args: {
     propertyId: v.id("properties"),
