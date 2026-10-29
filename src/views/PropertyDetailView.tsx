@@ -80,12 +80,18 @@ export const PropertyDetailView: React.FC = () => {
       : null) ||
     (!selectedPropertyId && properties.length > 0 ? properties[0] : null);
 
+
   const mixedUnitRecords = useQuery(
     api.propertyUnitTypes.getByProperty,
-    property?.type === 'Mixed Units'
+    property
       ? { propertyId: property.id as Id<'properties'> }
       : 'skip'
   );
+  const galleryImages =
+    property?.type !== 'Mixed Units' &&
+      mixedUnitRecords?.[0]?.resolvedImages?.length
+      ? mixedUnitRecords[0].resolvedImages
+      : property?.images ?? [];
 
   const saveCount = property?.saveCount ?? 0;
   const listerListingCount = property?.lister?.id ? properties.filter((p) => p.lister?.id === property.lister?.id).length : 0;
@@ -667,7 +673,7 @@ border border-[#E7DED2] dark:border-neutral-800
                 setActivePhotoIdx(index);
               }}
             >
-              {property.images.map((img, index) => (
+              {galleryImages.map((img, index) => (
                 <div
                   key={index}
                   className="flex-none w-full snap-start aspect-16/9 sm:aspect-21/9"
@@ -709,9 +715,9 @@ border border-[#E7DED2] dark:border-neutral-800
             )}
 
             {/* Photo Dots */}
-            {property.images.length > 1 && (
+            {galleryImages.length > 1 && (
               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/35 backdrop-blur-md">
-                {property.images.map((_, index) => (
+                {galleryImages.map((_, index) => (
                   <button
                     key={index}
                     type="button"
