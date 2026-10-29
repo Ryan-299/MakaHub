@@ -714,7 +714,7 @@ export default function App() {
         )}
       </div>
 
-      {currentView !== 'lister-about' && <MobileNavbar />}
+      {!currentView.startsWith('admin-') && <MobileNavbar />}
 
       {/* Footer with sidebar-aware spacing */}
 

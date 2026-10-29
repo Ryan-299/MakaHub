@@ -42,7 +42,8 @@ export const AdminDashboardView: React.FC = () => {
     setAdminActiveTab,
     approveProperty,
     rejectProperty,
-    setCurrentView
+    setCurrentView,
+    logoutUser
   } = useApp();
 
   const activeTab: AdminTab = adminActiveTab || 'overview';
@@ -78,9 +79,9 @@ export const AdminDashboardView: React.FC = () => {
     if (smoothScroll) {
       requestAnimationFrame(() => {
         setTimeout(() => {
-          window.scrollTo({
-            top: 0,
+          sectionContentRef.current?.scrollIntoView({
             behavior: 'smooth',
+            block: 'start',
           });
         }, 100);
       });
@@ -145,7 +146,8 @@ export const AdminDashboardView: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setCurrentView('tenant-home')}
@@ -153,7 +155,16 @@ export const AdminDashboardView: React.FC = () => {
             >
               Back to App View
             </button>
+
+            <button
+              type="button"
+              onClick={() => logoutUser()}
+              className="px-4 py-2 bg-white dark:bg-[#111111] hover:bg-red-50 dark:hover:bg-red-950/30 border border-red-300 dark:border-red-900 text-red-600 dark:text-red-400 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+            >
+              Sign Out
+            </button>
           </div>
+
         </div>
 
         {/* SUMMARY STATISTICS (Total Properties, Pending Approvals, Total Users, Open Reports) - All Clickable */}
