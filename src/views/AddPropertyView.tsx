@@ -253,6 +253,93 @@ export const AddPropertyView: React.FC = () => {
     Record<string, UnitMedia>
   >({});
 
+  // Existing unit photographs are managed separately from the building cover.
+  // This applies only when editing an existing single-unit property.
+  type EditableUnitPhoto = {
+    url: string;
+    storageId?: Id<'_storage'>;
+    file?: File;
+  };
+
+  const [editUnitId, setEditUnitId] = useState<Id<'propertyUnitTypes'> | null>(null);
+  const [editUnitPhotos, setEditUnitPhotos] = useState<EditableUnitPhoto[]>([]);
+  const [editUnitStatus, setEditUnitStatus] = useState<
+    'loading' | 'ready' | 'none' | 'legacy' | 'error'
+  >('none');
+  const [editUnitPhotoError, setEditUnitPhotoError] = useState<string | null>(null);
+  const [editUnitDirty, setEditUnitDirty] = useState(false);
+
+  const maxBuildingPhotos =
+    !isEditMode || editUnitStatus === 'ready' ? 1 : 10;
+
+  useEffect(() => {
+    let active = true;
+
+    setEditUnitId(null);
+    setEditUnitPhotos([]);
+    setEditUnitDirty(false);
+    setEditUnitPhotoError(null);
+
+    if (!isEditMode || !editingProperty || editingProperty.type === 'Mixed Units') {
+      setEditUnitStatus('none');
+      return () => { active = false; };
+    }
+
+    if (!isConvexConfigured || !convexClient) {
+      setEditUnitStatus('error');
+      setEditUnitPhotoError('Unable to connect to Convex to load unit photographs.');
+      return () => { active = false; };
+    }
+
+    setEditUnitStatus('loading');
+
+    void convexClient.query(api.propertyUnitTypes.getByProperty, {
+      propertyId: editingProperty.id as Id<'properties'>,
+    }).then((units) => {
+      if (!active) return;
+
+      if (units.length === 0) {
+        setEditUnitStatus('none');
+        return;
+      }
+
+      if (units.length !== 1) {
+        setEditUnitStatus('error');
+        setEditUnitPhotoError('This property contains multiple units.');
+        return;
+      }
+
+      const unit = units[0];
+      const ids = unit.imageStorageIds ?? [];
+      const urls = unit.resolvedImages ?? [];
+
+      if (ids.length === 0 || ids.length !== urls.length) {
+        setEditUnitStatus('legacy');
+        setEditUnitPhotoError(
+          'Some photographs cannot be matched to their storage records. No photo changes will be made.'
+        );
+        return;
+      }
+
+      setEditUnitId(unit._id);
+      setEditUnitPhotos(
+        urls.map((url, index) => ({
+          url,
+          storageId: ids[index],
+        }))
+      );
+      setEditUnitStatus('ready');
+    }).catch((error) => {
+      if (!active) return;
+
+      console.error('Unable to load unit photos:', error);
+      setEditUnitStatus('error');
+      setEditUnitPhotoError('Unable to load existing unit photographs.');
+    });
+
+    return () => { active = false; };
+  }, [isEditMode, editingProperty?.id, editingProperty?.type]);
+
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState('');
@@ -323,7 +410,10 @@ export const AddPropertyView: React.FC = () => {
       );
 
       setAmenities(editingProperty.amenities || []);
+
       setImages(editingProperty.images || []);
+      setPhotoFiles((editingProperty.images || []).map(() => null));
+
       setVideoUrl(editingProperty.video || null);
     }
   }, [editingProperty]);
@@ -382,7 +472,9 @@ export const AddPropertyView: React.FC = () => {
     }
 
 
-    const maxPhotos = !isEditMode ? 1 : 10
+
+    const maxPhotos = maxBuildingPhotos;
+
     const remainingSlots = maxPhotos - images.length;
 
     if (remainingSlots <= 0) {
@@ -534,6 +626,81 @@ export const AddPropertyView: React.FC = () => {
       const rest = prev.filter((_, idx) => idx !== indexToMakeCover);
       return [target, ...rest];
     });
+  };
+
+  // Edit Listing: add new unit photographs.
+  const handleEditUnitPhotosSelected = (files: FileList | null) => {
+    if (!files || files.length === 0 || editUnitStatus !== 'ready') return;
+
+    const validFiles = Array.from(files).filter((file) => {
+      const extension = file.name.split('.').pop()?.toLowerCase() || '';
+      return (
+        ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(file.type.toLowerCase()) ||
+        ['jpg', 'jpeg', 'png', 'webp'].includes(extension)
+      );
+    });
+
+    if (validFiles.length === 0) {
+      setEditUnitPhotoError('Please select JPG, JPEG, PNG or WebP photographs.');
+      return;
+    }
+
+    const remainingSlots = 10 - editUnitPhotos.length;
+
+    if (remainingSlots <= 0) {
+      setEditUnitPhotoError('Maximum 10 unit photographs allowed.');
+      return;
+    }
+
+    const filesToAdd = validFiles.slice(0, remainingSlots);
+
+    const newPhotos: EditableUnitPhoto[] = filesToAdd.map((file) => {
+      const url = URL.createObjectURL(file);
+      createdObjectUrlsRef.current.add(url);
+      return { url, file };
+    });
+
+    setEditUnitPhotos((previous) => [...previous, ...newPhotos]);
+    setEditUnitDirty(true);
+    setEditUnitPhotoError(null);
+  };
+
+  // Edit Listing: remove a unit photograph.
+  const handleRemoveEditUnitPhoto = (indexToRemove: number) => {
+    if (editUnitStatus !== 'ready') return;
+
+    const photo = editUnitPhotos[indexToRemove];
+    if (!photo) return;
+
+    if (createdObjectUrlsRef.current.has(photo.url)) {
+      revokeTemporaryMedia(photo.url);
+      createdObjectUrlsRef.current.delete(photo.url);
+    }
+
+    setEditUnitPhotos((previous) =>
+      previous.filter((_, index) => index !== indexToRemove)
+    );
+
+    setEditUnitDirty(true);
+    setEditUnitPhotoError(null);
+  };
+
+  // Edit Listing: change the unit's cover photograph.
+  const handleSetEditUnitCover = (indexToMakeCover: number) => {
+    if (editUnitStatus !== 'ready' || indexToMakeCover === 0) return;
+    if (!editUnitPhotos[indexToMakeCover]) return;
+
+    setEditUnitPhotos((previous) => {
+      const selected = previous[indexToMakeCover];
+      const remaining = previous.filter(
+        (_, index) => index !== indexToMakeCover
+      );
+
+      return [selected, ...remaining];
+    });
+
+    setEditUnitDirty(true);
+    setEditUnitPhotoError(null);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -1095,7 +1262,45 @@ export const AddPropertyView: React.FC = () => {
               ? 'Pending'
               : editingProperty.status,
         });
+
+        // Save existing unit photo changes separately from the building cover.
+        if (editUnitDirty) {
+          if (editUnitStatus !== 'ready' || !editUnitId || !convexClient) {
+            throw new Error('Unit photographs are not ready to be updated.');
+          }
+
+          if (editUnitPhotos.length === 0) {
+            throw new Error('Keep at least one unit photograph.');
+          }
+
+          const updatedUnitImageIds: Id<'_storage'>[] = [];
+
+          for (const photo of editUnitPhotos) {
+            if (photo.file) {
+              setUploadProgressText('Uploading updated unit photographs...');
+              const storageId = await uploadFileToConvex(photo.file);
+              updatedUnitImageIds.push(storageId as Id<'_storage'>);
+            } else if (photo.storageId) {
+              updatedUnitImageIds.push(photo.storageId);
+            } else {
+              throw new Error('An existing unit photo has no storage reference.');
+            }
+          }
+
+          setUploadProgressText('Saving unit photographs...');
+
+          await convexClient.mutation(api.propertyUnitTypes.updateUnitType, {
+            id: editUnitId,
+            images: [],
+            imageStorageIds: updatedUnitImageIds,
+            coverPhotoStorageId: updatedUnitImageIds[0],
+          });
+
+          setEditUnitDirty(false);
+        }
+
         setEditingPropertyId(null);
+
       } else {
         const createdPropertyId = createdPropertyIdRef.current ?? await addPropertyListing({
           name,
@@ -2666,6 +2871,115 @@ export const AddPropertyView: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Existing unit photographs — Edit Listing only */}
+            {isEditMode &&
+              editingProperty?.type !== 'Mixed Units' &&
+              editUnitStatus !== 'none' && (
+                <section
+                  id="edit-unit-photos-section"
+                  className="rounded-2xl border border-[#E2D3C2] bg-[#F8F5EF] p-5 sm:p-7 dark:border-[#393939] dark:bg-[#181818]"
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-[#242424] dark:text-[#F5F5F5]">
+                      Unit Photographs
+                    </h2>
+
+                    {editUnitStatus === 'ready' && (
+                      <span className="text-xs font-medium text-[#946B46] dark:text-[#C49A6C]">
+                        {editUnitPhotos.length}/10
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mb-4 text-xs text-neutral-500 dark:text-[#A3A3A3]">
+                    These are the photographs displayed in the property gallery.
+                    The first photograph is the unit cover.
+                  </p>
+
+                  {editUnitStatus === 'loading' && (
+                    <p className="text-sm text-[#946B46]">
+                      Loading existing photographs...
+                    </p>
+                  )}
+
+                  {editUnitPhotoError && (
+                    <p
+                      role="alert"
+                      className="mb-4 rounded-xl border border-red-300 p-3 text-xs text-red-600 dark:text-red-400"
+                    >
+                      {editUnitPhotoError}
+                    </p>
+                  )}
+
+                  {editUnitStatus === 'ready' && (
+                    <>
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                        {editUnitPhotos.map((photo, index) => (
+                          <div
+                            key={photo.storageId ?? photo.url}
+                            className="relative aspect-[4/3] overflow-hidden rounded-xl border border-[#D8C7B1] dark:border-[#44403B]"
+                          >
+                            <img
+                              src={photo.url}
+                              alt={`Unit photo ${index + 1}`}
+                              className="h-full w-full object-cover"
+                            />
+
+                            {index === 0 ? (
+                              <span className="absolute bottom-2 left-2 rounded-lg bg-black/85 px-2 py-1 text-[10px] font-semibold text-white">
+                                Unit Cover
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleSetEditUnitCover(index)}
+                                className="absolute bottom-2 left-2 rounded-lg bg-black/85 px-2 py-1 text-[10px] font-semibold text-white"
+                              >
+                                Set as Cover
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              aria-label={`Remove unit photo ${index + 1}`}
+                              onClick={() => handleRemoveEditUnitPhoto(index)}
+                              className="absolute right-2 top-2 rounded-lg bg-black/85 p-1.5 text-white hover:bg-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {editUnitPhotos.length < 10 && (
+                        <label className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#C49A6C] px-4 py-2.5 text-xs font-semibold text-white hover:bg-[#AD8255]">
+                          <ImagePlus className="h-4 w-4" />
+                          Add Unit Photos
+
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/jpeg,image/jpg,image/png,image/webp"
+                            className="hidden"
+                            onChange={(event) => {
+                              handleEditUnitPhotosSelected(event.target.files);
+                              event.target.value = '';
+                            }}
+                          />
+                        </label>
+                      )}
+
+                      {editUnitDirty && (
+                        <p className="mt-3 text-xs text-[#946B46] dark:text-[#D8B38A]">
+                          Unit photo changes have not been saved yet.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </section>
+              )}
+
             {/* Section 7: Property Video (Optional) */}
             {selectedUnitTypes.length <= 1 && (
               <div
