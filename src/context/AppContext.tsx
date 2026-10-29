@@ -2159,22 +2159,67 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Lister: Delete All My Listings (For testing/prototype reset)
-  const deleteAllMyListings = () => {
+
+  const deleteAllMyListings = async () => {
     if (!currentUser || currentUser.role !== 'lister') return;
 
-    const myProps = properties.filter((p) => p.lister?.id === currentUser.id);
+    const myProps = properties.filter(
+      (p) => p.lister?.id === currentUser.id
+    );
+
     if (myProps.length === 0) return;
 
-    const remaining = properties.filter((p) => p.lister?.id !== currentUser.id);
+    if (!isConvexConfigured || !convexClient) {
+      console.error('Cannot delete listings: Convex is not connected.');
+      window.alert('Unable to connect to the database. Please try again.');
+      return;
+    }
 
+    const deletedIds = new Set<string>();
+    let failedCount = 0;
+
+    // Delete each listing from Convex before removing it from the UI.
+    for (const property of myProps) {
+      try {
+        await convexClient.mutation(api.properties.remove, {
+          id: property.id as any,
+        });
+
+        deletedIds.add(property.id);
+      } catch (error) {
+        failedCount += 1;
+        console.error(
+          `Failed to delete property ${property.id} from Convex:`,
+          error
+        );
+      }
+    }
+
+    // Do not remove listings locally if no database deletion succeeded.
+    if (deletedIds.size === 0) {
+      window.alert('No listings were deleted. Please try again.');
+      return;
+    }
+
+    const deletedProps = myProps.filter(
+      (p) => deletedIds.has(p.id)
+    );
+
+    const remaining = properties.filter(
+      (p) => !deletedIds.has(p.id)
+    );
+
+    // Clean up media belonging only to successfully deleted listings.
     const deletedMedia: (string | undefined | null)[] = [];
-    myProps.forEach((p) => {
+
+    deletedProps.forEach((p) => {
       if (p.images) deletedMedia.push(...p.images);
       if (p.coverPhoto) deletedMedia.push(p.coverPhoto);
       if (p.video) deletedMedia.push(p.video);
     });
 
     const remainingMedia: (string | undefined | null)[] = [];
+
     remaining.forEach((p) => {
       if (p.images) remainingMedia.push(...p.images);
       if (p.coverPhoto) remainingMedia.push(p.coverPhoto);
@@ -2183,18 +2228,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     cleanupDeletedPropertyMedia(deletedMedia, remainingMedia);
 
-    setProperties(remaining);
+    // Update local state only for confirmed database deletions.
+    setProperties((prev) =>
+      prev.filter((p) => !deletedIds.has(p.id))
+    );
 
-    const deletedIds = new Set(myProps.map((p) => p.id));
-    setEnquiries((prev) => prev.filter((e) => !deletedIds.has(e.propertyId)));
+    setEnquiries((prev) =>
+      prev.filter((e) => !deletedIds.has(e.propertyId))
+    );
 
-    if (currentUser.savedPropertyIds?.some((id) => deletedIds.has(id))) {
+    if (
+      currentUser.savedPropertyIds?.some((id) => deletedIds.has(id))
+    ) {
       setCurrentUser({
         ...currentUser,
-        savedPropertyIds: currentUser.savedPropertyIds.filter((id) => !deletedIds.has(id))
+        savedPropertyIds: currentUser.savedPropertyIds.filter(
+          (id) => !deletedIds.has(id)
+        ),
       });
     }
+
+    if (failedCount > 0) {
+      window.alert(
+        `${deletedIds.size} listing(s) deleted. ${failedCount} could not be deleted. Please try again for the remaining listings.`
+      );
+    }
   };
+
 
   // Admin: Approve / Reject / Flag / Archive / Suspend / Reinstate
   const approveProperty = (propertyId: string) => {
