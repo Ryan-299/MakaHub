@@ -93,6 +93,14 @@ export const PropertyDetailView: React.FC = () => {
       ? mixedUnitRecords[0].resolvedImages
       : property?.images ?? [];
 
+  // Use the unit's saved House Tour for single-property listings.
+  // Preserve the original property video as a fallback for older listings.
+  const propertyVideo =
+    property?.type !== 'Mixed Units'
+      ? mixedUnitRecords?.[0]?.resolvedVideo || property?.video
+      : property?.video;
+
+
   const saveCount = property?.saveCount ?? 0;
   const listerListingCount = property?.lister?.id ? properties.filter((p) => p.lister?.id === property.lister?.id).length : 0;
   // Check if current user is the owner/lister of this property
@@ -155,17 +163,18 @@ export const PropertyDetailView: React.FC = () => {
   }, [property?.id, currentUser?.id, isSeekerMode, recordView]);
 
   // Reset video error state when property or video source changes
-  // Reset video error state when property or video source changes
+
   useEffect(() => {
     setVideoLoadError(false);
-  }, [property?.id, property?.video]);
+  }, [property?.id, propertyVideo]);
 
   const hasValidVideo = Boolean(
-    property?.video &&
-    typeof property.video === 'string' &&
-    property.video.trim().length > 0 &&
+    propertyVideo &&
+    typeof propertyVideo === 'string' &&
+    propertyVideo.trim().length > 0 &&
     !videoLoadError
   );
+
 
   // Guarantee scroll position is at top only when NOT deep-linking to a specific review
   useEffect(() => {
@@ -747,7 +756,7 @@ border border-[#E7DED2] dark:border-neutral-800
         </section>
 
         {/* PROPERTY VIDEO TOUR */}
-        {hasValidVideo && property.video && (
+        {hasValidVideo && propertyVideo && (
           <section
             id="property-video-tour-section"
             className="bg-[#F7F3EC] dark:bg-[#151515] p-5 sm:p-6 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)]"
@@ -777,8 +786,8 @@ border border-[#E7DED2] dark:border-neutral-800
 
             <div className="relative rounded-2xl overflow-hidden bg-black aspect-16/9 sm:aspect-21/9 border border-black/10 dark:border-white/10 shadow-[0_10px_24px_rgba(28,22,16,0.14)]">
               <video
-                key={property.video}
-                src={property.video}
+                key={propertyVideo}
+                src={propertyVideo}
                 controls
                 autoPlay={false}
                 playsInline
