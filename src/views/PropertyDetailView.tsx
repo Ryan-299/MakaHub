@@ -51,6 +51,7 @@ export const PropertyDetailView: React.FC = () => {
     previousView,
     setCurrentView,
     currentUser,
+    isSeekerMode,
     seekerEnquiries,
     sendEnquiry,
     setTargetEnquiryId,
@@ -136,16 +137,16 @@ export const PropertyDetailView: React.FC = () => {
   );
 
   useEffect(() => {
-    if (!property?.id || currentUser?.role !== 'seeker') {
+    if (!property?.id || !currentUser || !isSeekerMode) {
       return;
     }
 
     void recordView({
-      propertyId: property.id as any,
+      propertyId: property.id as Id<'properties'>,
     }).catch((error) => {
       console.error('Failed to record property view:', error);
     });
-  }, [property?.id, currentUser?.id, currentUser?.role, recordView]);
+  }, [property?.id, currentUser?.id, isSeekerMode, recordView]);
 
   // Reset video error state when property or video source changes
   // Reset video error state when property or video source changes

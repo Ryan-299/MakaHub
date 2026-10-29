@@ -791,10 +791,13 @@ export const recordView = mutation({
       )
       .first();
 
-    if (!viewer || viewer.role !== "seeker") {
+    if (
+      !viewer ||
+      (viewer.role !== "seeker" && viewer.role !== "lister")
+    ) {
       return {
         counted: false,
-        reason: "not-seeker",
+        reason: "not-seeker-or-lister",
       };
     }
 
