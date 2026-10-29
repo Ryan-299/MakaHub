@@ -1299,7 +1299,7 @@ export const AddPropertyView: React.FC = () => {
           setEditUnitDirty(false);
         }
 
-        setEditingPropertyId(null);
+
 
       } else {
         const createdPropertyId = createdPropertyIdRef.current ?? await addPropertyListing({
@@ -1354,6 +1354,7 @@ export const AddPropertyView: React.FC = () => {
 
       setSubmitted(true);
       setTimeout(() => {
+        setEditingPropertyId(null);
         setCurrentView('my-listings');
       }, 1800);
     } catch (err: any) {
@@ -1444,7 +1445,7 @@ export const AddPropertyView: React.FC = () => {
               <CheckCircle2 className="w-10 h-10 text-emerald-400 dark:text-emerald-600" />
             </div>
             <h2 className="text-2xl font-bold text-neutral-950 dark:text-[#F5F5F5]">
-              {isEditMode ? 'Listing Updated Successfully!' : 'Listing Submitted for Review!'}
+              {isEditMode ? 'Listing Successfully Updated!' : 'Listing Submitted for Review!'}
             </h2>
             <p className="text-xs sm:text-sm text-neutral-500 dark:text-[#8A8A8A] max-w-md mx-auto leading-relaxed">
               {isEditMode
