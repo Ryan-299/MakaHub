@@ -501,11 +501,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
           return [...prev, restoredUser];
         });
-
         if (savedRole === 'seeker') {
+          setIsBrowsingAsSeeker(false);
           setCurrentViewState('tenant-home');
         } else if (savedRole === 'lister') {
-          if (!restoredUser.listerSubtype) {
+          const savedMode = localStorage.getItem(
+            `rentike_active_mode_${restoredUser.id}`
+          );
+
+          const browseAsSeeker = savedMode === 'seeker';
+          setIsBrowsingAsSeeker(browseAsSeeker);
+
+          if (browseAsSeeker) {
+            setCurrentViewState('tenant-home');
+          } else if (!restoredUser.listerSubtype) {
             setCurrentViewState('lister-subtype');
           } else {
             setCurrentViewState('lister-dashboard');
@@ -1758,6 +1767,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentUser) return;
 
     if (targetMode === 'seeker') {
+      localStorage.setItem(
+        `rentike_active_mode_${currentUser.id}`,
+        'seeker'
+      );
+
       setIsBrowsingAsSeeker(true);
       setCurrentView('tenant-home');
       return;
@@ -1767,6 +1781,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (targetMode === 'lister') {
       if (currentUser.role === 'lister') {
+        localStorage.setItem(
+          `rentike_active_mode_${currentUser.id}`,
+          'lister'
+        );
+
         setIsBrowsingAsSeeker(false);
         if (!currentUser.listerSubtype) {
           setCurrentView('lister-subtype');
