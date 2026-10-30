@@ -38,32 +38,46 @@ export const NotificationsView: React.FC = () => {
     const [pushBusy, setPushBusy] = useState(false);
     const [pushSupported, setPushSupported] = useState(true);
     const [pushError, setPushError] = useState<string | null>(null);
+    const [pushStage, setPushStage] = useState('Not started');
+
 
 
     useEffect(() => {
         let cancelled = false;
 
+        const report = (stage: string) => {
+            if (!cancelled) setPushStage(stage);
+        };
+
         const syncPushSubscription = async () => {
+            report('1. Registration started');
+
             if (
                 !('serviceWorker' in navigator) ||
                 !('PushManager' in window) ||
                 !('Notification' in window)
             ) {
+                report('Stopped: Browser push support unavailable');
                 if (!cancelled) setPushSupported(false);
                 return;
             }
 
             if (!currentUser?.id) {
+                report('Stopped: Rentike user not available');
                 if (!cancelled) setPushEnabled(false);
                 return;
             }
 
             const disabledKey = `rentike-push-disabled:${currentUser.id}`;
 
-            if (
-                Notification.permission !== 'granted' ||
-                localStorage.getItem(disabledKey) === '1'
-            ) {
+            if (Notification.permission !== 'granted') {
+                report('Stopped: Browser permission unavailable');
+                if (!cancelled) setPushEnabled(false);
+                return;
+            }
+
+            if (localStorage.getItem(disabledKey) === '1') {
+                report('Stopped: Rentike disabled flag is set');
                 if (!cancelled) setPushEnabled(false);
                 return;
             }
@@ -72,26 +86,44 @@ export const NotificationsView: React.FC = () => {
                 const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
                 if (!publicKey) {
-                    throw new Error('Missing VAPID public key.');
+                    throw new Error('VAPID public key unavailable to frontend');
                 }
 
-                const registration = await navigator.serviceWorker.ready;
+                report('2. Waiting for service worker');
+
+                const registration = await Promise.race([
+                    navigator.serviceWorker.ready,
+                    new Promise<ServiceWorkerRegistration>((_, reject) =>
+                        setTimeout(
+                            () => reject(new Error('Service worker timeout')),
+                            10000
+                        )
+                    ),
+                ]);
+
+                report('3. Service worker ready');
 
                 let subscription =
                     await registration.pushManager.getSubscription();
 
                 if (!subscription) {
+                    report('4. Creating browser subscription');
+
                     subscription = await registration.pushManager.subscribe({
                         userVisibleOnly: true,
                         applicationServerKey: urlBase64ToUint8Array(publicKey),
                     });
                 }
 
+                report('5. Browser subscription available');
+
                 const keys = subscription.toJSON().keys;
 
                 if (!keys?.p256dh || !keys?.auth) {
-                    throw new Error('Missing device subscription keys.');
+                    throw new Error('Subscription keys unavailable');
                 }
+
+                report('6. Sending subscription to Convex');
 
                 await registerPushDevice({
                     endpoint: subscription.endpoint,
@@ -100,20 +132,23 @@ export const NotificationsView: React.FC = () => {
                     expirationTime: subscription.expirationTime ?? undefined,
                 });
 
+                report('7. Saved successfully in Convex');
+
                 if (!cancelled) {
                     setPushEnabled(true);
                     setPushError(null);
                 }
             } catch (error) {
-                console.error('Push subscription synchronization failed:', error);
+                const message =
+                    error instanceof Error
+                        ? error.message
+                        : 'Unknown registration error';
+
+                report(`Failed: ${message}`);
 
                 if (!cancelled) {
                     setPushEnabled(false);
-                    setPushError(
-                        error instanceof Error
-                            ? error.message
-                            : 'Push subscription synchronization failed.'
-                    );
+                    setPushError(message);
                 }
             }
         };
@@ -124,7 +159,6 @@ export const NotificationsView: React.FC = () => {
             cancelled = true;
         };
     }, [currentUser?.id, registerPushDevice]);
-
 
     const handleEnablePush = async () => {
         setPushError(null);
@@ -313,7 +347,9 @@ export const NotificationsView: React.FC = () => {
                                     Receive Rentike updates on this device,
                                     even when the app is closed.
                                 </p>
-
+                                <p className="text-xs text-neutral-500 mt-2">
+                                    Registration status: {pushStage}
+                                </p>
                                 <p className="text-xs text-neutral-500 mt-2">
                                     {pushEnabled
                                         ? 'Notifications enabled on this device.'
