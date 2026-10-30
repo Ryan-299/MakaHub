@@ -39,10 +39,11 @@ export const NotificationsView: React.FC = () => {
     const [pushSupported, setPushSupported] = useState(true);
     const [pushError, setPushError] = useState<string | null>(null);
 
+
     useEffect(() => {
         let cancelled = false;
 
-        const checkPushStatus = async () => {
+        const syncPushSubscription = async () => {
             if (
                 !('serviceWorker' in navigator) ||
                 !('PushManager' in window) ||
@@ -52,26 +53,77 @@ export const NotificationsView: React.FC = () => {
                 return;
             }
 
+            if (!currentUser?.id) {
+                if (!cancelled) setPushEnabled(false);
+                return;
+            }
+
+            const disabledKey = `rentike-push-disabled:${currentUser.id}`;
+
+            if (
+                Notification.permission !== 'granted' ||
+                localStorage.getItem(disabledKey) === '1'
+            ) {
+                if (!cancelled) setPushEnabled(false);
+                return;
+            }
+
             try {
-                const registration = await navigator.serviceWorker.getRegistration();
-                const subscription = await registration?.pushManager.getSubscription();
+                const publicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+
+                if (!publicKey) {
+                    throw new Error('Missing VAPID public key.');
+                }
+
+                const registration = await navigator.serviceWorker.ready;
+
+                let subscription =
+                    await registration.pushManager.getSubscription();
+
+                if (!subscription) {
+                    subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(publicKey),
+                    });
+                }
+
+                const keys = subscription.toJSON().keys;
+
+                if (!keys?.p256dh || !keys?.auth) {
+                    throw new Error('Missing device subscription keys.');
+                }
+
+                await registerPushDevice({
+                    endpoint: subscription.endpoint,
+                    p256dh: keys.p256dh,
+                    auth: keys.auth,
+                    expirationTime: subscription.expirationTime ?? undefined,
+                });
 
                 if (!cancelled) {
-                    setPushEnabled(Boolean(subscription));
+                    setPushEnabled(true);
+                    setPushError(null);
                 }
-            } catch {
+            } catch (error) {
+                console.error('Push subscription synchronization failed:', error);
+
                 if (!cancelled) {
-                    setPushError('Unable to check phone notification settings.');
+                    setPushEnabled(false);
+                    setPushError(
+                        error instanceof Error
+                            ? error.message
+                            : 'Push subscription synchronization failed.'
+                    );
                 }
             }
         };
 
-        void checkPushStatus();
+        void syncPushSubscription();
 
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [currentUser?.id, registerPushDevice]);
 
 
     const handleEnablePush = async () => {
@@ -130,6 +182,7 @@ export const NotificationsView: React.FC = () => {
                     expirationTime: subscription.expirationTime ?? undefined,
                 });
 
+                localStorage.removeItem(`rentike-push-disabled:${currentUser.id}`);
                 setPushEnabled(true);
             } catch (error) {
                 // Undo a newly created subscription if saving it failed.
@@ -140,7 +193,11 @@ export const NotificationsView: React.FC = () => {
             }
         } catch (error) {
             console.error('Failed to enable phone notifications:', error);
-            setPushError('Could not enable phone notifications. Please try again.');
+            setPushError(
+                error instanceof Error
+                    ? error.message
+                    : 'Push registration failed.'
+            );
         } finally {
             setPushBusy(false);
         }
@@ -167,6 +224,10 @@ export const NotificationsView: React.FC = () => {
                 if (!removed) {
                     throw new Error('Browser subscription could not be removed.');
                 }
+            }
+
+            if (currentUser?.id) {
+                localStorage.setItem(`rentike-push-disabled:${currentUser.id}`, '1');
             }
 
             setPushEnabled(false);
