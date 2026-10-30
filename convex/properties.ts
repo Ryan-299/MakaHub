@@ -636,16 +636,78 @@ export const updateStatus = mutation({
       throw new Error("Admin access required.");
     }
     try {
-      const doc = await ctx.db.get(args.id as any);
+
+      const propertyId = ctx.db.normalizeId("properties", args.id);
+
+
+      if (!propertyId) {
+        throw new Error("Invalid listing ID.");
+      }
+
+
+      const doc = await ctx.db.get("properties", propertyId);
+
+      if (!doc) {
+        throw new Error("Listing not found.");
+      }
+
+
+
       if (doc) {
         await ctx.db.patch(doc._id, {
           status: args.status,
           rejectionReason: args.rejectionReason,
         });
+
+
+        // Notify the lister only when the moderation status changes.
+        if (
+          doc.status !== args.status &&
+          (args.status === "Approved" || args.status === "Rejected")
+        ) {
+          const approved = args.status === "Approved";
+
+          const title = approved
+            ? "Listing Approved"
+            : "Listing Rejected";
+
+          const message = approved
+            ? `Your listing "${doc.name}" has been approved and is now live on Rentike.`
+            : `Your listing "${doc.name}" was not approved. Open Rentike to review its status.`;
+
+          // Save the notification in Rentike.
+          await ctx.db.insert("notifications", {
+            recipientUserId: doc.lister.id,
+            userId: doc.lister.id,
+            actorUserId: identity.subject,
+            title,
+            message,
+            time: new Date().toISOString(),
+            type: approved ? "approval" : "rejection",
+            targetPropertyId: doc._id.toString(),
+            read: false,
+          });
+
+          // Send the Android phone notification.
+          await ctx.scheduler.runAfter(
+            0,
+            internal.pushSender.sendToRecipient,
+            {
+              recipientUserId: doc.lister.id,
+              title,
+              message,
+            }
+          );
+        }
+
       }
-    } catch {
-      // In case ID format doesn't match Convex document ID
+
+
+    } catch (error) {
+      console.error("Failed to update listing status:", error);
+      throw error;
     }
+
   },
 });
 

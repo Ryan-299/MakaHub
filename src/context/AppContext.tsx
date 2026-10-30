@@ -1685,11 +1685,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
 
+
   const logoutUser = async () => {
     setIsLoggingOut(true);
 
     try {
+      // Disconnect this browser from push notifications before signing out.
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration =
+            await navigator.serviceWorker.getRegistration();
 
+          const subscription =
+            await registration?.pushManager.getSubscription();
+
+          if (subscription) {
+            const endpoint = subscription.endpoint;
+
+            // Stop this browser receiving further pushes.
+            const unsubscribed = await subscription.unsubscribe();
+
+            if (!unsubscribed) {
+              console.warn('Browser push subscription could not be removed.');
+            }
+
+            // Remove the saved subscription from Convex while signed in.
+            if (isConvexConfigured && convexClient) {
+              try {
+                await Promise.race([
+                  convexClient.mutation(
+                    api.pushSubscriptions.unregister,
+                    { endpoint }
+                  ),
+                  new Promise<void>((resolve) =>
+                    setTimeout(resolve, 2000)
+                  ),
+                ]);
+              } catch (error) {
+                console.warn('Push subscription cleanup failed:', error);
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('Could not clean up phone notifications:', error);
+        }
+      }
+
+      // Preserve the existing Rentike logout behaviour.
       await signOut();
       setIsBrowsingAsSeeker(false);
       setCurrentUser(null);
@@ -1919,7 +1961,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       time: nowIso,
       createdAt: nowIso,
       read: false,
-      type: 'approval',
+      type: 'system',
       targetPropertyId: assignedId
     };
 
@@ -1933,7 +1975,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       time: nowIso,
       createdAt: nowIso,
       read: false,
-      type: 'approval',
+      type: 'system',
       targetPropertyId: assignedId
     };
 
@@ -1947,7 +1989,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           title: 'Listing Submitted',
           message: `Your listing "${newListing.name}" has been submitted for review.`,
           time: nowIso,
-          type: 'approval',
+          type: 'system',
           targetPropertyId: assignedId
         })
         .catch((err) => console.warn('Convex notification send notice:', err));
@@ -2257,17 +2299,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   // Admin: Approve / Reject / Flag / Archive / Suspend / Reinstate
-  const approveProperty = (propertyId: string) => {
-    if (isConvexConfigured && convexClient) {
-      try {
-        convexClient.mutation(api.properties.updateStatus, {
-          id: propertyId,
-          status: 'Approved'
-        }).catch((err) => console.warn('Could not update status in Convex:', err));
-      } catch (e) {
-        console.warn('Convex updateStatus error:', e);
-      }
+
+  const approveProperty = async (propertyId: string) => {
+    if (!isConvexConfigured || !convexClient) {
+      console.error('Cannot approve listing: Convex is unavailable.');
+      window.alert('Unable to approve the listing right now.');
+      return;
     }
+
+    try {
+      await convexClient.mutation(api.properties.updateStatus, {
+        id: propertyId,
+        status: 'Approved',
+      });
+    } catch (error) {
+      console.error('Listing approval failed:', error);
+      window.alert('Approval failed. Please try again.');
+      return;
+    }
+
 
     setProperties((prev) =>
       prev.map((p) => (p.id === propertyId ? { ...p, status: 'Approved' } : p))
@@ -2281,50 +2331,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         details: `Approved "${prop.name}" for live listing search`,
         targetId: propertyId
       });
-      const listerId = prop.lister?.id || 'demo-lister-001';
-      const nowIso = new Date().toISOString();
-      const newNotif: UserNotification = {
-        id: `notif-${Date.now()}`,
-        recipientUserId: listerId,
-        userId: listerId,
-        title: 'Listing Approved',
-        message: `Your listing "${prop.name}" has been approved and is now live on MakaoHub.`,
-        time: nowIso,
-        createdAt: nowIso,
-        read: false,
-        type: 'approval',
-        targetPropertyId: propertyId
-      };
-      setNotifications((prev) => [newNotif, ...prev]);
 
-      if (isConvexConfigured && convexClient) {
-        convexClient
-          .mutation(api.notifications.send, {
-            recipientUserId: listerId,
-            userId: listerId,
-            title: 'Listing Approved',
-            message: `Your listing "${prop.name}" has been approved and is now live on MakaoHub.`,
-            time: nowIso,
-            type: 'approval',
-            targetPropertyId: propertyId
-          })
-          .catch((err) => console.warn('Convex notification notice:', err));
-      }
     }
   };
 
-  const rejectProperty = (propertyId: string, reason?: string) => {
-    if (isConvexConfigured && convexClient) {
-      try {
-        convexClient.mutation(api.properties.updateStatus, {
-          id: propertyId,
-          status: 'Rejected',
-          rejectionReason: reason || 'Does not meet verification guidelines'
-        }).catch((err) => console.warn('Could not update status in Convex:', err));
-      } catch (e) {
-        console.warn('Convex updateStatus error:', e);
-      }
+
+  const rejectProperty = async (propertyId: string, reason?: string) => {
+    if (!isConvexConfigured || !convexClient) {
+      console.error('Cannot reject listing: Convex is unavailable.');
+      window.alert('Unable to reject the listing right now.');
+      return;
     }
+
+    try {
+      await convexClient.mutation(api.properties.updateStatus, {
+        id: propertyId,
+        status: 'Rejected',
+        rejectionReason: reason || 'Does not meet verification guidelines',
+      });
+    } catch (error) {
+      console.error('Listing rejection failed:', error);
+      window.alert('Rejection failed. Please try again.');
+      return;
+    }
+
 
     setProperties((prev) =>
       prev.map((p) =>
@@ -2342,36 +2372,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         details: `Rejected "${prop.name}" — ${reason || 'Guidelines not met'}`,
         targetId: propertyId
       });
-      const listerId = prop.lister?.id || 'demo-lister-001';
-      const rejectionReasonText = reason ? `: ${reason}` : '.';
-      const nowIso = new Date().toISOString();
-      const newNotif: UserNotification = {
-        id: `notif-${Date.now()}`,
-        recipientUserId: listerId,
-        userId: listerId,
-        title: 'Listing Rejected',
-        message: `Your listing "${prop.name}" was not approved${rejectionReasonText}`,
-        time: nowIso,
-        createdAt: nowIso,
-        read: false,
-        type: 'rejection',
-        targetPropertyId: propertyId
-      };
-      setNotifications((prev) => [newNotif, ...prev]);
 
-      if (isConvexConfigured && convexClient) {
-        convexClient
-          .mutation(api.notifications.send, {
-            recipientUserId: listerId,
-            userId: listerId,
-            title: 'Listing Rejected',
-            message: `Your listing "${prop.name}" was not approved${rejectionReasonText}`,
-            time: nowIso,
-            type: 'rejection',
-            targetPropertyId: propertyId
-          })
-          .catch((err) => console.warn('Convex notification notice:', err));
-      }
     }
   };
 

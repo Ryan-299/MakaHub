@@ -208,6 +208,7 @@ export default function App() {
     currentUser,
     isLoggingOut,
     setCurrentView,
+    setTargetEnquiryId,
     filterDrawerOpen,
     setFilterDrawerOpen,
     showSplashScreen,
@@ -300,6 +301,71 @@ export default function App() {
     currentUser,
   ]);
 
+
+  // Open the correct enquiry when a phone notification is tapped.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search);
+    const linkedEnquiryId = params.get('enquiryId');
+
+    // Keep the destination if the user needs to log in first.
+    if (linkedEnquiryId) {
+      sessionStorage.setItem('rentike_pending_enquiry', linkedEnquiryId);
+    }
+
+    const enquiryId =
+      linkedEnquiryId ??
+      sessionStorage.getItem('rentike_pending_enquiry');
+
+    if (!enquiryId) return;
+
+    if (isSignedIn === false) {
+      setShowSplashScreen(false);
+      setCurrentView('login');
+      return;
+    }
+
+    // Wait for authentication and the Rentike user profile.
+    if (isSignedIn !== true || !currentUser) return;
+
+    if (
+      currentUser.role !== 'lister' &&
+      currentUser.role !== 'seeker'
+    ) {
+      return;
+    }
+
+    setTargetEnquiryId(enquiryId);
+    setShowSplashScreen(false);
+
+    setCurrentView(
+      currentUser.role === 'lister'
+        ? 'lister-enquiries'
+        : 'seeker-enquiries'
+    );
+
+    sessionStorage.removeItem('rentike_pending_enquiry');
+
+    // Remove the consumed link without reloading Rentike.
+    if (linkedEnquiryId) {
+      params.delete('enquiryId');
+      const remainingQuery = params.toString();
+
+      window.history.replaceState(
+        window.history.state,
+        '',
+        `${window.location.pathname}${remainingQuery ? `?${remainingQuery}` : ''}${window.location.hash}`
+      );
+    }
+  }, [
+    isSignedIn,
+    currentUser?.id,
+    currentUser?.role,
+    setTargetEnquiryId,
+    setCurrentView,
+    setShowSplashScreen,
+  ]);
 
   // Scroll to top on view changes
   useEffect(() => {

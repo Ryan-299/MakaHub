@@ -44,6 +44,7 @@ export default defineConfig(() => {
         },
 
         workbox: {
+          importScripts: ['/rentike-push.js'],
           navigateFallback: '/index.html',
           cleanupOutdatedCaches: true,
           inlineWorkboxRuntime: true,

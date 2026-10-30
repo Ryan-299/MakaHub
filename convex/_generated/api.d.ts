@@ -13,6 +13,8 @@ import type * as enquiries from "../enquiries.js";
 import type * as notifications from "../notifications.js";
 import type * as properties from "../properties.js";
 import type * as propertyUnitTypes from "../propertyUnitTypes.js";
+import type * as pushSender from "../pushSender.js";
+import type * as pushSubscriptions from "../pushSubscriptions.js";
 import type * as reviews from "../reviews.js";
 import type * as users from "../users.js";
 
@@ -28,6 +30,8 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   properties: typeof properties;
   propertyUnitTypes: typeof propertyUnitTypes;
+  pushSender: typeof pushSender;
+  pushSubscriptions: typeof pushSubscriptions;
   reviews: typeof reviews;
   users: typeof users;
 }>;

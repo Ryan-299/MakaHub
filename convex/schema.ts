@@ -233,5 +233,19 @@ export default defineSchema({
     targetReviewId: v.optional(v.string()),
     targetEnquiryId: v.optional(v.string()),
     targetMessageId: v.optional(v.string()),
+
   }).index("by_recipient", ["recipientUserId"]),
+
+  // Devices that have allowed Rentike phone notifications
+  pushSubscriptions: defineTable({
+    userId: v.string(),
+    endpoint: v.string(),
+    p256dh: v.string(),
+    auth: v.string(),
+    expirationTime: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_endpoint", ["endpoint"]),
 });

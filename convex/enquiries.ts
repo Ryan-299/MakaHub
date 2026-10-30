@@ -1,6 +1,9 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
 
+import { internal } from "./_generated/api";
+
+
 const ENCRYPTED_PREFIX = "enc:v1:";
 
 function getMessageEncryptionKey(): string {
@@ -250,11 +253,27 @@ export const create = mutation({
       createdAt: serverNow,
     };
 
+
     await ctx.db.patch(newEnquiryId, {
       messages: [initialMessage],
     });
 
+    // Notify the lister when a new enquiry is created.
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.pushSender.sendToRecipient,
+      {
+        recipientUserId: property.lister.id,
+        title: `${seeker.name} · ${property.name}`,
+        message: args.message,
+        url: `/?enquiryId=${encodeURIComponent(newEnquiryId)}`,
+      }
+    );
+
+
     return newEnquiryId;
+
   },
 });
 
@@ -311,12 +330,30 @@ export const sendMessage = mutation({
       createdAt: serverNow,
     };
 
+
     await ctx.db.patch(args.enquiryId, {
       messages: [...currentMessages, newMessage],
       status: isLister ? "Replied" : "New",
       readByLister: isLister,
       readBySeeker: !isLister,
     });
+
+    // Notify the other participant after a new message is saved.
+    const recipientUserId = isLister
+      ? enquiry.seekerId
+      : enquiry.listerId;
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.pushSender.sendToRecipient,
+      {
+        recipientUserId,
+        title: `${sender.name} · ${enquiry.propertyName}`,
+        message: args.message,
+        url: `/?enquiryId=${encodeURIComponent(String(args.enquiryId))}`,
+      }
+    );
+
   },
 });
 export const markAsRead = mutation({

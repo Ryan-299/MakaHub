@@ -84,10 +84,61 @@ export const send = mutation({
     targetEnquiryId: v.optional(v.string()),
     targetMessageId: v.optional(v.string()),
   },
+
+
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("You must be signed in to send notifications.");
+    }
+
+    if (
+      args.type === "system" &&
+      args.recipientUserId !== identity.subject
+    ) {
+      throw new Error(
+        "System notifications can only be sent to your own account."
+      );
+    }
+
+    if (args.type === "approval" || args.type === "rejection") {
+      const admin = await ctx.db
+        .query("users")
+        .withIndex("by_userId", (q) =>
+          q.eq("userId", identity.subject)
+        )
+        .first();
+
+      if (!admin || admin.role !== "admin") {
+        throw new Error("Admin access required.");
+      }
+
+      const propertyId = args.targetPropertyId
+        ? ctx.db.normalizeId("properties", args.targetPropertyId)
+        : null;
+
+      if (!propertyId) {
+        throw new Error("Valid property ID required.");
+      }
+
+      const property = await ctx.db.get("properties", propertyId);
+
+      const expectedStatus =
+        args.type === "approval" ? "Approved" : "Rejected";
+
+      if (
+        !property ||
+        property.status !== expectedStatus ||
+        property.lister.id !== args.recipientUserId
+      ) {
+        throw new Error("Invalid listing moderation notification.");
+      }
+    }
+
     return await ctx.db.insert("notifications", {
       ...args,
       read: false,
     });
   },
+
 });
