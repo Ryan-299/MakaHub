@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { useUser, AuthenticateWithRedirectCallback } from '@clerk/react';
+import { useUser } from '@clerk/react';
 import { useApp } from './context/AppContext';
 import { Navbar } from './components/Navbar';
 import { MobileNavbar } from './components/MobileNavbar';
@@ -32,15 +32,33 @@ import { ListerReviewsView } from './views/ListerReviewsView';
 import { AdminDashboardView } from './views/AdminDashboardView';
 import { NotificationsView } from './views/NotificationsView';
 
+// FIX: a visible loading screen used wherever the app used to show a plain
+// blank (black) screen, so "waiting" can be told apart from "crashed".
+const LoadingScreen = ({
+  theme,
+  message,
+}: {
+  theme: string;
+  message?: string;
+}) => (
+  <div
+    className="flex min-h-[100dvh] w-full flex-col items-center justify-center gap-4"
+    style={{
+      backgroundColor: theme === 'dark' ? '#000000' : '#F7F5F1',
+      color: theme === 'dark' ? '#F7F5F1' : '#111111',
+    }}
+  >
+    <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#C49A6C]/25 border-t-[#C49A6C]" />
+    {message && <p className="text-sm">{message}</p>}
+  </div>
+);
+
 export default function App() {
   const { isLoaded, isSignedIn } = useUser();
   const isClerkHandshake =
     typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).has('__clerk_handshake');
   const [isOnline, setIsOnline] = useState(() =>
-
-
-
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
   const [startupStage, setStartupStage] = useState<0 | 1 | 2>(0);
@@ -96,7 +114,6 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (isLoaded) {
-
       setStartupFailed(false);
       return;
     }
@@ -222,11 +239,11 @@ export default function App() {
   useEffect(() => {
     const handleUrlRoute = () => {
       if (typeof window === 'undefined') return;
-      if (
-        typeof window !== 'undefined' &&
-        window.location.pathname === '/sso-callback'
-      ) {
-        return <AuthenticateWithRedirectCallback />;
+      // FIX: this used to "return <AuthenticateWithRedirectCallback />" from
+      // inside an event handler, which does nothing. The SSO callback page is
+      // handled further down, after all hooks have run.
+      if (window.location.pathname === '/sso-callback') {
+        return;
       }
       const hash = window.location.hash;
       const search = window.location.search;
@@ -393,13 +410,10 @@ export default function App() {
     };
   }, [currentView]);
 
-  if (
-    typeof window !== 'undefined' &&
-    window.location.pathname === '/sso-callback'
-  ) {
-    return <SsoCallback />;
-  }
   // Update the browser tab title whenever the active view changes.
+  // FIX: moved ABOVE the /sso-callback early return. Hooks must always run
+  // in the same order on every render, otherwise React crashes the whole
+  // app (blank screen, no visible error).
   useEffect(() => {
     const pageTitles: Record<string, string> = {
       // Authentication
@@ -446,6 +460,21 @@ export default function App() {
     const pageName = pageTitles[currentView] || 'Home';
     document.title = `${pageName} — Rentike`;
   }, [currentView]);
+
+  // FIX: also moved above the early return (useCallback is a hook too).
+  const handleSplashComplete = useCallback(() => {
+    setShowSplashScreen(false);
+  }, [setShowSplashScreen]);
+
+  // ---- All hooks are above this line. Early returns are only safe below. ----
+
+  if (
+    typeof window !== 'undefined' &&
+    window.location.pathname === '/sso-callback'
+  ) {
+    return <SsoCallback />;
+  }
+
   const renderView = () => {
     switch (currentView) {
       case 'welcome':
@@ -509,9 +538,6 @@ export default function App() {
     }
   };
 
-  const handleSplashComplete = useCallback(() => {
-    setShowSplashScreen(false);
-  }, [setShowSplashScreen]);
   if (!isOnline && showSplashScreen) {
     return (
       <>
@@ -604,8 +630,6 @@ export default function App() {
           >
             TRY AGAIN
           </button>
-
-
         </div>
       );
     }
@@ -681,7 +705,6 @@ export default function App() {
           onComplete={() => { }}
         />
 
-
         {startupStage > 0 && (
           <div
             className="fixed z-[100000] left-1/2 -translate-x-1/2 flex flex-col items-center"
@@ -711,42 +734,28 @@ export default function App() {
             </p>
           </div>
         )}
-
-
       </>
     );
   }
+
+  // FIX: these two used to return an EMPTY black/white div with nothing on
+  // it. Now they show a spinner with a short label, so if the phone gets
+  // stuck here we know exactly which step it's stuck on.
   if (isClerkHandshake) {
-    return (
-      <div
-        className="min-h-[100dvh] w-full"
-        style={{
-          backgroundColor:
-            resolvedTheme === 'dark' ? '#000000' : '#F7F5F1',
-        }}
-      />
-    );
+    return <LoadingScreen theme={resolvedTheme} message="Signing you in..." />;
   }
 
   if (isSignedIn && currentView === 'welcome') {
     return (
-      <div
-        className="min-h-screen w-full"
-        style={{
-          backgroundColor: resolvedTheme === 'dark' ? '#000000' : '#FFFFFF',
-        }}
-      />
+      <LoadingScreen theme={resolvedTheme} message="Loading your account..." />
     );
   }
+
   return (
     <div className="min-h-screen flex flex-col font-sans antialiased text-neutral-900 dark:text-neutral-100 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900 transition-colors duration-200">
 
-
-
       {/* Main Top Header - hidden on Auth pages */}
-
       {!['welcome', 'signup', 'login', 'role-selection', 'lister-subtype', 'lister-about'].includes(currentView) && <Navbar />}
-
 
       {/* Slide-over Filter Drawer for Kenyan Hierarchy */}
       <FilterDrawer
@@ -755,26 +764,17 @@ export default function App() {
       />
 
       {/* Main Dynamic View Screen */}
-
       <div
         className={`flex-1 w-full min-w-0 transition-[padding] duration-300 ${['welcome', 'login', 'signup', 'role-selection', 'lister-subtype', 'lister-about'].includes(currentView)
           ? ''
           : desktopSidebarExpanded ? 'md:pl-72' : 'md:pl-28'
           }`}
       >
-        {(isLoggingOut || !isLoaded || (isSignedIn && currentView === 'welcome')) ? (
-          <div
-            className="flex min-h-[100dvh] w-full flex-col items-center justify-center gap-4"
-            style={{
-              backgroundColor: resolvedTheme === 'dark' ? '#000000' : '#F7F5F1',
-              color: resolvedTheme === 'dark' ? '#F7F5F1' : '#111111',
-            }}
-          >
-            <div className="h-9 w-9 animate-spin rounded-full border-[3px] border-[#C49A6C]/25 border-t-[#C49A6C]" />
-            {isLoggingOut && (
-              <p className="text-sm">Logging out...</p>
-            )}
-          </div>
+        {(isLoggingOut || !isLoaded) ? (
+          <LoadingScreen
+            theme={resolvedTheme}
+            message={isLoggingOut ? 'Logging out...' : undefined}
+          />
         ) : (
           renderView()
         )}
@@ -783,7 +783,6 @@ export default function App() {
       {!currentView.startsWith('admin-') && <MobileNavbar />}
 
       {/* Footer with sidebar-aware spacing */}
-
       {![
         'welcome',
         'signup',
@@ -792,7 +791,6 @@ export default function App() {
         'lister-subtype',
         'lister-about'
       ].includes(currentView) && (
-
           <div
             className={`w-full min-w-0 transition-[padding] duration-300 ${['welcome', 'login', 'signup', 'role-selection', 'lister-subtype'].includes(currentView)
               ? ''
