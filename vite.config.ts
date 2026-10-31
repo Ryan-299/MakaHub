@@ -57,6 +57,11 @@ export default defineConfig(() => {
         },
       }),
     ],
+    define: {
+      __BUILD_ID__: JSON.stringify(
+        (process.env.CF_PAGES_COMMIT_SHA || 'local').slice(0, 7)
+      ),
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

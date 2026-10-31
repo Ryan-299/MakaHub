@@ -1,3 +1,4 @@
+import { useConvexAuth } from 'convex/react';
 import { formatRelativeTime } from '../utils/formatTime';
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -43,6 +44,10 @@ export const SeekerEnquiriesView: React.FC = () => {
     targetMessageId,
     setTargetMessageId,
   } = useApp();
+  const {
+    isAuthenticated: convexAuthed,
+    isLoading: convexAuthLoading,
+  } = useConvexAuth();
 
   // Selected enquiry id
   const [selectedEnquiryId, setSelectedEnquiryId] = useState<string | null>(() => {
@@ -317,9 +322,17 @@ export const SeekerEnquiriesView: React.FC = () => {
             {/* Messages Tabs */}
             <div className="mb-4">
               <div className="flex items-center justify-between mb-3">
-                <h1 className="text-2xl font-bold text-neutral-950 dark:text-white">
-                  Messages
-                </h1>
+
+                <div>
+                  <h1 className="text-2xl font-bold text-neutral-950 dark:text-white">
+                    Messages
+                  </h1>
+                  {/* TEMPORARY: Remove after debugging */}
+                  <p className="text-[10px] text-neutral-400 mt-0.5">
+                    build {__BUILD_ID__} · auth {convexAuthLoading ? '…' : convexAuthed ? 'yes' : 'no'} · role {currentUser?.role || 'none'} · chats {seekerEnquiries.length}
+                  </p>
+                </div>
+
 
               </div>
 
