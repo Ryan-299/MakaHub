@@ -1426,7 +1426,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const listerPropertyIds = listerListings.map((p) => p.id);
 
   const listerEnquiries = enquiries.filter((e) => {
-    if (currentUser?.role === 'lister' && currentUser.id) {
+    if (currentUser?.id) {
       return e.listerId === currentUser.id || listerPropertyIds.includes(e.propertyId);
     }
     return false;
@@ -3366,8 +3366,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const markEnquiryAsRead = async (enquiryId: string) => {
-    const isLister = currentUser?.role === 'lister';
-
+    const enq = enquiries.find((e) => e.id === enquiryId);
+    const isLister = !!currentUser && !!enq && currentUser.id === enq.listerId;
     if (isConvexConfigured && convexClient) {
       try {
         await convexClient.mutation(api.enquiries.markAsRead, {

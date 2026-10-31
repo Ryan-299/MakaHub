@@ -28,6 +28,8 @@ import { ListerEnquiry } from '../types';
 export const ListerEnquiriesView: React.FC = () => {
   const {
     listerEnquiries = [],
+    seekerEnquiries = [],
+    switchUserMode,
     setCurrentView,
     setSelectedPropertyId,
     properties = [],
@@ -50,6 +52,9 @@ export const ListerEnquiriesView: React.FC = () => {
   const isDark = resolvedTheme === 'dark';
 
   const [searchQuery, setSearchQuery] = useState('');
+  const unreadSeekerChats = seekerEnquiries.filter(
+    (enq) => !enq.readBySeeker
+  ).length;
 
   const systemNotifications = notifications
 
@@ -225,17 +230,24 @@ export const ListerEnquiriesView: React.FC = () => {
     return () => clearTimeout(timeout);
   }, [activeEnquiry?.id, targetMessageId, conversationMessages.length]);
 
-  const handleSendReply = (e?: React.FormEvent) => {
+  const handleSendReply = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!replyText.trim() || !activeEnquiry || isSending) return;
 
+    const textToSend = replyText;
     setIsSending(true);
-    sendEnquiryReply(activeEnquiry.id, replyText);
     setReplyText('');
-    setTimeout(() => {
-      setIsSending(false);
+
+    try {
+      await sendEnquiryReply(activeEnquiry.id, textToSend);
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      setReplyText(textToSend);
+      window.alert('Your message could not be sent. Please try again.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleQuickReply = (text: string) => {
@@ -352,7 +364,26 @@ export const ListerEnquiriesView: React.FC = () => {
             </button>
           ))}
         </div>
-
+        {/* Unread messages in Seeker inbox */}
+        {messageTab === 'inbox' && !activeEnquiry && unreadSeekerChats > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              switchUserMode('seeker');
+              setMessageTab('inbox');
+              setCurrentView('seeker-enquiries');
+            }}
+            className="w-full flex items-center justify-between gap-3 rounded-2xl border border-[#E2D3C2] dark:border-[#3A3027] bg-[#FBF6EF] dark:bg-[#1E1A16] px-4 py-3 text-left"
+          >
+            <span className="text-xs text-neutral-700 dark:text-neutral-300">
+              You have <strong>{unreadSeekerChats}</strong>{' '}
+              {unreadSeekerChats === 1 ? 'message' : 'messages'} in your Seeker inbox.
+            </span>
+            <span className="shrink-0 text-xs font-semibold text-[#A77745] dark:text-[#CCA177]">
+              Switch to view →
+            </span>
+          </button>
+        )}
         {/* Activity Notifications */}
         {messageTab === 'activity' && (
           <div className="divide-y divide-[#E7DED2] dark:divide-[#292929]">

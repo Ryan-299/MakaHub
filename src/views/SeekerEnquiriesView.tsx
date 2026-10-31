@@ -25,6 +25,8 @@ import { ListerEnquiry } from '../types';
 export const SeekerEnquiriesView: React.FC = () => {
   const {
     seekerEnquiries = [],
+    listerEnquiries = [],
+    switchUserMode,
     setCurrentView,
     setSelectedPropertyId,
     setTargetReviewId,
@@ -85,6 +87,9 @@ export const SeekerEnquiriesView: React.FC = () => {
 
   const unreadActivityCount = activityNotifications.filter(
     (notification) => !notification.read
+  ).length;
+  const unreadListerChats = listerEnquiries.filter(
+    (enq) => !enq.readByLister
   ).length;
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -395,6 +400,26 @@ export const SeekerEnquiriesView: React.FC = () => {
                 </button>
               </div>
             </div>
+            {/* Unread messages in Lister inbox */}
+            {messageTab === 'inbox' && unreadListerChats > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  switchUserMode('lister');
+                  setMessageTab('inbox');
+                  setCurrentView('lister-enquiries');
+                }}
+                className="w-full flex items-center justify-between gap-3 rounded-2xl border border-[#E2D3C2] dark:border-[#3A3027] bg-[#FBF6EF] dark:bg-[#1E1A16] px-4 py-3 text-left"
+              >
+                <span className="text-xs text-neutral-700 dark:text-neutral-300">
+                  You have <strong>{unreadListerChats}</strong>{' '}
+                  {unreadListerChats === 1 ? 'message' : 'messages'} in your Lister inbox.
+                </span>
+                <span className="shrink-0 text-xs font-semibold text-[#A77745] dark:text-[#CCA177]">
+                  Switch to view →
+                </span>
+              </button>
+            )}
             {messageTab === 'activity' && (
               <div className="divide-y divide-neutral-200/70 dark:divide-[#292929]">
 

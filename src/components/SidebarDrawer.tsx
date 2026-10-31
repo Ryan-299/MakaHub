@@ -119,7 +119,8 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
     unreadListerActivityCount +
     unreadListerSystemCount;
 
-
+  const seekerBadgeCount = totalMessageUnreadCount + unreadListerInboxCount;
+  const listerBadgeCount = totalListerUnreadCount + unreadInboxCount;
   const [messagesOpen, setMessagesOpen] = React.useState(false);
 
   const [activeLegalModal, setActiveLegalModal] = useState<HelpLegalModalType>(null);
@@ -298,9 +299,9 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                           strokeWidth={1.8}
                         />
 
-                        {view === 'lister-enquiries' && totalListerUnreadCount > 0 && (
+                        {view === 'lister-enquiries' && listerBadgeCount > 0 && (
                           <span className="absolute -top-2 -right-3 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">
-                            {totalListerUnreadCount}
+                            {listerBadgeCount}
                           </span>
                         )}
                       </span>
@@ -450,9 +451,9 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
                       <span className="relative inline-flex items-center justify-center">
                         <MessageSquare className="w-5 h-5 shrink-0" strokeWidth={1.8} />
 
-                        {!desktopExpanded && totalMessageUnreadCount > 0 && (
+                        {!desktopExpanded && seekerBadgeCount > 0 && (
                           <span className="absolute -top-2 -right-2 min-w-4 h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold">
-                            {totalMessageUnreadCount}
+                            {seekerBadgeCount}
                           </span>
                         )}
                       </span>
@@ -466,9 +467,9 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
 
                     {desktopExpanded && (
                       <div className="flex items-center gap-2 mr-6">
-                        {totalMessageUnreadCount > 0 && (
+                        {seekerBadgeCount > 0 && (
                           <span className="min-w-5 h-5 px-1.5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
-                            {totalMessageUnreadCount}
+                            {seekerBadgeCount}
                           </span>
                         )}
 

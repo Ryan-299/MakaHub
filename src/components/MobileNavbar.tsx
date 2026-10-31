@@ -63,6 +63,8 @@ export const MobileNavbar: React.FC = () => {
     unreadListerInboxCount +
     unreadListerActivityCount +
     unreadListerSystemCount;
+  const seekerBadgeCount = totalMessageUnreadCount + unreadListerInboxCount;
+  const listerBadgeCount = unreadListerTotal + unreadInboxCount;
 
   if (filterDrawerOpen || currentView === 'welcome' || currentView === 'login' || currentView === 'signup' || currentView === 'role-selection') {
     return null;
@@ -137,14 +139,9 @@ export const MobileNavbar: React.FC = () => {
               >
                 <MessageSquare className="w-5 h-5 mb-0.5" />
                 <span className="text-[10px]">Messages</span>
-                {seekerEnquiries.filter((enq) => !enq.readBySeeker).length > 0 && (
+                {seekerBadgeCount > 0 && (
                   <span className="absolute top-1 right-2 min-w-[16px] h-4 px-1 bg-red-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {seekerEnquiries.filter((enq) => !enq.readBySeeker).length}
-                  </span>
-                )}
-                {totalMessageUnreadCount > 0 && (
-                  <span className="absolute top-1 right-2 min-w-[16px] h-4 px-1 bg-red-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                    {totalMessageUnreadCount}
+                    {seekerBadgeCount}
                   </span>
                 )}
               </button>
@@ -218,9 +215,9 @@ export const MobileNavbar: React.FC = () => {
               <MessageSquare className="w-5 h-5 mb-0.5" />
               <span className="text-[10px]">Messages</span>
 
-              {unreadListerTotal > 0 && (
+              {listerBadgeCount > 0 && (
                 <span className="absolute top-0 right-1 min-w-[15px] h-[15px] px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                  {unreadListerTotal}
+                  {listerBadgeCount}
                 </span>
               )}
             </button>
