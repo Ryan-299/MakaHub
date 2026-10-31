@@ -755,10 +755,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (Notification.permission === 'granted') {
-        new Notification(notification.title || 'Rentike', {
-          body: notification.message,
-          icon: '/favicon3.png',
-        });
+        try {
+          new Notification(notification.title || 'Rentike', {
+            body: notification.message,
+            icon: '/favicon3.png',
+          });
+        } catch (error) {
+          console.warn('Notification unavailable on this device:', error);
+        }
       }
     });
   }, [notifications, currentUser]);
