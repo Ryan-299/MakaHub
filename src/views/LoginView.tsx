@@ -209,27 +209,85 @@ export const LoginView: React.FC = () => {
 
   };
 
+
   const handleGoogleClick = async () => {
     setIsGoogleLoading(true);
     setErrorMessage('');
-    console.time('Google login start');
+
+    // Open Google sign-in separately from Rentike.
+    const popup = window.open(
+      '',
+      'rentike-google-signin',
+      'width=500,height=650'
+    );
+
+    // Reset the button if the sign-in window is closed.
+    let closedWatcher: number | undefined;
+
+    if (popup) {
+      closedWatcher = window.setInterval(() => {
+        if (popup.closed) {
+          window.clearInterval(closedWatcher);
+          setIsGoogleLoading(false);
+        }
+      }, 800);
+    }
+
     try {
       const { error } = await signIn.sso({
         strategy: 'oauth_google',
         redirectCallbackUrl: `${window.location.origin}/sso-callback`,
         redirectUrl: window.location.origin,
+        ...(popup ? { popup } : {}),
       });
-      console.timeEnd('Google login start');
-
 
       if (error) {
+        if (closedWatcher !== undefined) {
+          window.clearInterval(closedWatcher);
+        }
+
+        popup?.close();
         setIsGoogleLoading(false);
         setErrorMessage(
           error.message ||
-          'Google sign-in could not be started. Please try again'
+          'Google sign-in could not be started. Please try again.'
         );
+        return;
+      }
+
+      if (signIn.status === 'complete') {
+        if (closedWatcher !== undefined) {
+          window.clearInterval(closedWatcher);
+        }
+
+        const { error: finalizeError } = await signIn.finalize({
+          navigate: async ({ session, decorateUrl }) => {
+            if (session?.currentTask) {
+              setIsGoogleLoading(false);
+              setErrorMessage(
+                'Additional account verification is required.'
+              );
+              return;
+            }
+
+            window.location.replace(decorateUrl('/'));
+          },
+        });
+
+        if (finalizeError) {
+          setIsGoogleLoading(false);
+          setErrorMessage(
+            finalizeError.message ||
+            'Google sign-in could not be completed.'
+          );
+        }
       }
     } catch (err: any) {
+      if (closedWatcher !== undefined) {
+        window.clearInterval(closedWatcher);
+      }
+
+      popup?.close();
       setIsGoogleLoading(false);
       setErrorMessage(
         err?.errors?.[0]?.message ||
@@ -238,6 +296,7 @@ export const LoginView: React.FC = () => {
       );
     }
   };
+
   const handleSendResetCode = async () => {
     const trimmedEmail = email.trim();
 
