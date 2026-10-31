@@ -943,7 +943,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubscribe();
     };
   }, [isConvexAuthenticated, convexClient, currentUser]);
-  // Live Convex enquiries listener
+
+  // Live Convex enquiries listener.
+  // Load both received and sent conversations for each account.
   useEffect(() => {
     if (!isConvexAuthenticated || !convexClient || !currentUser) return;
 
@@ -951,82 +953,121 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return;
     }
 
-    const applyEnquiries = (docs: any[]) => {
-      const liveEnquiries: ListerEnquiry[] = docs.map((doc: any) => ({
-        id: doc._id.toString(),
-        propertyId: doc.propertyId,
-        propertyName: doc.propertyName,
-        seekerId: doc.seekerId,
-        seekerName: doc.seekerName,
-        seekerPhone: doc.seekerPhone,
-        seekerEmail: doc.seekerEmail || '',
-        seekerAvatar: doc.seekerAvatar,
-        listerId: doc.listerId,
-        message: doc.message,
-        date: doc.date,
-        createdAt: doc.createdAt,
-        status: doc.status,
-        readByLister: doc.readByLister ?? false,
-        readBySeeker: doc.readBySeeker ?? true,
-        messages: doc.messages || [],
-        replies: doc.messages || [],
-      }));
+    const client = convexClient as any;
+    let cancelled = false;
 
-      setEnquiries(liveEnquiries);
+    const mapDoc = (doc: any): ListerEnquiry => ({
+      id: doc._id.toString(),
+      propertyId: doc.propertyId,
+      propertyName: doc.propertyName,
+      seekerId: doc.seekerId,
+      seekerName: doc.seekerName,
+      seekerPhone: doc.seekerPhone,
+      seekerEmail: doc.seekerEmail || '',
+      seekerAvatar: doc.seekerAvatar,
+      listerId: doc.listerId,
+      message: doc.message,
+      date: doc.date,
+      createdAt: doc.createdAt,
+      status: doc.status,
+      readByLister: doc.readByLister ?? false,
+      readBySeeker: doc.readBySeeker ?? true,
+      messages: doc.messages || [],
+      replies: doc.messages || [],
+    });
+
+    let asLister: ListerEnquiry[] = [];
+    let asSeeker: ListerEnquiry[] = [];
+
+    const publish = () => {
+      if (cancelled) return;
+
+      const byId = new Map<string, ListerEnquiry>();
+
+      [...asLister, ...asSeeker].forEach((enquiry) => {
+        byId.set(enquiry.id, enquiry);
+      });
+
+      setEnquiries([...byId.values()]);
     };
 
-    let watch: any;
+    const unsubscribers: Array<() => void> = [];
+
+    const watchList = (
+      queryRef: any,
+      args: any,
+      assign: (list: ListerEnquiry[]) => void,
+      label: string
+    ) => {
+      client
+        .query(queryRef, args)
+        .then((docs: any[]) => {
+          if (cancelled) return;
+          assign((docs || []).map(mapDoc));
+          publish();
+        })
+        .catch((error: unknown) => {
+          if (!cancelled) {
+            console.error(
+              `Failed to load ${label} enquiries:`,
+              error
+            );
+          }
+        });
+
+      const watch = client.watchQuery(queryRef, args);
+
+      const unsubscribe = watch.onUpdate(() => {
+        if (cancelled) return;
+
+        try {
+          const result = watch.localQueryResult();
+
+          if (result) {
+            assign(result.map(mapDoc));
+            publish();
+          }
+        } catch (error) {
+          console.error(
+            `Failed to receive live ${label} enquiry update:`,
+            error
+          );
+        }
+      });
+
+      unsubscribers.push(unsubscribe);
+    };
 
     if (currentUser.role === 'lister') {
-      convexClient
-        .query(api.enquiries.listByLister, {
-          listerId: currentUser.id,
-        })
-        .then(applyEnquiries)
-        .catch((error) =>
-          console.error('Failed to load lister enquiries:', error)
-        );
-
-      watch = (convexClient as any).watchQuery(
+      watchList(
         api.enquiries.listByLister,
-        { listerId: currentUser.id }
-      );
-    } else {
-      convexClient
-        .query(api.enquiries.listBySeeker, {
-          seekerId: currentUser.id,
-        })
-        .then(applyEnquiries)
-        .catch((error) =>
-          console.error('Failed to load seeker enquiries:', error)
-        );
-
-      watch = (convexClient as any).watchQuery(
-        api.enquiries.listBySeeker,
-        { seekerId: currentUser.id }
+        { listerId: currentUser.id },
+        (list) => {
+          asLister = list;
+        },
+        'lister'
       );
     }
 
-    const unsubscribe = watch.onUpdate(() => {
-      try {
-        const result = watch.localQueryResult();
-
-        if (result) {
-          applyEnquiries(result);
-        }
-      } catch (error) {
-        console.error('Failed to receive live enquiry update:', error);
-      }
-    });
+    watchList(
+      api.enquiries.listBySeeker,
+      { seekerId: currentUser.id },
+      (list) => {
+        asSeeker = list;
+      },
+      'seeker'
+    );
 
     return () => {
-      unsubscribe();
+      cancelled = true;
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
     };
   }, [
     isConvexAuthenticated,
     currentUser?.id,
     currentUser?.role,
   ]);
+
   const [filters, setFilters] = useState<FilterCriteria>(DEFAULT_FILTERS);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [seekerLocation, setSeekerLocation] = useState<{ lat: number; lng: number } | null>(null);
@@ -3187,7 +3228,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!enq) return;
     const prop = properties.find((p) => p.id === enq.propertyId);
 
-    const isLister = currentUser?.role === 'lister' || (currentUser && currentUser.id === enq.listerId);
+    const isLister = !!currentUser && currentUser.id === enq.listerId;
     const senderId = currentUser?.id || (isLister ? enq.listerId : enq.seekerId);
     const senderName = currentUser?.name || (isLister ? (prop?.lister?.name || 'Mary Wanjiku') : enq.seekerName);
     const senderRole: 'seeker' | 'lister' = isLister ? 'lister' : 'seeker';

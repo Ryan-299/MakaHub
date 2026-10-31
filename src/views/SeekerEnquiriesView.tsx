@@ -196,18 +196,27 @@ export const SeekerEnquiriesView: React.FC = () => {
     ? properties.find((p) => p.id === activeEnquiry.propertyId)
     : null;
 
-  const handleSendReply = (e?: React.FormEvent) => {
+
+  const handleSendReply = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!replyText.trim() || !activeEnquiry || isSending) return;
 
+    const textToSend = replyText;
     setIsSending(true);
-    sendEnquiryReply(activeEnquiry.id, replyText);
     setReplyText('');
-    setTimeout(() => {
-      setIsSending(false);
+
+    try {
+      await sendEnquiryReply(activeEnquiry.id, textToSend);
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      setReplyText(textToSend);
+      window.alert('Your message could not be sent. Please try again.');
+    } finally {
+      setIsSending(false);
+    }
   };
+
 
   const handleQuickReply = (text: string) => {
     if (!activeEnquiry) return;
@@ -755,7 +764,9 @@ export const SeekerEnquiriesView: React.FC = () => {
                       >
                         {lastMsg ? (
                           <>
-                            {lastMsg.senderRole === 'seeker' ? 'You: ' : ''}
+                            {(lastMsg.senderId
+                              ? lastMsg.senderId === currentUser?.id
+                              : lastMsg.senderRole === 'seeker') ? 'You: ' : ''}
                             {lastMsg.message}
                           </>
                         ) : (
@@ -818,7 +829,9 @@ export const SeekerEnquiriesView: React.FC = () => {
                 {/* Messages Feed */}
                 <div className="p-4 sm:p-6 space-y-4 flex-1 min-h-0 overflow-y-auto bg-neutral-50/50 dark:bg-[#0D0D0D]">
                   {conversationMessages.map((msg, index) => {
-                    const isSeeker = msg.senderRole === 'seeker';
+                    const isSeeker = msg.senderId
+                      ? msg.senderId === currentUser?.id
+                      : msg.senderRole === 'seeker';
                     const isHighlighted = highlightedMessageId === msg.id;
                     return (
                       <div
