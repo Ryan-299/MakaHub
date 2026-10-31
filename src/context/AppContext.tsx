@@ -2026,19 +2026,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setNotifications((prev) => [adminNotif, listerNotif, ...prev]);
 
-    if (isConvexConfigured && convexClient) {
-      convexClient
-        .mutation(api.notifications.send, {
-          recipientUserId: recipientId,
-          userId: recipientId,
-          title: 'Listing Submitted',
-          message: `Your listing "${newListing.name}" has been submitted for review.`,
-          time: nowIso,
-          type: 'system',
-          targetPropertyId: assignedId
-        })
-        .catch((err) => console.warn('Convex notification send notice:', err));
-    }
+
 
     return assignedId;
   };

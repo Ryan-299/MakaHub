@@ -29,7 +29,8 @@ export const MobileNavbar: React.FC = () => {
   const unreadSystemCount = notifications.filter(
     (notification) =>
       notification.type === 'system' &&
-      !notification.read
+      !notification.read &&
+      !['Listing Submitted', 'Listing Resubmitted'].includes(notification.title)
   ).length;
 
   const totalMessageUnreadCount =
@@ -66,8 +67,12 @@ export const MobileNavbar: React.FC = () => {
   const listerOnlySystemUnread = notifications.filter(
     (n) =>
       (n.recipientUserId || n.userId) === currentUser?.id &&
-      ['approval', 'rejection', 'flag'].includes(n.type) &&
-      !n.read
+      !n.read &&
+      (
+        ['approval', 'rejection', 'flag'].includes(n.type) ||
+        (n.type === 'system' &&
+          ['Listing Submitted', 'Listing Resubmitted'].includes(n.title))
+      )
   ).length;
 
   const seekerBadgeCount =

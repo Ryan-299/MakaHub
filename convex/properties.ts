@@ -308,7 +308,17 @@ export const add = mutation({
         read: false,
       });
     }
-
+    // Notify the lister that their property is awaiting review.
+    await ctx.db.insert("notifications", {
+      recipientUserId: args.lister.id,
+      userId: args.lister.id,
+      title: "Listing Submitted",
+      message: `Your listing "${args.name}" has been submitted and is awaiting review.`,
+      time: new Date().toISOString(),
+      type: "system",
+      targetPropertyId: propertyId.toString(),
+      read: false,
+    });
     return propertyId;
   },
 });
@@ -496,7 +506,17 @@ export const addWithUnits = mutation({
         read: false,
       });
     }
-
+    // Notify the lister that their property is awaiting review.
+    await ctx.db.insert("notifications", {
+      recipientUserId: args.lister.id,
+      userId: args.lister.id,
+      title: "Listing Submitted",
+      message: `Your listing "${args.name}" has been submitted and is awaiting review.`,
+      time: new Date().toISOString(),
+      type: "system",
+      targetPropertyId: propertyId.toString(),
+      read: false,
+    });
     return propertyId;
   },
 });
@@ -567,6 +587,16 @@ export const updateProperty = mutation({
 
 
     const { id, contactPhone, ...updates } = args;
+    // Prevent listers from changing their own approval status.
+    // Only allow rejected listings to be resubmitted for review.
+    if (updates.status !== undefined) {
+      const isResubmitting =
+        doc.status === "Rejected" && updates.status === "Pending";
+
+      if (!isResubmitting) {
+        delete updates.status;
+      }
+    }
 
     if (contactPhone !== undefined) {
       const phone = contactPhone.trim().replace(/[\s()-]/g, '');

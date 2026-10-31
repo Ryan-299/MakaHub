@@ -97,7 +97,9 @@ export const SeekerEnquiriesView: React.FC = () => {
         (n.type === 'activity' ||
           (n.type === 'review' &&
             ['Property Saved', 'New Property Rating', 'New Property Comment'].includes(n.title)) ||
-          ['approval', 'rejection', 'flag'].includes(n.type))
+          (['approval', 'rejection', 'flag'].includes(n.type) ||
+            (n.type === 'system' &&
+              ['Listing Submitted', 'Listing Resubmitted'].includes(n.title))))
     ).length;
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
