@@ -78,7 +78,9 @@ export const SeekerEnquiriesView: React.FC = () => {
     (enq) => !enq.readBySeeker
   ).length;
   const systemNotifications = notifications.filter(
-    (notification) => notification.type === 'system'
+    (notification) =>
+      notification.type === 'system' &&
+      !['Listing Submitted', 'Listing Resubmitted'].includes(notification.title)
   );
 
   const unreadSystemCount = systemNotifications.filter(
