@@ -63,8 +63,21 @@ export const MobileNavbar: React.FC = () => {
     unreadListerInboxCount +
     unreadListerActivityCount +
     unreadListerSystemCount;
-  const seekerBadgeCount = totalMessageUnreadCount + unreadListerInboxCount;
-  const listerBadgeCount = unreadListerTotal + unreadInboxCount;
+  const listerOnlySystemUnread = notifications.filter(
+    (n) =>
+      (n.recipientUserId || n.userId) === currentUser?.id &&
+      ['approval', 'rejection', 'flag'].includes(n.type) &&
+      !n.read
+  ).length;
+
+  const seekerBadgeCount =
+    totalMessageUnreadCount +
+    unreadListerInboxCount +
+    unreadListerActivityCount +
+    listerOnlySystemUnread;
+
+  const listerBadgeCount =
+    unreadListerTotal + unreadInboxCount + unreadActivityCount;
 
   if (filterDrawerOpen || currentView === 'welcome' || currentView === 'login' || currentView === 'signup' || currentView === 'role-selection') {
     return null;

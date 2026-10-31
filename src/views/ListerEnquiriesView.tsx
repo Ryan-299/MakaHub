@@ -52,9 +52,15 @@ export const ListerEnquiriesView: React.FC = () => {
   const isDark = resolvedTheme === 'dark';
 
   const [searchQuery, setSearchQuery] = useState('');
-  const unreadSeekerChats = seekerEnquiries.filter(
-    (enq) => !enq.readBySeeker
-  ).length;
+  const unreadSeekerChats =
+    seekerEnquiries.filter((enq) => !enq.readBySeeker).length +
+    notifications.filter(
+      (n) =>
+        (n.recipientUserId || n.userId) === currentUser?.id &&
+        n.type === 'review' &&
+        n.title === 'New Review Reply' &&
+        !n.read
+    ).length;
 
   const systemNotifications = notifications
 
@@ -365,7 +371,7 @@ export const ListerEnquiriesView: React.FC = () => {
           ))}
         </div>
         {/* Unread messages in Seeker inbox */}
-        {messageTab === 'inbox' && !activeEnquiry && unreadSeekerChats > 0 && (
+        {!activeEnquiry && unreadSeekerChats > 0 && (
           <button
             type="button"
             onClick={() => {
@@ -376,8 +382,8 @@ export const ListerEnquiriesView: React.FC = () => {
             className="w-full flex items-center justify-between gap-3 rounded-2xl border border-[#E2D3C2] dark:border-[#3A3027] bg-[#FBF6EF] dark:bg-[#1E1A16] px-4 py-3 text-left"
           >
             <span className="text-xs text-neutral-700 dark:text-neutral-300">
-              You have <strong>{unreadSeekerChats}</strong>{' '}
-              {unreadSeekerChats === 1 ? 'message' : 'messages'} in your Seeker inbox.
+              You have <strong>{unreadSeekerChats}</strong> new{' '}
+              {unreadSeekerChats === 1 ? 'update' : 'updates'} in Seeker view.
             </span>
             <span className="shrink-0 text-xs font-semibold text-[#A77745] dark:text-[#CCA177]">
               Switch to view →

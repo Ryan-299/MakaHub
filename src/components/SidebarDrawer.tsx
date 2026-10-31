@@ -119,8 +119,21 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({ isOpen, onClose })
     unreadListerActivityCount +
     unreadListerSystemCount;
 
-  const seekerBadgeCount = totalMessageUnreadCount + unreadListerInboxCount;
-  const listerBadgeCount = totalListerUnreadCount + unreadInboxCount;
+  const listerOnlySystemUnread = notifications.filter(
+    (n) =>
+      (n.recipientUserId || n.userId) === currentUser?.id &&
+      ['approval', 'rejection', 'flag'].includes(n.type) &&
+      !n.read
+  ).length;
+
+  const seekerBadgeCount =
+    totalMessageUnreadCount +
+    unreadListerInboxCount +
+    unreadListerActivityCount +
+    listerOnlySystemUnread;
+
+  const listerBadgeCount =
+    totalListerUnreadCount + unreadInboxCount + unreadActivityCount;
   const [messagesOpen, setMessagesOpen] = React.useState(false);
 
   const [activeLegalModal, setActiveLegalModal] = useState<HelpLegalModalType>(null);

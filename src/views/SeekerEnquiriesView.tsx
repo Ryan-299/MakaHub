@@ -401,7 +401,7 @@ export const SeekerEnquiriesView: React.FC = () => {
               </div>
             </div>
             {/* Unread messages in Lister inbox */}
-            {messageTab === 'inbox' && unreadListerChats > 0 && (
+            {unreadListerChats > 0 && (
               <button
                 type="button"
                 onClick={() => {
@@ -412,8 +412,8 @@ export const SeekerEnquiriesView: React.FC = () => {
                 className="w-full flex items-center justify-between gap-3 rounded-2xl border border-[#E2D3C2] dark:border-[#3A3027] bg-[#FBF6EF] dark:bg-[#1E1A16] px-4 py-3 text-left"
               >
                 <span className="text-xs text-neutral-700 dark:text-neutral-300">
-                  You have <strong>{unreadListerChats}</strong>{' '}
-                  {unreadListerChats === 1 ? 'message' : 'messages'} in your Lister inbox.
+                  You have <strong>{unreadListerChats}</strong> new{' '}
+                  {unreadListerChats === 1 ? 'update' : 'updates'} in Lister view.
                 </span>
                 <span className="shrink-0 text-xs font-semibold text-[#A77745] dark:text-[#CCA177]">
                   Switch to view →
