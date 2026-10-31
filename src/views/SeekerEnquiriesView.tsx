@@ -88,9 +88,17 @@ export const SeekerEnquiriesView: React.FC = () => {
   const unreadActivityCount = activityNotifications.filter(
     (notification) => !notification.read
   ).length;
-  const unreadListerChats = listerEnquiries.filter(
-    (enq) => !enq.readByLister
-  ).length;
+  const unreadListerChats =
+    listerEnquiries.filter((enq) => !enq.readByLister).length +
+    notifications.filter(
+      (n) =>
+        (n.recipientUserId || n.userId) === currentUser?.id &&
+        !n.read &&
+        (n.type === 'activity' ||
+          (n.type === 'review' &&
+            ['Property Saved', 'New Property Rating', 'New Property Comment'].includes(n.title)) ||
+          ['approval', 'rejection', 'flag'].includes(n.type))
+    ).length;
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
