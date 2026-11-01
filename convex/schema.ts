@@ -127,6 +127,17 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_phone", ["phone"]),
 
+  contactEmailVerifications: defineTable({
+    userId: v.string(),
+    email: v.string(),
+    codeHash: v.string(),
+    expiresAt: v.number(),
+    attempts: v.number(),
+    createdAt: v.number(),
+    lastSentAt: v.number(),
+  }).index("by_userId", ["userId"]),
+
+
   enquiries: defineTable({
     propertyId: v.string(),
     propertyName: v.string(),

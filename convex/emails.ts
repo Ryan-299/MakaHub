@@ -101,3 +101,43 @@ export const notifyNewUserWelcome = internalAction({
         return { success: true };
     },
 });
+
+export const sendContactEmailVerificationCode = internalAction({
+    args: {
+        email: v.string(),
+        code: v.string(),
+    },
+
+    handler: async (_ctx, args) => {
+        const apiKey = process.env.RESEND_API_KEY;
+
+        if (!apiKey) {
+            throw new Error("RESEND_API_KEY is not configured.");
+        }
+
+        if (!/^\d{6}$/.test(args.code)) {
+            throw new Error("Invalid verification code format.");
+        }
+
+        const resend = new Resend(apiKey);
+
+        const { error } = await resend.emails.send({
+            from: "Rentike <notifications@rentike.co.ke>",
+            to: args.email,
+            subject: "Verify your Rentike contact email",
+            text: `Your Rentike contact email verification code is ${args.code}.
+
+This code expires in 10 minutes.
+
+If you did not request this change, you can ignore this email.
+
+— The Rentike Team`,
+        });
+
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        return { success: true };
+    },
+});

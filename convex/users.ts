@@ -544,6 +544,7 @@ export const getMyAccountDetails = query({
 });
 
 // Add, change, or remove a lister's contact email.
+
 export const updateMyContactEmail = mutation({
   args: { email: v.string() },
 
@@ -552,6 +553,10 @@ export const updateMyContactEmail = mutation({
 
     if (!identity) {
       throw new Error("You must be signed in.");
+    }
+
+    if (args.email.trim() !== "") {
+      throw new Error("Contact emails must be verified with a code first.");
     }
 
     const user = await ctx.db
@@ -565,24 +570,8 @@ export const updateMyContactEmail = mutation({
       throw new Error("Your Rentike account could not be found.");
     }
 
-    if (user.role !== "lister") {
-      throw new Error("Only listers can set a public contact email.");
-    }
+    await ctx.db.patch(user._id, { contactEmail: undefined });
 
-    const email = args.email.trim().toLowerCase();
-
-    if (
-      email &&
-      (email.length > 254 ||
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    ) {
-      throw new Error("Please enter a valid email address.");
-    }
-
-    await ctx.db.patch(user._id, {
-      contactEmail: email || undefined,
-    });
-
-    return email;
+    return "";
   },
 });

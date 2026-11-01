@@ -25,7 +25,23 @@ const ContactEmailModal: React.FC<{
 
     const [email, setEmail] = useState(currentContactEmail);
     const [busy, setBusy] = useState(false);
+    const [verificationStep, setVerificationStep] = useState<'email' | 'code'>('email');
+    const [verificationCode, setVerificationCode] = useState('');
+    const [emailBeingVerified, setEmailBeingVerified] = useState('');
     const [error, setError] = useState('');
+
+    const [resendSeconds, setResendSeconds] = useState(0);
+
+    React.useEffect(() => {
+        if (resendSeconds <= 0) return;
+
+        const timer = setTimeout(() => {
+            setResendSeconds((seconds) => Math.max(0, seconds - 1));
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [resendSeconds]);
+
 
     const loginEmail =
         clerkUser?.primaryEmailAddress?.emailAddress ||
@@ -53,16 +69,79 @@ const ContactEmailModal: React.FC<{
             setBusy(true);
             setError('');
 
-            const saved = await convexClient.mutation(
-                api.users.updateMyContactEmail,
+            // Removing a contact email does not require verification.
+            if (!cleaned) {
+                const saved = await convexClient.mutation(
+                    api.users.updateMyContactEmail,
+                    { email: '' }
+                );
+
+                onSaved?.(saved);
+                onClose();
+                return;
+            }
+
+            // Adding or changing a contact email requires verification.
+            await convexClient.action(
+                api.contactEmailActions.requestContactEmailVerification,
                 { email: cleaned }
             );
 
-            onSaved?.(saved);
-            onClose();
+            setEmailBeingVerified(cleaned);
+            setVerificationCode('');
+            setVerificationStep('code');
+            setResendSeconds(60);
         } catch (err) {
             console.error('Failed to save contact email:', err);
             setError('Could not save your contact email. Please try again.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const verifyCode = async () => {
+        const code = verificationCode.trim();
+
+        if (!/^\d{6}$/.test(code)) {
+            setError('Please enter the six-digit verification code.');
+            return;
+        }
+
+        if (!isConvexConfigured || !convexClient) {
+            setError('Unable to connect right now. Please try again.');
+            return;
+        }
+
+        try {
+            setBusy(true);
+            setError('');
+
+            const result = await convexClient.action(
+                api.contactEmailActions.verifyContactEmailCode,
+                {
+                    email: emailBeingVerified,
+                    code,
+                }
+            );
+
+            if (result.status === 'verified') {
+                onSaved?.(emailBeingVerified);
+                onClose();
+                return;
+            }
+
+            if (result.status === 'expired') {
+                setError('This code has expired. Please request a new one.');
+            } else if (result.status === 'locked') {
+                setError('Too many incorrect attempts. Please request a new code.');
+            } else if (result.status === 'missing') {
+                setError('No verification request found. Please request a new code.');
+            } else {
+                setError('Incorrect verification code. Please try again.');
+            }
+        } catch (err) {
+            console.error('Contact email verification failed:', err);
+            setError('Could not verify your contact email. Please try again.');
         } finally {
             setBusy(false);
         }
@@ -115,7 +194,7 @@ const ContactEmailModal: React.FC<{
                         }}
                         placeholder="e.g. bookings@youragency.co.ke"
                         autoFocus
-                        disabled={busy}
+                        disabled={busy || verificationStep === 'code'}
                         className="w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 py-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-[#B88653] disabled:opacity-60"
                     />
 
@@ -127,12 +206,39 @@ const ContactEmailModal: React.FC<{
                                     setEmail(loginEmail);
                                     setError('');
                                 }}
-                                disabled={busy}
+                                disabled={busy || verificationStep === 'code'}
                                 className="mt-2 text-xs font-semibold text-[#A77745] dark:text-[#CCA177] break-all text-left"
                             >
                                 Use my login email ({loginEmail})
                             </button>
                         )}
+
+                    {verificationStep === 'code' && (
+                        <div className="mt-4">
+                            <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                                Enter the six-digit verification code sent to{' '}
+                                <span className="font-semibold">{emailBeingVerified}</span>.
+                            </p>
+
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                maxLength={6}
+                                value={verificationCode}
+                                onChange={(e) => {
+                                    setVerificationCode(
+                                        e.target.value.replace(/\D/g, '').slice(0, 6)
+                                    );
+                                    setError('');
+                                }}
+                                placeholder="000000"
+                                aria-label="Six-digit verification code"
+                                disabled={busy}
+                                className="mt-3 w-full rounded-xl border border-[#D9C5AE] bg-transparent px-4 py-3 text-center text-lg tracking-widest text-neutral-900 dark:text-white"
+                            />
+                        </div>
+                    )}
 
                     {error && (
                         <p className="mt-3 text-sm text-red-600 dark:text-red-400">
@@ -143,22 +249,45 @@ const ContactEmailModal: React.FC<{
                     <div className="mt-6 flex gap-3">
                         <button
                             type="button"
-                            onClick={onClose}
+                            onClick={() => {
+                                if (verificationStep === 'code') {
+                                    setVerificationStep('email');
+                                    setVerificationCode('');
+                                    setError('');
+                                } else {
+                                    onClose();
+                                }
+                            }}
                             disabled={busy}
                             className="flex-1 rounded-xl border border-[#D9C5AE] dark:border-neutral-700 px-4 py-3 text-sm font-semibold text-neutral-800 dark:text-white hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
                         >
-                            Cancel
+                            {verificationStep === 'code' ? 'Back' : 'Cancel'}
                         </button>
 
                         <button
                             type="button"
-                            onClick={() => save(email)}
+                            onClick={() => verificationStep === 'code' ? verifyCode() : save(email)}
                             disabled={busy}
                             className="flex-1 rounded-xl bg-[#B8792B] px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
                         >
-                            {busy ? 'Saving...' : 'Save'}
+                            {busy
+                                ? (verificationStep === 'code' ? 'Verifying...' : 'Sending...')
+                                : (verificationStep === 'code' ? 'Verify Email' : 'Send Code')}
                         </button>
                     </div>
+
+                    {verificationStep === 'code' && (
+                        <button
+                            type="button"
+                            onClick={() => save(emailBeingVerified)}
+                            disabled={busy || resendSeconds > 0}
+                            className="mt-4 w-full text-center text-sm font-semibold text-[#A77745] dark:text-[#CCA177] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {resendSeconds > 0
+                                ? `Resend code in ${resendSeconds}s`
+                                : 'Resend code'}
+                        </button>
+                    )}
 
                     {currentContactEmail && (
                         <button
