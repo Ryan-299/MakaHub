@@ -2683,7 +2683,7 @@ export const AddPropertyView: React.FC = () => {
                     })}
 
                     {/* Quick Add More Card in Grid if under 10 */}
-                    {images.length < (selectedUnitTypes.length > 1 ? 1 : 10) && (
+                    {images.length < maxBuildingPhotos && (
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
