@@ -75,11 +75,9 @@ export const TenantHomeView: React.FC = () => {
       timeGreeting = 'Good evening';
     }
 
-    const firstName = currentUser?.name
-      ? currentUser.name.trim().split(' ')[0]
-      : 'Seeker';
+    const displayName = currentUser?.name?.trim() || 'Seeker';
 
-    return `${timeGreeting}, ${firstName}`;
+    return `${timeGreeting}, ${displayName}`;
   }, [currentUser]);
 
   // Newly listed listings (using verified active filtered properties)
