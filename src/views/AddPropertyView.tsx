@@ -223,6 +223,7 @@ export const AddPropertyView: React.FC = () => {
     (editingProperty?.images || []).map(() => null)
   );
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const [unitPhotoError, setUnitPhotoError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const createdObjectUrlsRef = useRef<Set<string>>(new Set());
@@ -2752,7 +2753,12 @@ export const AddPropertyView: React.FC = () => {
                             </span>
                           </div>
 
-                          <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#E2D3C2] bg-[#F8F5EF] px-4 py-8 text-center hover:border-[#C49A6C] dark:border-[#393939] dark:bg-[#242424]">
+                          <label onClick={(e) => {
+                            if (media.images.length >= 10) {
+                              e.preventDefault();
+                              setUnitPhotoError(unitType);
+                            }
+                          }} className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#E2D3C2] bg-[#F8F5EF] px-4 py-8 text-center hover:border-[#C49A6C] dark:border-[#393939] dark:bg-[#242424]">
                             <ImagePlus className="h-6 w-6 text-[#C49A6C]" />
                             <span className="text-sm font-semibold text-[#242424] dark:text-white">
                               Add {unitType} Photos
@@ -2773,7 +2779,11 @@ export const AddPropertyView: React.FC = () => {
                               }}
                             />
                           </label>
-
+                          {unitPhotoError === unitType && media.images.length >= 10 && (
+                            <p className="mt-2 text-sm font-medium text-red-600 dark:text-red-400">
+                              Maximum of 10 photos allowed.
+                            </p>
+                          )}
                           {media.images.length > 0 && (
                             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                               {media.images.map((image, index) => (
