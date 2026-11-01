@@ -114,6 +114,7 @@ export default defineSchema({
     userId: v.string(),
     name: v.string(),
     email: v.string(),
+    contactEmail: v.optional(v.string()),
     phone: v.string(),
     role: v.string(), // "seeker" | "lister" | "admin"
     listerSubtype: v.optional(v.string()),

@@ -432,6 +432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (
       !isLoaded ||
       !isSignedIn ||
+      !isConvexAuthenticated ||
 
       !clerkUser ||
       !isConvexConfigured ||

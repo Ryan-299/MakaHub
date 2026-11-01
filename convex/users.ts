@@ -4,7 +4,18 @@ import { internal } from "./_generated/api";
 
 export const getByUserId = query({
   args: { userId: v.string() },
+
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in.");
+    }
+
+    if (identity.subject !== args.userId) {
+      return null;
+    }
+
     return await ctx.db
       .query("users")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
@@ -51,11 +62,11 @@ export const upsertUser = mutation({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
 
-    const effectiveUserId = identity?.subject || args.userId;
-
-    if (!effectiveUserId) {
+    if (!identity) {
       throw new Error("User must be signed in.");
     }
+
+    const effectiveUserId = identity.subject;
 
     const existing = await ctx.db
       .query("users")
@@ -98,6 +109,18 @@ export const upsertUser = mutation({
           "This phone number is already linked to another MakaoHub account."
         );
       }
+    }
+    const currentRole = existing?.role ?? "unassigned";
+    const requestedRole = args.role ?? currentRole;
+
+    const allowedRoleChange =
+      requestedRole === currentRole ||
+      (currentRole === "unassigned" &&
+        (requestedRole === "seeker" || requestedRole === "lister")) ||
+      (currentRole === "seeker" && requestedRole === "lister");
+
+    if (!allowedRoleChange) {
+      throw new Error("This account role change is not allowed.");
     }
     const userData = {
       userId: effectiveUserId,
@@ -495,5 +518,71 @@ export const getPublicListerProfile = query({
       listerSubtype: user.listerSubtype ?? "Landlord / Property Owner",
       bio: user.bio ?? "",
     };
+  },
+});
+// Get the signed-in user's contact email.
+export const getMyAccountDetails = query({
+  args: {},
+
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!user) return null;
+
+    return {
+      contactEmail: user.contactEmail ?? "",
+    };
+  },
+});
+
+// Add, change, or remove a lister's contact email.
+export const updateMyContactEmail = mutation({
+  args: { email: v.string() },
+
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in.");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!user) {
+      throw new Error("Your Rentike account could not be found.");
+    }
+
+    if (user.role !== "lister") {
+      throw new Error("Only listers can set a public contact email.");
+    }
+
+    const email = args.email.trim().toLowerCase();
+
+    if (
+      email &&
+      (email.length > 254 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+    ) {
+      throw new Error("Please enter a valid email address.");
+    }
+
+    await ctx.db.patch(user._id, {
+      contactEmail: email || undefined,
+    });
+
+    return email;
   },
 });

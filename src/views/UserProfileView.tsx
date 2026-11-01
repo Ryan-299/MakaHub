@@ -36,6 +36,9 @@ import { SUBSCRIPTION_PLANS, DEFAULT_MARY_SUBSCRIPTION } from '../data/subscript
 import { ListerSubscriptionPlan, SubscriptionTier, SubscriptionStatus } from '../types';
 import { SubscriptionCheckoutModal } from '../components/SubscriptionCheckoutModal';
 import { ContactPortfolioModal } from '../components/ContactPortfolioModal';
+import { AccountSecurityModals, AccountSecurityModal } from '../components/AccountSecurityModals';
+import { useQuery } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import { CancelSubscriptionModal } from '../components/CancelSubscriptionModal';
 import { useUser, useSession } from '@clerk/react';
 import { HelpAndLegalModals, HelpLegalModalType } from '../components/HelpAndLegalModals';
@@ -173,6 +176,11 @@ export const UserProfileView: React.FC = () => {
   const [nameDraft, setNameDraft] = useState(currentUser?.name || '');
   const [isSavingName, setIsSavingName] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [securityModal, setSecurityModal] = useState<AccountSecurityModal>(null);
+  const accountDetails = useQuery(
+    api.users.getMyAccountDetails,
+    currentUser?.role === 'lister' ? {} : 'skip'
+  );
   const handleAvatarChange = async (
 
     e: React.ChangeEvent<HTMLInputElement>
@@ -1244,7 +1252,7 @@ export const UserProfileView: React.FC = () => {
 
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-neutral-900 dark:text-white">
-                      Email Address
+                      Account Email
                     </p>
                     <p className="mt-0.5 text-xs text-neutral-500 dark:text-[#8A8A8A] truncate">
                       {currentUser.email}
@@ -1252,8 +1260,35 @@ export const UserProfileView: React.FC = () => {
                   </div>
                 </div>
 
-                <ChevronRight className="w-4 h-4 shrink-0 text-neutral-400" />
               </div>
+              {/* Contact Email — Listers Only */}
+              {currentUser?.role === 'lister' && (
+                <button
+                  type="button"
+                  onClick={() => setSecurityModal('email')}
+                  disabled={accountDetails === undefined}
+                  className="w-full text-left flex items-center justify-between gap-4 px-4 py-4 border-b border-[#E7DED2] dark:border-neutral-800 hover:bg-black/5 dark:hover:bg-white/5 transition-colors disabled:opacity-60"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 shrink-0 rounded-xl bg-[#F2E7D8] dark:bg-[#24201C] text-[#B8792B] flex items-center justify-center">
+                      <Mail className="w-4 h-4" />
+                    </div>
+
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-neutral-900 dark:text-white">
+                        Contact Email
+                      </p>
+                      <p className="mt-0.5 text-xs text-neutral-500 dark:text-[#8A8A8A] truncate">
+                        {accountDetails === undefined
+                          ? 'Loading...'
+                          : accountDetails?.contactEmail || 'Not added'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <ChevronRight className="w-4 h-4 shrink-0 text-neutral-400" />
+                </button>
+              )}
 
               {/* Phone */}
               <div className="flex items-center justify-between gap-4 px-4 py-4 border-b border-[#E7DED2] dark:border-neutral-800">
@@ -1327,6 +1362,11 @@ export const UserProfileView: React.FC = () => {
       <HelpAndLegalModals
         activeModal={activeHelpModal}
         onClose={() => setActiveHelpModal(null)}
+      />
+      <AccountSecurityModals
+        active={securityModal}
+        onClose={() => setSecurityModal(null)}
+        contactEmail={accountDetails?.contactEmail ?? ''}
       />
       {/* Delete Account Modal */}
       {
