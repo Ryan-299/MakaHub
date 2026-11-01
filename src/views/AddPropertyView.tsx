@@ -2680,20 +2680,7 @@ export const AddPropertyView: React.FC = () => {
                       );
                     })}
 
-                    {/* Quick Add More Card in Grid if under 10 */}
-                    {images.length < (selectedUnitTypes.length > 1 ? 1 : 10) && (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="aspect-4/3 rounded-2xl border-2 border-dashed border-neutral-300 dark:border-[#333333] hover:border-black dark:hover:border-white bg-neutral-50 dark:bg-[#151515] hover:bg-neutral-100 dark:hover:bg-[#1E1E1E] flex flex-col items-center justify-center gap-1 text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white transition-all cursor-pointer p-3 text-center"
-                      >
-                        <Plus className="w-5 h-5" />
-                        <span className="text-xs font-bold">Add More</span>
-                        <span className="text-[10px] text-neutral-400 dark:text-[#7D7D7D] font-medium">
-                          ({10 - images.length} slots left)
-                        </span>
-                      </button>
-                    )}
+
                   </div>
                 </div>
               )}
