@@ -479,7 +479,9 @@ export const AddPropertyView: React.FC = () => {
 
     if (remainingSlots <= 0) {
       setPhotoError(
-        `Maximum of ${maxPhotos} photo${maxPhotos === 1 ? '' : 's'} allowed.`
+        maxPhotos === 1
+          ? 'Maximum of 1 cover photo allowed.'
+          : `Maximum of ${maxPhotos} photos allowed.`
       );
       return;
     }
@@ -2538,7 +2540,9 @@ export const AddPropertyView: React.FC = () => {
                 <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-red-950/40 border border-neutral-300 dark:border-red-900/60 flex items-start justify-between gap-3 text-xs text-neutral-900 dark:text-red-200 animate-in fade-in duration-200">
                   <div className="flex items-start gap-2.5">
                     <AlertCircle className="w-4 h-4 text-neutral-800 dark:text-red-400 shrink-0 mt-0.5" />
-                    <span>{photoError}</span>
+                    <span className="text-red-600 dark:text-red-400 font-medium">
+                      {photoError}
+                    </span>
                   </div>
                   <button
                     type="button"
@@ -2614,11 +2618,9 @@ export const AddPropertyView: React.FC = () => {
                 <div className="space-y-3 pt-2">
                   <div className="flex items-center justify-between text-xs text-neutral-500 dark:text-[#8A8A8A]">
                     <span className="font-semibold text-neutral-800 dark:text-[#F5F5F5]">
-                      Selected Photos ({images.length}/10)
+                      Selected Photos ({images.length}/1)
                     </span>
-                    <span className="hidden sm:inline text-neutral-500 dark:text-[#8A8A8A]">
-                      Tip: Click &apos;Set as Cover&apos; to change the main listing photo
-                    </span>
+
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5">
@@ -2680,7 +2682,20 @@ export const AddPropertyView: React.FC = () => {
                       );
                     })}
 
-
+                    {/* Quick Add More Card in Grid if under 10 */}
+                    {images.length < (selectedUnitTypes.length > 1 ? 1 : 10) && (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="aspect-4/3 rounded-2xl border-2 border-dashed border-neutral-300 dark:border-[#333333] hover:border-black dark:hover:border-white bg-neutral-50 dark:bg-[#151515] hover:bg-neutral-100 dark:hover:bg-[#1E1E1E] flex flex-col items-center justify-center gap-1 text-neutral-600 dark:text-[#A3A3A3] hover:text-black dark:hover:text-white transition-all cursor-pointer p-3 text-center"
+                      >
+                        <Plus className="w-5 h-5" />
+                        <span className="text-xs font-bold">Add More</span>
+                        <span className="text-[10px] text-neutral-400 dark:text-[#7D7D7D] font-medium">
+                          ({10 - images.length} slots left)
+                        </span>
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
