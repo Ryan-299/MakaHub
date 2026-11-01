@@ -2994,7 +2994,7 @@ export const AddPropertyView: React.FC = () => {
               )}
 
             {/* Section 7: Property Video (Optional) */}
-            {selectedUnitTypes.length <= 1 && (
+            {isEditMode && selectedUnitTypes.length <= 1 && (
               <div
                 id="property-video-section"
                 className="rounded-2xl border border-[#E2D3C2] bg-[#F8F5EF] p-6 sm:p-8 shadow-[inset_2px_2px_5px_rgba(139,107,67,0.05),inset_-2px_-2px_5px_rgba(255,255,255,0.6)] dark:border-[#393939] dark:bg-[#181818] dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.25)]"
