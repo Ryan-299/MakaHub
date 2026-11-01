@@ -320,8 +320,7 @@ export const UserProfileView: React.FC = () => {
   return (
     <div className="min-h-[calc(100vh-4rem)]bg-[#F7F3EC] dark:bg-black pb-24 text-neutral-900 dark:text-[#F5F5F5] font-sans transition-colors duration-200">
 
-      <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 pt-8 space-y-8">
-
+      <div className="w-full max-w-5xl px-3 sm:px-6 lg:px-8 pt-8 space-y-8">
         {/* Header with Title & Account Identity */}
         <div className="pb-6 border-b border-neutral-200 dark:border-[#262626]">
           <div className="flex items-center justify-between gap-3">
