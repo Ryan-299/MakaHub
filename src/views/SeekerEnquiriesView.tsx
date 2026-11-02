@@ -6,6 +6,7 @@ import {
   MessageSquare,
   Phone,
   Mail,
+  MailCheck,
   Clock,
   CheckCircle2,
   Send,
@@ -605,7 +606,11 @@ export const SeekerEnquiriesView: React.FC = () => {
                     >
                       <div className="flex items-start gap-3">
                         <div className="relative w-10 h-10 rounded-full bg-[#F5EBDD] dark:bg-[#221E1A] flex items-center justify-center shrink-0">
-                          <span className="text-lg">🏠</span>
+                          {notification.title?.trim().toLowerCase() === 'contact email updated' ? (
+                            <MailCheck className="h-5 w-5 text-[#B8792B]" />
+                          ) : (
+                            <span className="text-lg">🏠</span>
+                          )}
 
                           {!notification.read && (
                             <span className="absolute -right-0.5 -bottom-0.5 w-3 h-3 rounded-full bg-red-600 border-2 border-[#F8F3EB] dark:border-black" />

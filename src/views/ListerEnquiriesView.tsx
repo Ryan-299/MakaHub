@@ -5,6 +5,7 @@ import {
   MessageSquare,
   Phone,
   Mail,
+  MailCheck,
   Clock,
   CheckCircle2,
   Send,
@@ -637,6 +638,8 @@ export const ListerEnquiriesView: React.FC = () => {
                         <Sparkles className="h-5 w-5" />
                       ) : isPayment ? (
                         <Info className="h-5 w-5" />
+                      ) : title === 'contact email updated' ? (
+                        <MailCheck className="h-5 w-5" />
                       ) : (
                         <Info className="h-5 w-5" />
                       )}

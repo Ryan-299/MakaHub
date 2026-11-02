@@ -1271,14 +1271,7 @@ export const UserProfileView: React.FC = () => {
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 shrink-0 rounded-xl bg-[#F2E7D8] dark:bg-[#24201C] text-[#B8792B] flex items-center justify-center">
-                      <span className="relative inline-flex">
-                        <Mail className="w-4 h-4" />
-                        {accountDetails?.contactEmail && (
-                          <span className="absolute -bottom-1.5 -right-2 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#B88746] text-[9px] font-bold text-white">
-                            ✓
-                          </span>
-                        )}
-                      </span>
+                      <Mail className="w-4 h-4" />
                     </div>
 
                     <div className="min-w-0">
