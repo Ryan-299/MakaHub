@@ -12,6 +12,7 @@ import {
   Send,
   Building,
   ShieldCheck,
+  Lock,
   ExternalLink,
   ChevronRight,
   User,
@@ -608,8 +609,8 @@ export const SeekerEnquiriesView: React.FC = () => {
 
                         <div
                           className={`relative w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${notification.title?.trim().toLowerCase() === 'phone number updated'
-                              ? 'bg-[#E5F2EF] dark:bg-[#173A36]'
-                              : 'bg-[#F5EBDD] dark:bg-[#221E1A]'
+                            ? 'bg-[#E5F2EF] dark:bg-[#173A36]'
+                            : 'bg-[#F5EBDD] dark:bg-[#221E1A]'
                             }`}
                         >
 
@@ -617,6 +618,8 @@ export const SeekerEnquiriesView: React.FC = () => {
                             <Phone className="h-5 w-5 text-[#438D80]" />
                           ) : notification.title?.trim().toLowerCase() === 'contact email updated' ? (
                             <MailCheck className="h-5 w-5 text-[#B8792B]" />
+                          ) : notification.title?.trim().toLowerCase() === 'password changed' ? (
+                            <Lock className="h-5 w-5 text-[#B8792B]" />
                           ) : (
                             <span className="text-lg">🏠</span>
                           )}
@@ -645,7 +648,8 @@ export const SeekerEnquiriesView: React.FC = () => {
                           </div>
 
                           <p className="text-xs text-neutral-600 dark:text-neutral-400 mt-1 leading-relaxed">
-                            {notification.title === 'Phone Number Updated' &&
+                            {(notification.title === 'Phone Number Updated' ||
+                              notification.title === 'Password Changed') &&
                               notification.message.includes('Rentike support') ? (
                               <>
                                 {notification.message.split('Rentike support')[0]}

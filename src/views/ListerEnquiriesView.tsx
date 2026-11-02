@@ -11,6 +11,7 @@ import {
   Send,
   Building,
   ShieldCheck,
+  Lock,
   ExternalLink,
   Search,
   User,
@@ -600,13 +601,15 @@ export const ListerEnquiriesView: React.FC = () => {
                   ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400'
                   : isFlagged
                     ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
-                    : isSecurity
-                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400'
-                      : isPayment
-                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400'
-                        : title === 'phone number updated'
-                          ? 'bg-[#E5F2EF] text-[#438D80] dark:bg-[#173A36] dark:text-[#76B8AD]'
-                          : 'bg-[#F2E7D8] text-[#A77745] dark:bg-[#30251D] dark:text-[#CCA177]';
+                    : title === 'password changed'
+                      ? 'bg-[#F2E7D8] text-[#B8792B] dark:bg-[#30251D] dark:text-[#CCA177]'
+                      : isSecurity
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400'
+                        : isPayment
+                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400'
+                          : title === 'phone number updated'
+                            ? 'bg-[#E5F2EF] text-[#438D80] dark:bg-[#173A36] dark:text-[#76B8AD]'
+                            : 'bg-[#F2E7D8] text-[#A77745] dark:bg-[#30251D] dark:text-[#CCA177]';
 
               return (
                 <button
@@ -634,6 +637,8 @@ export const ListerEnquiriesView: React.FC = () => {
                         <AlertCircle className="h-5 w-5" />
                       ) : isFlagged ? (
                         <AlertCircle className="h-5 w-5" />
+                      ) : title === 'password changed' ? (
+                        <Lock className="h-5 w-5" />
                       ) : isSecurity ? (
                         <ShieldCheck className="h-5 w-5" />
                       ) : isWelcome ? (
@@ -672,7 +677,8 @@ export const ListerEnquiriesView: React.FC = () => {
                       </div>
 
                       <p className="mt-1 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
-                        {notification.title === 'Phone Number Updated' &&
+                        {(notification.title === 'Phone Number Updated' ||
+                          notification.title === 'Password Changed') &&
                           notification.message.includes('Rentike support') ? (
                           <>
                             {notification.message.split('Rentike support')[0]}
