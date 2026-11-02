@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from 'convex/react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Mail, Phone } from 'lucide-react';
 
 import { api } from '../../convex/_generated/api';
 import { useApp } from '../context/AppContext';
@@ -84,6 +84,60 @@ export const PublicListerProfileView: React.FC = () => {
                                     </p>
                                 </div>
                             )}
+
+                            {profile.contactHidden ? (
+                                <div className="mt-6 border-t border-[#E7DED2] pt-5 dark:border-neutral-700">
+                                    <h2 className="mb-2 text-base font-semibold">
+                                        Contact Information
+                                    </h2>
+                                    <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                                        Sign in to view contact details.
+                                    </p>
+                                </div>
+                            ) : (profile.email || profile.phone) ? (
+                                <div className="mt-6 border-t border-[#E7DED2] pt-5 dark:border-neutral-700">
+                                    <h2 className="mb-4 text-base font-semibold">
+                                        Contact Information
+                                    </h2>
+
+                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        {profile.email && (
+                                            <a
+                                                href={`mailto:${profile.email}`}
+                                                className="flex min-w-0 items-center gap-3 rounded-xl border border-[#E7DED2] bg-white/60 p-4 transition-colors hover:bg-white dark:border-neutral-700 dark:bg-[#242424] dark:hover:bg-[#292929]"
+                                            >
+                                                <Mail className="h-5 w-5 shrink-0 text-[#B8792B]" />
+                                                <div className="min-w-0">
+                                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                                        Contact Email
+                                                    </p>
+                                                    <p className="break-all text-sm font-medium">
+                                                        {profile.email}
+                                                    </p>
+                                                </div>
+                                            </a>
+                                        )}
+
+                                        {profile.phone && (
+                                            <a
+                                                href={`tel:${profile.phone}`}
+                                                className="flex min-w-0 items-center gap-3 rounded-xl border border-[#E7DED2] bg-white/60 p-4 transition-colors hover:bg-white dark:border-neutral-700 dark:bg-[#242424] dark:hover:bg-[#292929]"
+                                            >
+                                                <Phone className="h-5 w-5 shrink-0 text-[#B8792B]" />
+                                                <div className="min-w-0">
+                                                    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                                        Phone Number
+                                                    </p>
+                                                    <p className="text-sm font-medium">
+                                                        {profile.phone}
+                                                    </p>
+                                                </div>
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : null}
+
                         </div>
                         <div className="mt-5 min-w-0 rounded-3xl border border-[#E7DED2] bg-[#F8F3EB] p-4 sm:p-6 dark:border-neutral-800 dark:bg-[#202020]">
                             <div className="mb-5">
