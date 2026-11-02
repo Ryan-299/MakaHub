@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import { useUser } from '@clerk/react';
-import { Mail, Phone, X } from 'lucide-react';
+import { useReverification, useUser } from '@clerk/react';
+import { Lock, Mail, Phone, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { convexClient, isConvexConfigured } from '../lib/convex';
 import { api } from '../../convex/_generated/api';
 
-export type AccountSecurityModal = 'email' | 'phone' | null;
+export type AccountSecurityModal = 'email' | 'phone' | 'password' | null;
 
 interface AccountSecurityModalsProps {
     active: AccountSecurityModal;
@@ -437,6 +437,253 @@ const PhoneNumberModal: React.FC<{
     );
 };
 
+const PasswordModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+    const { user: clerkUser } = useUser();
+    const hasPassword = clerkUser?.passwordEnabled ?? false;
+
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [busy, setBusy] = useState(false);
+    const [completed, setCompleted] = useState(false);
+    const [notificationWarning, setNotificationWarning] = useState(false);
+    const [error, setError] = useState('');
+
+    const updatePassword = useReverification(
+        async (params: { currentPassword?: string; newPassword: string }) => {
+            if (!clerkUser) throw new Error('Please sign in again.');
+
+            return clerkUser.updatePassword({
+                ...params,
+                signOutOfOtherSessions: true,
+            });
+        }
+    );
+
+    const save = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (busy || completed) return;
+
+        if (hasPassword && !currentPassword) {
+            setError('Please enter your current password.');
+            return;
+        }
+
+        if (!newPassword) {
+            setError('Please enter a new password.');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setError('The new passwords do not match.');
+            return;
+        }
+
+        if (hasPassword && currentPassword === newPassword) {
+            setError('Choose a password different from your current one.');
+            return;
+        }
+
+        try {
+            setBusy(true);
+            setError('');
+
+            const passwordWasSet = !hasPassword;
+
+            await updatePassword({
+                ...(hasPassword ? { currentPassword } : {}),
+                newPassword,
+            });
+
+            setCompleted(true);
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+
+            try {
+                if (!isConvexConfigured || !convexClient) {
+                    throw new Error('Convex is unavailable.');
+                }
+
+                await convexClient.mutation(
+                    api.users.notifyMyPasswordChanged,
+                    { passwordWasSet }
+                );
+            } catch (notificationError) {
+                console.error(
+                    'Password updated, but notification failed:',
+                    notificationError
+                );
+                setNotificationWarning(true);
+            }
+        } catch (err: unknown) {
+            const clerkError = err as {
+                errors?: { longMessage?: string; message?: string }[];
+                message?: string;
+            };
+
+            setError(
+                clerkError.errors?.[0]?.longMessage ||
+                clerkError.errors?.[0]?.message ||
+                clerkError.message ||
+                'Could not update your password. Please try again.'
+            );
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
+            <div
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                onClick={() => {
+                    if (!busy) onClose();
+                }}
+            />
+
+            <div className="relative w-full max-w-md rounded-2xl border border-[#E7DED2] dark:border-neutral-800 bg-[#F7F3EC] dark:bg-[#151515] p-6 shadow-2xl">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={busy}
+                    aria-label="Close"
+                    className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
+                >
+                    <X className="h-4 w-4" />
+                </button>
+
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[#FFF6D6] text-[#D6A10C] dark:bg-[#332B15] dark:text-[#F2C94C]">
+                    <Lock className="h-5 w-5" />
+                </div>
+
+                <h2 className="text-xl font-editorial font-semibold text-neutral-950 dark:text-white">
+                    {completed
+                        ? 'Password Updated'
+                        : hasPassword
+                            ? 'Change Password'
+                            : 'Set Password'}
+                </h2>
+
+                {completed ? (
+                    <div className="mt-4">
+                        <p className="text-sm leading-6 text-neutral-600 dark:text-neutral-300">
+                            Your password has been successfully updated.
+                        </p>
+
+                        {notificationWarning && (
+                            <p className="mt-3 text-sm text-amber-700 dark:text-amber-400">
+                                Your password was updated, but the System notification could not be created.
+                            </p>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="mt-6 w-full rounded-xl bg-[#B8792B] px-4 py-3 text-sm font-semibold text-white"
+                        >
+                            Done
+                        </button>
+                    </div>
+                ) : (
+                    <form onSubmit={save} className="mt-4">
+                        <p className="text-sm leading-6 text-neutral-500 dark:text-neutral-400">
+                            {hasPassword
+                                ? 'Enter your current password and choose a new one.'
+                                : 'Add a password so you can also sign in using your email and password.'}
+                        </p>
+
+                        <div className="mt-5 space-y-4">
+                            {hasPassword && (
+                                <div>
+                                    <label className="mb-2 block text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                                        Current Password
+                                    </label>
+                                    <input
+                                        type="password"
+                                        autoComplete="current-password"
+                                        value={currentPassword}
+                                        onChange={(e) => {
+                                            setCurrentPassword(e.target.value);
+                                            setError('');
+                                        }}
+                                        disabled={busy}
+                                        className="w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 py-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-[#D6A10C]"
+                                    />
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                                    New Password
+                                </label>
+                                <input
+                                    type="password"
+                                    autoComplete="new-password"
+                                    value={newPassword}
+                                    onChange={(e) => {
+                                        setNewPassword(e.target.value);
+                                        setError('');
+                                    }}
+                                    disabled={busy}
+                                    className="w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 py-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-[#D6A10C]"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="mb-2 block text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                                    Confirm New Password
+                                </label>
+                                <input
+                                    type="password"
+                                    autoComplete="new-password"
+                                    value={confirmPassword}
+                                    onChange={(e) => {
+                                        setConfirmPassword(e.target.value);
+                                        setError('');
+                                    }}
+                                    disabled={busy}
+                                    className="w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 py-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-[#D6A10C]"
+                                />
+                            </div>
+                        </div>
+
+                        {error && (
+                            <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                                {error}
+                            </p>
+                        )}
+
+                        <div className="mt-6 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                disabled={busy}
+                                className="flex-1 rounded-xl border border-[#D9C5AE] dark:border-neutral-700 px-4 py-3 text-sm font-semibold text-neutral-800 dark:text-white disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="submit"
+                                disabled={busy}
+                                className="flex-1 rounded-xl bg-[#B8792B] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                            >
+                                {busy
+                                    ? 'Saving...'
+                                    : hasPassword
+                                        ? 'Change Password'
+                                        : 'Set Password'}
+                            </button>
+                        </div>
+                    </form>
+                )}
+            </div>
+        </div>
+    );
+};
+
 export const AccountSecurityModals: React.FC<
     AccountSecurityModalsProps
 > = ({
@@ -466,6 +713,8 @@ export const AccountSecurityModals: React.FC<
                 />
             );
         }
-
+        if (active === 'password') {
+            return <PasswordModal onClose={onClose} />;
+        }
         return null;
     };

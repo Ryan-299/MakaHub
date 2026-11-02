@@ -1318,7 +1318,11 @@ export const UserProfileView: React.FC = () => {
               </button>
 
               {/* Password */}
-              <div className="flex items-center justify-between gap-4 px-4 py-4">
+              <button
+                type="button"
+                onClick={() => setSecurityModal('password')}
+                className="w-full flex items-center justify-between gap-4 px-4 py-4 text-left"
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 shrink-0 rounded-xl bg-[#F2E7D8] dark:bg-[#24201C] text-[#B8792B] flex items-center justify-center">
                     <Lock className="w-4 h-4" />
@@ -1335,8 +1339,9 @@ export const UserProfileView: React.FC = () => {
                 </div>
 
                 <ChevronRight className="w-4 h-4 shrink-0 text-neutral-400" />
-              </div>
+              </button>
             </div>
+
 
             {/* Delete Account */}
             {currentUser?.role !== 'admin' && (
