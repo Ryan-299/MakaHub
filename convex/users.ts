@@ -650,3 +650,56 @@ export const updateMyPhone = mutation({
     return { status: "saved", phone };
   },
 });
+
+// Adds one "Password Changed" (or "Password Set") System notification for
+// the signed-in user. Passwords themselves are handled by Clerk; the app
+// calls this right after Clerk confirms the change. It can only ever
+// notify the caller, and it skips a duplicate made in the last 30 seconds
+// (e.g. a double tap), so each change gives exactly one notification.
+export const notifyMyPasswordChanged = mutation({
+  args: { passwordWasSet: v.optional(v.boolean()) },
+
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ status: "created" | "duplicate" }> => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in.");
+    }
+
+    const title = args.passwordWasSet ? "Password Set" : "Password Changed";
+
+    const recent = await ctx.db
+      .query("notifications")
+      .withIndex("by_recipient", (q) =>
+        q.eq("recipientUserId", identity.subject)
+      )
+      .order("desc")
+      .take(10);
+
+    const now = Date.now();
+
+    if (
+      recent.some(
+        (n) => n.title === title && now - n._creationTime < 30 * 1000
+      )
+    ) {
+      return { status: "duplicate" };
+    }
+
+    await ctx.db.insert("notifications", {
+      recipientUserId: identity.subject,
+      title,
+      message: args.passwordWasSet
+        ? "A password was added to your account. If this wasn't you, please contact Rentike support."
+        : "Your password was changed. If this wasn't you, please contact Rentike support.",
+      time: new Date(now).toISOString(),
+      type: "system",
+      read: false,
+    });
+
+    return { status: "created" };
+  },
+});
