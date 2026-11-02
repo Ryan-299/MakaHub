@@ -81,6 +81,13 @@ export const PropertyDetailView: React.FC = () => {
     (!selectedPropertyId && properties.length > 0 ? properties[0] : null);
 
 
+  const listerProfile = useQuery(
+    api.users.getPublicListerProfile,
+    property?.lister?.id
+      ? { userId: property.lister.id }
+      : 'skip'
+  );
+
   const mixedUnitRecords = useQuery(
     api.propertyUnitTypes.getByProperty,
     property
@@ -639,7 +646,7 @@ border border-[#E7DED2] dark:border-neutral-800
                   {property.lister?.name || 'Property Owner'}
                 </p>
                 <p className="text-xs text-neutral-600 dark:text-neutral-400">
-                  Caretaker
+                  {listerProfile?.listerSubtype ?? 'Lister'}
                 </p>
                 <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
                   {listerListingCount} active {listerListingCount === 1 ? 'listing' : 'listings'}
@@ -1162,7 +1169,7 @@ border border-[#E7DED2] dark:border-neutral-800
                   </div>
 
                   <span className="text-xs font-semibold text-neutral-600 dark:text-[#A3A3A3] font-sans block">
-                    Caretaker
+                    {listerProfile?.listerSubtype ?? 'Lister'}
                   </span>
                   <span className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400 font-sans block">
                     {listerListingCount} active {listerListingCount === 1 ? 'listing' : 'listings'}
