@@ -1,6 +1,5 @@
-
-import React, { useState } from 'react';
-import { useReverification, useUser } from '@clerk/react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useReverification, useSession, useUser } from '@clerk/react';
 import { Eye, EyeOff, Lock, Mail, Phone, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { convexClient, isConvexConfigured } from '../lib/convex';
@@ -452,6 +451,147 @@ const PasswordModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [notificationWarning, setNotificationWarning] = useState(false);
     const [error, setError] = useState('');
 
+    const { session } = useSession();
+
+    const currentPasswordRef = useRef('');
+    const reverifyFailureRef = useRef('');
+    const pendingCancelRef = useRef<(() => void) | null>(null);
+
+    const [reverify, setReverify] = useState<{
+        complete: () => void;
+        cancel: () => void;
+        email: string;
+        emailAddressId: string;
+    } | null>(null);
+
+    const [reverifyCode, setReverifyCode] = useState('');
+    const [reverifyBusy, setReverifyBusy] = useState(false);
+    const [reverifyError, setReverifyError] = useState('');
+    const [reverifyNotice, setReverifyNotice] = useState('');
+    const [resendSeconds, setResendSeconds] = useState(0);
+
+    useEffect(() => {
+        return () => {
+            pendingCancelRef.current?.();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (resendSeconds <= 0) return;
+
+        const timer = setTimeout(() => {
+            setResendSeconds((seconds) => Math.max(0, seconds - 1));
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, [resendSeconds]);
+
+    const clerkErrorCode = (err: unknown) =>
+        (err as { errors?: { code?: string }[] })?.errors?.[0]?.code || '';
+
+    const handleNeedsReverification = async (
+        complete: () => void,
+        cancel: () => void,
+        level: string | undefined
+    ) => {
+        pendingCancelRef.current = cancel;
+
+        const fail = (message: string) => {
+            reverifyFailureRef.current = message;
+            pendingCancelRef.current = null;
+            cancel();
+        };
+
+        const finish = () => {
+            pendingCancelRef.current = null;
+            complete();
+        };
+
+        try {
+            if (!session) {
+                fail('Unable to verify your session. Please try again.');
+                return;
+            }
+
+            if (level && level !== 'first_factor') {
+                fail('This verification method is not available here.');
+                return;
+            }
+
+            const verification = await session.startVerification({
+                level: 'first_factor',
+            });
+
+            if (verification.status === 'complete') {
+                finish();
+                return;
+            }
+
+            const factors = verification.supportedFirstFactors ?? [];
+            const password = currentPasswordRef.current;
+
+            // Existing password accounts
+            if (password && factors.some((f) => f.strategy === 'password')) {
+                try {
+                    const result = await session.attemptFirstFactorVerification({
+                        strategy: 'password',
+                        password,
+                    });
+
+                    if (result.status === 'complete') {
+                        finish();
+                    } else {
+                        fail('Unable to verify your current password.');
+                    }
+                } catch (err) {
+                    fail(
+                        clerkErrorCode(err) === 'form_password_incorrect'
+                            ? 'Your current password is incorrect.'
+                            : 'Unable to confirm your identity. Please try again.'
+                    );
+                }
+                return;
+            }
+
+            // Accounts without a password: email verification
+            const emailFactor = factors.find(
+                (f) => f.strategy === 'email_code'
+            ) as
+                | {
+                    strategy: 'email_code';
+                    emailAddressId: string;
+                    safeIdentifier?: string;
+                }
+                | undefined;
+
+            if (!emailFactor) {
+                fail('Email verification is unavailable for this account.');
+                return;
+            }
+
+            await session.prepareFirstFactorVerification({
+                strategy: 'email_code',
+                emailAddressId: emailFactor.emailAddressId,
+            });
+
+            setReverifyCode('');
+            setReverifyError('');
+            setReverifyNotice('');
+            setResendSeconds(60);
+
+            setReverify({
+                complete,
+                cancel,
+                email: emailFactor.safeIdentifier || 'your email',
+                emailAddressId: emailFactor.emailAddressId,
+            });
+        } catch (err) {
+            console.error('Security verification failed:', err);
+            fail('Unable to complete verification. Please try again.');
+        }
+    };
+
+
     const updatePassword = useReverification(
         async (params: { currentPassword?: string; newPassword: string }) => {
             if (!clerkUser) throw new Error('Please sign in again.');
@@ -460,8 +600,90 @@ const PasswordModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 ...params,
                 signOutOfOtherSessions: true,
             });
+        },
+        {
+            onNeedsReverification: ({ complete, cancel, level }) => {
+                void handleNeedsReverification(complete, cancel, level);
+            },
         }
     );
+
+    const submitReverifyCode = async () => {
+        if (!session || !reverify) return;
+
+        const code = reverifyCode.trim();
+
+        if (!/^\d{6}$/.test(code)) {
+            setReverifyError('Please enter the six-digit code.');
+            return;
+        }
+
+        try {
+            setReverifyBusy(true);
+            setReverifyError('');
+            setReverifyNotice('');
+
+            const result = await session.attemptFirstFactorVerification({
+                strategy: 'email_code',
+                code,
+            });
+
+            if (result.status === 'complete') {
+                const { complete } = reverify;
+                setReverify(null);
+                pendingCancelRef.current = null;
+                complete();
+                return;
+            }
+
+            setReverifyError('That code is not correct. Please try again.');
+        } catch (err) {
+            const code = clerkErrorCode(err);
+
+            setReverifyError(
+                code === 'verification_expired'
+                    ? 'This code has expired. Please request a new one.'
+                    : 'That code is not correct. Please try again.'
+            );
+        } finally {
+            setReverifyBusy(false);
+        }
+    };
+
+
+    const resendReverifyCode = async () => {
+        if (!session || !reverify) return;
+
+        try {
+            setReverifyBusy(true);
+            setReverifyError('');
+
+            await session.prepareFirstFactorVerification({
+                strategy: 'email_code',
+                emailAddressId: reverify.emailAddressId,
+            });
+
+            setResendSeconds(60);
+            setReverifyNotice('A new code has been sent.');
+        } catch (err) {
+            console.error('Could not resend security code:', err);
+            setReverifyError(
+                'Could not send a new code. Please try again in a minute.'
+            );
+        } finally {
+            setReverifyBusy(false);
+        }
+    };
+
+    const cancelReverify = () => {
+        if (!reverify) return;
+
+        const { cancel } = reverify;
+        reverifyFailureRef.current = 'Your password was not changed.';
+        setReverify(null);
+        pendingCancelRef.current = null;
+        cancel();
+    };
 
     const save = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -499,8 +721,10 @@ const PasswordModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 newPassword,
             });
 
+
             setCompleted(true);
             setCurrentPassword('');
+            currentPasswordRef.current = '';
             setNewPassword('');
             setConfirmPassword('');
 
@@ -520,8 +744,16 @@ const PasswordModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                 );
                 setNotificationWarning(true);
             }
+
         } catch (err: unknown) {
+            if (reverifyFailureRef.current) {
+                setError(reverifyFailureRef.current);
+                reverifyFailureRef.current = '';
+                return;
+            }
+
             const clerkError = err as {
+
                 errors?: { longMessage?: string; message?: string }[];
                 message?: string;
             };
@@ -542,15 +774,28 @@ const PasswordModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <div
                 className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                 onClick={() => {
-                    if (!busy) onClose();
+                    if (reverify && !reverifyBusy) {
+                        cancelReverify();
+                        onClose();
+                    } else if (!busy) {
+                        onClose();
+                    }
                 }}
             />
+
 
             <div className="relative w-full max-w-md rounded-2xl border border-[#E7DED2] dark:border-neutral-800 bg-[#F7F3EC] dark:bg-[#151515] p-6 shadow-2xl">
                 <button
                     type="button"
-                    onClick={onClose}
-                    disabled={busy}
+                    onClick={() => {
+                        if (reverify && !reverifyBusy) {
+                            cancelReverify();
+                            onClose();
+                        } else if (!busy) {
+                            onClose();
+                        }
+                    }}
+                    disabled={reverifyBusy || (busy && !reverify)}
                     aria-label="Close"
                     className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
                 >
@@ -561,15 +806,93 @@ const PasswordModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     <Lock className="h-5 w-5" />
                 </div>
 
+
                 <h2 className="text-xl font-editorial font-semibold text-neutral-950 dark:text-white">
-                    {completed
-                        ? 'Password Updated'
-                        : hasPassword
-                            ? 'Change Password'
-                            : 'Set Password'}
+                    {reverify
+                        ? "Confirm It's You"
+                        : completed
+                            ? 'Password Updated'
+                            : hasPassword
+                                ? 'Change Password'
+                                : 'Set Password'}
                 </h2>
 
-                {completed ? (
+
+
+                {reverify ? (
+                    <div className="mt-4">
+                        <p className="text-sm leading-6 text-neutral-500 dark:text-neutral-400">
+                            To keep your account secure, we sent a 6-digit
+                            verification code to{' '}
+                            <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                                {reverify.email}
+                            </span>.
+                        </p>
+
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            maxLength={6}
+                            value={reverifyCode}
+                            onChange={(e) => {
+                                setReverifyCode(
+                                    e.target.value.replace(/\D/g, '').slice(0, 6)
+                                );
+                                setReverifyError('');
+                            }}
+                            placeholder="000000"
+                            aria-label="Six-digit verification code"
+                            autoFocus
+                            disabled={reverifyBusy}
+                            className="mt-5 w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 py-3 text-center text-lg tracking-widest text-neutral-900 dark:text-white outline-none focus:border-[#D6A10C]"
+                        />
+
+                        {reverifyError && (
+                            <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                                {reverifyError}
+                            </p>
+                        )}
+
+                        {reverifyNotice && !reverifyError && (
+                            <p className="mt-3 text-sm text-green-700 dark:text-green-400">
+                                {reverifyNotice}
+                            </p>
+                        )}
+
+                        <div className="mt-6 flex gap-3">
+                            <button
+                                type="button"
+                                onClick={cancelReverify}
+                                disabled={reverifyBusy}
+                                className="flex-1 rounded-xl border border-[#D9C5AE] dark:border-neutral-700 px-4 py-3 text-sm font-semibold text-neutral-800 dark:text-white disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={submitReverifyCode}
+                                disabled={reverifyBusy}
+                                className="flex-1 rounded-xl bg-[#B8792B] px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                            >
+                                {reverifyBusy ? 'Checking...' : 'Confirm'}
+                            </button>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={resendReverifyCode}
+                            disabled={reverifyBusy || resendSeconds > 0}
+                            className="mt-4 w-full text-center text-sm font-semibold text-[#A77745] dark:text-[#CCA177] disabled:opacity-50"
+                        >
+                            {resendSeconds > 0
+                                ? `Resend code in ${resendSeconds}s`
+                                : 'Resend code'}
+                        </button>
+                    </div>
+                ) : completed ? (
+
                     <div className="mt-4">
                         <p className="text-sm leading-6 text-neutral-600 dark:text-neutral-300">
                             Your password has been successfully updated.
@@ -609,10 +932,13 @@ const PasswordModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                                             type={showCurrentPassword ? 'text' : 'password'}
                                             autoComplete="current-password"
                                             value={currentPassword}
+
                                             onChange={(e) => {
                                                 setCurrentPassword(e.target.value);
+                                                currentPasswordRef.current = e.target.value;
                                                 setError('');
                                             }}
+
                                             disabled={busy}
                                             className="w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 pr-12 py-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-[#D6A10C]"
                                         />
