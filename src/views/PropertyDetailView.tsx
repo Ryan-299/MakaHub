@@ -626,7 +626,7 @@ border border-[#E7DED2] dark:border-neutral-800
           )}
 
           {/* Desktop and tablet lister profile */}
-          <div className="hidden md:block md:h-[242px] bg-[#F7F3EC] dark:bg-[#151515] p-5 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[4px_4px_10px_rgba(28,22,16,0.06)]">
+          <div className="hidden md:block md:min-h-[242px] xl:w-[280px] xl:shrink-0 bg-[#F7F3EC] dark:bg-[#151515] p-5 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[4px_4px_10px_rgba(28,22,16,0.06)]">
             <div className="flex items-center gap-2 text-[var(--rentike-bronze)]">
               <Building className="h-4 w-4" />
               <span className="text-xs font-semibold tracking-wide">
@@ -634,18 +634,20 @@ border border-[#E7DED2] dark:border-neutral-800
               </span>
             </div>
 
-            <div className="mt-3 flex items-center gap-3">
+            <div className="mt-5 flex items-center gap-4">
               <img
                 src={property.lister?.avatar || 'https://images.unsplash.com/photo-1573496359142-bd9f2c3dd45a'}
                 alt={property.lister?.name || 'Lister'}
-                className="h-11 w-11 shrink-0 rounded-full object-cover"
+
+                className="h-14 w-14 shrink-0 rounded-full object-cover border-2 border-[#B8792B]"
+
               />
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-neutral-900 dark:text-white">
                   {property.lister?.name || 'Property Owner'}
                 </p>
-                <p className="text-xs text-neutral-600 dark:text-neutral-400">
+                <p className="text-xs font-medium text-[#B8792B] dark:text-[#D9A06A]">
                   {listerProfile?.listerSubtype ?? 'Lister'}
                 </p>
                 <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
@@ -662,7 +664,9 @@ border border-[#E7DED2] dark:border-neutral-800
                 setCurrentView('public-lister-profile');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="mt-3 flex w-full items-center justify-between rounded-xl border border-[#E7DED2] dark:border-neutral-700 bg-[#F8F3EC] dark:bg-[#24201B] px-4 py-2.5 text-sm font-semibold text-[var(--rentike-bronze)] shadow-[3px_3px_7px_rgba(28,22,16,0.08)] transition-colors hover:bg-[#EFE7DC] dark:hover:bg-[#302820]"
+
+              className="mt-5 flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-[#855939] to-[#A7774F] px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:from-[#996742] hover:to-[#B58558]"
+
             >
               <span>View Profile</span>
               <span>→</span>
@@ -1183,13 +1187,15 @@ border border-[#E7DED2] dark:border-neutral-800
                     setCurrentView('public-lister-profile');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
-                  className="w-full mt-4 flex items-center justify-between px-4 py-3 rounded-xl border border-[#E7DED2] bg-[#F7F3EC] text-[var(--rentike-bronze)] shadow-[3px_3px_7px_rgba(0,0,0,0.08)] transition-all hover:shadow-md active:scale-[0.99] dark:border-[#343434] dark:bg-[#202020] dark:shadow-[3px_3px_8px_rgba(0,0,0,0.35)]"
+
+                  className="mt-5 flex w-full items-center justify-between rounded-xl bg-gradient-to-r from-[#855939] to-[#A7774F] px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:from-[#996742] hover:to-[#B58558]"
+
                 >
-                  <span className="font-semibold text-sm text-[var(--rentike-bronze)]">
+                  <span className="font-semibold text-sm text-white">
                     View Profile
                   </span>
 
-                  <span className="text-lg text-[var(--rentike-bronze)]">
+                  <span className="text-lg text-white">
                     →
                   </span>
                 </button>
