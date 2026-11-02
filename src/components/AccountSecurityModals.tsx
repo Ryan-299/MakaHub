@@ -1,20 +1,21 @@
 
 import React, { useState } from 'react';
 import { useUser } from '@clerk/react';
-import { Mail, X } from 'lucide-react';
+import { Mail, Phone, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { convexClient, isConvexConfigured } from '../lib/convex';
 import { api } from '../../convex/_generated/api';
 
-export type AccountSecurityModal = 'email' | null;
+export type AccountSecurityModal = 'email' | 'phone' | null;
 
 interface AccountSecurityModalsProps {
     active: AccountSecurityModal;
     onClose: () => void;
-    contactEmail?: string;
+    contactEmail: string;
     onContactEmailSaved?: (email: string) => void;
+    currentPhone?: string;
+    onPhoneSaved?: (phone: string) => void;
 }
-
 const ContactEmailModal: React.FC<{
     onClose: () => void;
     currentContactEmail: string;
@@ -305,6 +306,137 @@ const ContactEmailModal: React.FC<{
     );
 };
 
+const PhoneNumberModal: React.FC<{
+    onClose: () => void;
+    currentPhone: string;
+    onSaved?: (phone: string) => void;
+}> = ({ onClose, currentPhone, onSaved }) => {
+    const [phone, setPhone] = useState(
+        currentPhone === '+254700000000' ? '' : currentPhone
+    );
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+
+    const save = async () => {
+        if (!phone.trim()) {
+            setError('Please enter your Kenyan phone number.');
+            return;
+        }
+
+        if (!isConvexConfigured || !convexClient) {
+            setError('Unable to connect right now. Please try again.');
+            return;
+        }
+
+        try {
+            setBusy(true);
+            setError('');
+
+            const result = await convexClient.mutation(
+                api.users.updateMyPhone,
+                { phone: phone.trim() }
+            );
+
+            if (result.status === 'saved' || result.status === 'unchanged') {
+                onSaved?.(result.phone);
+                onClose();
+                return;
+            }
+
+            if (result.status === 'taken') {
+                setError('This phone number is already used by another account.');
+            } else if (result.status === 'invalid') {
+                setError('Enter a valid Kenyan mobile number, e.g. 0712 345 678.');
+            }
+        } catch (err) {
+            console.error('Failed to update phone number:', err);
+            setError('Could not save your phone number. Please try again.');
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
+            <div
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                onClick={() => {
+                    if (!busy) onClose();
+                }}
+            />
+
+            <div className="relative w-full max-w-md rounded-2xl border border-[#E7DED2] dark:border-neutral-800 bg-[#F7F3EC] dark:bg-[#151515] p-6 shadow-2xl">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    disabled={busy}
+                    aria-label="Close"
+                    className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-neutral-500 hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
+                >
+                    <X className="h-4 w-4" />
+                </button>
+
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-[#F2E7D8] dark:bg-[#24201C] text-[#B8792B]">
+                    <Phone className="h-5 w-5" />
+                </div>
+
+                <h2 className="text-xl font-editorial font-semibold text-neutral-950 dark:text-white">
+                    {currentPhone && currentPhone !== '+254700000000'
+                        ? 'Change Phone Number'
+                        : 'Add Phone Number'}
+                </h2>
+
+                <p className="mt-1 text-sm leading-6 text-neutral-500 dark:text-neutral-400">
+                    Enter your Kenyan mobile number. No SMS verification is required.
+                </p>
+
+                <div className="mt-5">
+                    <input
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        value={phone}
+                        onChange={(e) => {
+                            setPhone(e.target.value);
+                            setError('');
+                        }}
+                        placeholder="e.g. 0712 345 678"
+                        autoFocus
+                        disabled={busy}
+                        className="w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 py-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-[#B88653] disabled:opacity-60"
+                    />
+
+                    {error && (
+                        <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+                            {error}
+                        </p>
+                    )}
+
+                    <div className="mt-6 flex gap-3">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={busy}
+                            className="flex-1 rounded-xl border border-[#D9C5AE] dark:border-neutral-700 px-4 py-3 text-sm font-semibold text-neutral-800 dark:text-white hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-50"
+                        >
+                            Cancel
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={save}
+                            disabled={busy}
+                            className="flex-1 rounded-xl bg-[#B8792B] px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                        >
+                            {busy ? 'Saving...' : 'Save'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export const AccountSecurityModals: React.FC<
     AccountSecurityModalsProps
 > = ({
@@ -312,6 +444,8 @@ export const AccountSecurityModals: React.FC<
     onClose,
     contactEmail = '',
     onContactEmailSaved,
+    currentPhone = '',
+    onPhoneSaved,
 }) => {
         if (active === 'email') {
             return (
@@ -319,6 +453,16 @@ export const AccountSecurityModals: React.FC<
                     onClose={onClose}
                     currentContactEmail={contactEmail}
                     onSaved={onContactEmailSaved}
+                />
+            );
+        }
+
+        if (active === 'phone') {
+            return (
+                <PhoneNumberModal
+                    onClose={onClose}
+                    currentPhone={currentPhone}
+                    onSaved={onPhoneSaved}
                 />
             );
         }

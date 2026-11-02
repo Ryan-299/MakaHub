@@ -539,6 +539,7 @@ export const getMyAccountDetails = query({
 
     return {
       contactEmail: user.contactEmail ?? "",
+      phone: user.phone ?? "",
     };
   },
 });
@@ -573,5 +574,79 @@ export const updateMyContactEmail = mutation({
     await ctx.db.patch(user._id, { contactEmail: undefined });
 
     return "";
+  },
+});
+
+// Change the signed-in user's own phone number.
+// No SMS code (to avoid costs), but the number must be a valid Kenyan
+// number, is stored as +2547XXXXXXXX / +2541XXXXXXXX (the same format
+// upsertUser uses), and is refused if another account already has it.
+// Returns a status instead of throwing, so the app can show the right
+// message on the live site (Convex hides thrown error text in Production).
+export const updateMyPhone = mutation({
+  args: { phone: v.string() },
+
+  handler: async (
+    ctx,
+    args
+  ): Promise<{
+    status: "saved" | "unchanged" | "invalid" | "taken";
+    phone: string;
+  }> => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in.");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", identity.subject))
+      .first();
+
+    if (!user) {
+      throw new Error("Your Rentike account could not be found.");
+    }
+
+    // Accept 0712…, 712…, 254712…, +254712… with spaces, dashes or brackets.
+    const typed = args.phone.replace(/[\s()-]/g, "");
+    let phone = typed;
+
+    if (/^0[71]\d{8}$/.test(typed)) phone = "+254" + typed.slice(1);
+    else if (/^[71]\d{8}$/.test(typed)) phone = "+254" + typed;
+    else if (/^254[71]\d{8}$/.test(typed)) phone = "+" + typed;
+
+    if (!/^\+254[71]\d{8}$/.test(phone) || phone === "+254700000000") {
+      return { status: "invalid", phone: "" };
+    }
+
+    const currentPhone = (user.phone ?? "").replace(/[\s-]/g, "");
+
+    if (phone === currentPhone) {
+      return { status: "unchanged", phone };
+    }
+
+    const phoneOwner = await ctx.db
+      .query("users")
+      .withIndex("by_phone", (q) => q.eq("phone", phone))
+      .first();
+
+    if (phoneOwner && phoneOwner.userId !== identity.subject) {
+      return { status: "taken", phone: "" };
+    }
+
+    await ctx.db.patch(user._id, { phone });
+
+    // Exactly one System notification per successful change.
+    await ctx.db.insert("notifications", {
+      recipientUserId: identity.subject,
+      title: "Phone Number Updated",
+      message: `Your phone number has been changed to ${phone}. If you did not make this change, please contact Rentike support.`,
+      time: new Date().toISOString(),
+      type: "system",
+      read: false,
+    });
+
+    return { status: "saved", phone };
   },
 });

@@ -604,7 +604,9 @@ export const ListerEnquiriesView: React.FC = () => {
                       ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400'
                       : isPayment
                         ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400'
-                        : 'bg-[#F2E7D8] text-[#A77745] dark:bg-[#30251D] dark:text-[#CCA177]';
+                        : title === 'phone number updated'
+                          ? 'bg-[#E5F2EF] text-[#438D80] dark:bg-[#173A36] dark:text-[#76B8AD]'
+                          : 'bg-[#F2E7D8] text-[#A77745] dark:bg-[#30251D] dark:text-[#CCA177]';
 
               return (
                 <button
@@ -638,6 +640,8 @@ export const ListerEnquiriesView: React.FC = () => {
                         <Sparkles className="h-5 w-5" />
                       ) : isPayment ? (
                         <Info className="h-5 w-5" />
+                      ) : title === 'phone number updated' ? (
+                        <Phone className="h-5 w-5 text-[#438D80]" />
                       ) : title === 'contact email updated' ? (
                         <MailCheck className="h-5 w-5" />
                       ) : (
@@ -668,7 +672,24 @@ export const ListerEnquiriesView: React.FC = () => {
                       </div>
 
                       <p className="mt-1 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
-                        {notification.message}
+                        {notification.title === 'Phone Number Updated' &&
+                          notification.message.includes('Rentike support') ? (
+                          <>
+                            {notification.message.split('Rentike support')[0]}
+                            <span
+                              className="cursor-pointer font-semibold text-[#B8792B] underline underline-offset-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                window.location.href = 'mailto:support@rentike.co.ke';
+                              }}
+                            >
+                              Rentike support
+                            </span>
+                            {notification.message.split('Rentike support')[1]}
+                          </>
+                        ) : (
+                          notification.message
+                        )}
                       </p>
 
                       {canManageListing && (

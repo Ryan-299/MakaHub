@@ -1260,6 +1260,7 @@ export const UserProfileView: React.FC = () => {
                   </div>
                 </div>
 
+                <ChevronRight className="w-4 h-4 shrink-0 text-neutral-400" />
               </div>
               {/* Contact Email — Listers Only */}
               {currentUser?.role === 'lister' && (
@@ -1289,9 +1290,12 @@ export const UserProfileView: React.FC = () => {
                   <ChevronRight className="w-4 h-4 shrink-0 text-neutral-400" />
                 </button>
               )}
-
               {/* Phone */}
-              <div className="flex items-center justify-between gap-4 px-4 py-4 border-b border-[#E7DED2] dark:border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setSecurityModal('phone')}
+                className="w-full text-left flex items-center justify-between gap-4 px-4 py-4 border-b border-[#E7DED2] dark:border-neutral-800"
+              >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-10 h-10 shrink-0 rounded-xl bg-[#F2E7D8] dark:bg-[#24201C] text-[#B8792B] flex items-center justify-center">
                     <Phone className="w-4 h-4" />
@@ -1302,13 +1306,16 @@ export const UserProfileView: React.FC = () => {
                       Phone Number
                     </p>
                     <p className="mt-0.5 text-xs text-neutral-500 dark:text-[#8A8A8A]">
-                      {currentUser.phone || 'Not added'}
+                      {(() => {
+                        const phone = accountDetails?.phone ?? currentUser.phone;
+                        return phone && phone !== '+254700000000' ? phone : 'Not added';
+                      })()}
                     </p>
                   </div>
                 </div>
 
                 <ChevronRight className="w-4 h-4 shrink-0 text-neutral-400" />
-              </div>
+              </button>
 
               {/* Password */}
               <div className="flex items-center justify-between gap-4 px-4 py-4">
@@ -1367,6 +1374,7 @@ export const UserProfileView: React.FC = () => {
         active={securityModal}
         onClose={() => setSecurityModal(null)}
         contactEmail={accountDetails?.contactEmail ?? ''}
+        currentPhone={accountDetails?.phone ?? currentUser.phone ?? ''}
       />
       {/* Delete Account Modal */}
       {
