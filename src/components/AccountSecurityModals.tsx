@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useReverification, useUser } from '@clerk/react';
-import { Lock, Mail, Phone, X } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, Phone, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { convexClient, isConvexConfigured } from '../lib/convex';
 import { api } from '../../convex/_generated/api';
@@ -444,6 +444,9 @@ const PasswordModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const [currentPassword, setCurrentPassword] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [busy, setBusy] = useState(false);
     const [completed, setCompleted] = useState(false);
     const [notificationWarning, setNotificationWarning] = useState(false);
@@ -600,17 +603,34 @@ const PasswordModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                                     <label className="mb-2 block text-sm font-medium text-neutral-800 dark:text-neutral-200">
                                         Current Password
                                     </label>
-                                    <input
-                                        type="password"
-                                        autoComplete="current-password"
-                                        value={currentPassword}
-                                        onChange={(e) => {
-                                            setCurrentPassword(e.target.value);
-                                            setError('');
-                                        }}
-                                        disabled={busy}
-                                        className="w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 py-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-[#D6A10C]"
-                                    />
+
+                                    <div className="relative">
+                                        <input
+                                            type={showCurrentPassword ? 'text' : 'password'}
+                                            autoComplete="current-password"
+                                            value={currentPassword}
+                                            onChange={(e) => {
+                                                setCurrentPassword(e.target.value);
+                                                setError('');
+                                            }}
+                                            disabled={busy}
+                                            className="w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 pr-12 py-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-[#D6A10C]"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                                            disabled={busy}
+                                            aria-label={showCurrentPassword ? 'Hide current password' : 'Show current password'}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-neutral-500 dark:text-neutral-400 hover:text-[#D6A10C] dark:hover:text-[#F2C94C]"
+                                        >
+                                            {showCurrentPassword ? (
+                                                <EyeOff className="h-4 w-4" />
+                                            ) : (
+                                                <Eye className="h-4 w-4" />
+                                            )}
+                                        </button>
+                                    </div>
+
                                 </div>
                             )}
 
@@ -618,34 +638,69 @@ const PasswordModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                                 <label className="mb-2 block text-sm font-medium text-neutral-800 dark:text-neutral-200">
                                     New Password
                                 </label>
-                                <input
-                                    type="password"
-                                    autoComplete="new-password"
-                                    value={newPassword}
-                                    onChange={(e) => {
-                                        setNewPassword(e.target.value);
-                                        setError('');
-                                    }}
-                                    disabled={busy}
-                                    className="w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 py-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-[#D6A10C]"
-                                />
+                                <div className="relative">
+                                    <input
+                                        type={showNewPassword ? 'text' : 'password'}
+                                        autoComplete="new-password"
+                                        value={newPassword}
+                                        onChange={(e) => {
+                                            setNewPassword(e.target.value);
+                                            setError('');
+                                        }}
+                                        disabled={busy}
+                                        className="w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 pr-12 py-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-[#D6A10C]"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowNewPassword(!showNewPassword)}
+                                        disabled={busy}
+                                        aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-neutral-500 dark:text-neutral-400 hover:text-[#D6A10C] dark:hover:text-[#F2C94C]"
+                                    >
+                                        {showNewPassword ? (
+                                            <EyeOff className="h-4 w-4" />
+                                        ) : (
+                                            <Eye className="h-4 w-4" />
+                                        )}
+                                    </button>
+                                </div>
+
+
+
                             </div>
 
                             <div>
                                 <label className="mb-2 block text-sm font-medium text-neutral-800 dark:text-neutral-200">
                                     Confirm New Password
                                 </label>
-                                <input
-                                    type="password"
-                                    autoComplete="new-password"
-                                    value={confirmPassword}
-                                    onChange={(e) => {
-                                        setConfirmPassword(e.target.value);
-                                        setError('');
-                                    }}
-                                    disabled={busy}
-                                    className="w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 py-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-[#D6A10C]"
-                                />
+
+                                <div className="relative">
+                                    <input
+                                        type={showConfirmPassword ? 'text' : 'password'}
+                                        autoComplete="new-password"
+                                        value={confirmPassword}
+                                        onChange={(e) => {
+                                            setConfirmPassword(e.target.value);
+                                            setError('');
+                                        }}
+                                        disabled={busy}
+                                        className="w-full rounded-xl border border-[#D9C5AE] dark:border-[#3A3027] bg-white dark:bg-[#1B1B1B] px-4 pr-12 py-3 text-sm text-neutral-900 dark:text-white outline-none focus:border-[#D6A10C]"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                        disabled={busy}
+                                        aria-label={showConfirmPassword ? 'Hide confirmed password' : 'Show confirmed password'}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-neutral-500 dark:text-neutral-400 hover:text-[#D6A10C] dark:hover:text-[#F2C94C]"
+                                    >
+                                        {showConfirmPassword ? (
+                                            <EyeOff className="h-4 w-4" />
+                                        ) : (
+                                            <Eye className="h-4 w-4" />
+                                        )}
+                                    </button>
+                                </div>
+
                             </div>
                         </div>
 
