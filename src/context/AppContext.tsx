@@ -2735,44 +2735,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
     }
 
-    // Requirement 8: Send Seeker notification
-    // Requirement 8: Send Seeker notification
-    // Title: "Lister Replied to Your Review"
-    // Message: "[Lister Name] replied to your review of [Property Name]."
-    // recipientUserId must be the review author's user ID.
-    const seekerId = targetRev.authorId || 'demo-seeker-001';
-    const nowIso = new Date().toISOString();
-    const newNotif: UserNotification = {
-      id: `notif-${Date.now()}`,
-      recipientUserId: seekerId,
-      userId: seekerId,
-      title: 'Lister Replied to Your Review',
-      message: `${currentUser.name || 'Property Lister'} replied to your review of ${prop.name}.`,
-      time: nowIso,
-      createdAt: nowIso,
-      read: false,
-      type: 'review',
-      targetPropertyId: prop.id,
-      targetReviewId: reviewId,
-    };
-    setNotifications((prev) => [newNotif, ...prev]);
-    // Save seeker notification to Convex
-    if (isConvexConfigured && convexClient) {
-      convexClient
-        .mutation(api.notifications.send, {
-          recipientUserId: seekerId,
-          userId: seekerId,
-          title: 'Lister Replied to Your Review',
-          message: `${currentUser.name || 'Property Lister'} replied to your review of ${prop.name}.`,
-          time: nowIso,
-          type: 'review',
-          targetPropertyId: prop.id,
-          targetReviewId: reviewId,
-        })
-        .catch((error) => {
-          console.error('Failed to save reply notification to Convex:', error);
-        });
-    }
+    // The server now notifies the seeker (in-app + phone pop-up).
   };
 
   const editReviewReply = (reviewId: string, replyText: string) => {

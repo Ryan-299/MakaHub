@@ -223,6 +223,7 @@ export const add = mutation({
 });
 
 
+
 export const addReply = mutation({
   args: {
     reviewId: v.id("reviews"),
@@ -234,22 +235,103 @@ export const addReply = mutation({
     replyText: v.string(),
     createdAt: v.string(),
   },
+
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in to reply.");
+    }
+
+    const review = await ctx.db.get(args.reviewId);
+
+    if (!review) {
+      throw new Error("Review not found.");
+    }
+
+    if (review.reply) {
+      throw new Error("This review already has a reply.");
+    }
+
+    const propertyId = ctx.db.normalizeId(
+      "properties",
+      review.propertyId
+    );
+
+    const property = propertyId
+      ? await ctx.db.get("properties", propertyId)
+      : null;
+
+    if (!property || property.lister.id !== identity.subject) {
+      throw new Error("Only the property owner can reply.");
+    }
+
+    const lister = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!lister) {
+      throw new Error("Lister account not found.");
+    }
+
+    const replyText = args.replyText.trim();
+
+    if (!replyText || replyText.length > 1000) {
+      throw new Error("Reply must contain 1–1000 characters.");
+    }
+
+    const listerName = lister.name || "Property Lister";
+    const nowIso = new Date().toISOString();
+
     await ctx.db.patch(args.reviewId, {
       reply: {
         id: `reply-${Date.now()}`,
         reviewId: args.reviewId,
-        propertyId: args.propertyId,
-        listerId: args.listerId,
-        listerName: args.listerName,
-        listerSubtype: args.listerSubtype,
-        listerAvatar: args.listerAvatar,
-        replyText: args.replyText,
-        createdAt: args.createdAt,
+        propertyId: review.propertyId,
+        listerId: identity.subject,
+        listerName,
+        listerSubtype: lister.listerSubtype,
+        listerAvatar: lister.avatar,
+        replyText,
+        createdAt: nowIso,
       },
     });
+
+    // Notify the original reviewer, not the property owner.
+    const recipientUserId = review.authorId;
+
+    if (recipientUserId && recipientUserId !== identity.subject) {
+      await ctx.db.insert("notifications", {
+        recipientUserId,
+        userId: recipientUserId,
+        actorUserId: identity.subject,
+        title: "Lister Replied to Your Review",
+        message: `${listerName} replied to your review of ${property.name}.`,
+        time: nowIso,
+        read: false,
+        type: "review",
+        targetPropertyId: review.propertyId,
+        targetReviewId: args.reviewId.toString(),
+      });
+
+      await ctx.scheduler.runAfter(
+        0,
+        internal.pushSender.sendToRecipient,
+        {
+          recipientUserId,
+          title: `💬 ${listerName} replied to your review`,
+          message: `${property.name}: "${commentSnippet(replyText)}"`,
+          url: "/",
+        }
+      );
+    }
   },
 });
+
+
 export const editReply = mutation({
   args: {
     reviewId: v.id("reviews"),
@@ -258,25 +340,38 @@ export const editReply = mutation({
   },
 
   handler: async (ctx, args) => {
-    const review = await ctx.db.get(args.reviewId);
+    const identity = await ctx.auth.getUserIdentity();
 
-    if (!review) {
-      throw new Error("Review not found");
+    if (!identity) {
+      throw new Error("You must be signed in to edit a reply.");
     }
 
-    if (!review.reply) {
-      throw new Error("This review does not have a reply to edit");
+    const review = await ctx.db.get(args.reviewId);
+
+    if (!review || !review.reply) {
+      throw new Error("Review reply not found.");
+    }
+
+    if (review.reply.listerId !== identity.subject) {
+      throw new Error("You can only edit your own reply.");
+    }
+
+    const replyText = args.replyText.trim();
+
+    if (!replyText || replyText.length > 1000) {
+      throw new Error("Reply must contain 1–1000 characters.");
     }
 
     await ctx.db.patch(args.reviewId, {
       reply: {
         ...review.reply,
-        replyText: args.replyText,
-        updatedAt: args.updatedAt,
+        replyText,
+        updatedAt: new Date().toISOString(),
       },
     });
   },
 });
+
 
 export const editReview = mutation({
   args: {
