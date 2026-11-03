@@ -1,7 +1,7 @@
 import React from 'react';
 import { Home, Search, Map, Heart, User, LayoutDashboard, Building2, PlusCircle, MessageSquare } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-
+import { openSignInPrompt } from './SignInPrompt';
 export const MobileNavbar: React.FC = () => {
   const {
     currentView,
@@ -243,7 +243,13 @@ export const MobileNavbar: React.FC = () => {
             {/* My Account */}
             <button
               type="button"
-              onClick={() => setCurrentView('profile')}
+              onClick={() => {
+                if (!currentUser) {
+                  openSignInPrompt('Sign in to access your account');
+                  return;
+                }
+                setCurrentView('profile');
+              }}
               className={`flex flex-col items-center justify-center min-w-[58px] px-2 py-1.5 rounded-2xl text-xs font-semibold cursor-pointer transition-all duration-200 ${currentView === 'profile'
                 ? 'text-[var(--rentike-bronze)] bg-[#F8F3EB] dark:bg-[#181818] shadow-[4px_4px_10px_rgba(0,0,0,0.12),-3px_-3px_8px_rgba(255,255,255,0.8)] dark:shadow-[4px_4px_10px_rgba(0,0,0,0.55)]'
                 : 'text-neutral-500 dark:text-neutral-400 hover:text-[var(--rentike-bronze)]'

@@ -341,13 +341,9 @@ export const SignupView: React.FC = () => {
       <div
         className="w-[calc(100%-32px)] sm:w-full max-w-[560px] sm:max-w-[600px] md:max-w-[640px] mx-auto flex flex-col items-center rounded-[28px] px-4 sm:px-10 py-7 sm:py-10 border"
         style={{
-          backgroundColor: isDark ? '#0D0D0D' : '#FCFAF7',
-          borderColor: isDark
-            ? 'rgba(196, 154, 108, 0.65)'
-            : 'rgba(196, 154, 108, 0.45)',
-          boxShadow: isDark
-            ? '0 18px 50px rgba(0, 0, 0, 0.35)'
-            : '0 18px 50px rgba(28, 22, 16, 0.08)',
+          backgroundColor: 'transparent',
+          borderColor: 'transparent',
+          boxShadow: 'none',
         }}
       >
         {/* 1. Large Rentike Logo */}
@@ -356,7 +352,7 @@ export const SignupView: React.FC = () => {
             src={isDark ? rentikeDarkThemeIcon : rentikeLightThemeIcon}
             alt="Rentike"
             draggable={false}
-            className="w-20 sm:w-24 h-auto object-contain"
+            className="w-14 sm:w-16 h-auto object-contain"
           />
 
           <div
