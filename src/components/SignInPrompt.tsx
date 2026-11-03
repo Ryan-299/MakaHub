@@ -167,8 +167,8 @@ export const SignInPrompt: React.FC = () => {
                     onClick={() => setReason(null)}
                     aria-label="Close"
                     className={`absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full transition-colors ${isDark
-                            ? 'text-neutral-400 hover:bg-white/5 hover:text-white'
-                            : 'text-neutral-500 hover:bg-black/5 hover:text-black'
+                        ? 'text-neutral-400 hover:bg-white/5 hover:text-white'
+                        : 'text-neutral-500 hover:bg-black/5 hover:text-black'
                         }`}
                 >
                     <X className="h-4 w-4" />
@@ -180,8 +180,8 @@ export const SignInPrompt: React.FC = () => {
                     <img
                         src={
                             isDark
-                                ? rentikeLightThemeIcon
-                                : rentikeDarkThemeIcon
+                                ? rentikeDarkThemeIcon
+                                : rentikeLightThemeIcon
                         }
                         alt="Rentike"
                         draggable={false}
