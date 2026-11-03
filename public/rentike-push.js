@@ -37,7 +37,8 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
         self.registration.showNotification(title, {
             body,
-            icon: '/pwa-192x192.png',
+            icon: '/rentike-notification-badge-192.png',
+            badge: '/rentike-notification-badge-96.png',
             data: { url },
         })
     );
