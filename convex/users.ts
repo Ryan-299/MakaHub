@@ -493,7 +493,9 @@ export const updateListerProfile = mutation({
     };
   },
 });
-// Public information shown to seekers viewing a lister's profile.
+
+// Public information shown to people viewing a lister's profile.
+// Contact details are only shared with signed-in viewers.
 export const getPublicListerProfile = query({
   args: {
     userId: v.string(),
@@ -511,15 +513,29 @@ export const getPublicListerProfile = query({
       return null;
     }
 
+    const identity = await ctx.auth.getUserIdentity();
+    const canSeeContact = Boolean(identity);
+
+    const phone = (user.phone ?? "").replace(/[\s-]/g, "");
+    const hasRealPhone =
+      /^\+254[71]\d{8}$/.test(phone) &&
+      phone !== "+254700000000";
+
     return {
       id: user.userId,
       name: user.name,
       avatar: user.avatar,
       listerSubtype: user.listerSubtype ?? "Landlord / Property Owner",
       bio: user.bio ?? "",
+      phone: canSeeContact && hasRealPhone ? phone : undefined,
+      email: canSeeContact && user.contactEmail
+        ? user.contactEmail
+        : undefined,
+      contactHidden: !canSeeContact,
     };
   },
 });
+
 // Get the signed-in user's contact email.
 export const getMyAccountDetails = query({
   args: {},

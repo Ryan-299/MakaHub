@@ -109,7 +109,7 @@ export const sendContactEmailVerificationCode = internalAction({
     },
 
     handler: async (_ctx, args) => {
-        const apiKey = process.env.RESEND_API_KEY;
+        const apiKey = process.env.CONTACT_EMAIL_RESEND_API_KEY;
 
         if (!apiKey) {
             throw new Error("RESEND_API_KEY is not configured.");
