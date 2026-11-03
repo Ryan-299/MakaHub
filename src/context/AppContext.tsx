@@ -1,3 +1,4 @@
+import { openSignInPrompt } from '../components/SignInPrompt';
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import { useUser, useClerk } from '@clerk/react';
 import { useConvexAuth } from 'convex/react';
@@ -1457,15 +1458,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const toggleSaveProperty = async (id: string) => {
     if (!currentUser) {
-      // Default to demo seeker Kevin Otieno when not logged in
-      const seeker = users.find((u) => u.id === 'demo-seeker-001') || INITIAL_USERS[0];
-      const currentSaved = seeker.savedPropertyIds || [];
-      const updated = currentSaved.includes(id)
-        ? currentSaved.filter((item) => item !== id)
-        : [...currentSaved, id];
-      const updatedSeeker = { ...seeker, savedPropertyIds: updated };
-      setCurrentUser(updatedSeeker);
-      setUsers((prev) => prev.map((u) => (u.id === seeker.id ? updatedSeeker : u)));
+      openSignInPrompt('Sign in to save this home');
       return;
     }
 

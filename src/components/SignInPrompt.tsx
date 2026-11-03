@@ -33,8 +33,7 @@ const PUBLIC_VIEWS = new Set([
     'login',
     'tenant-home',
     'map-explore',
-    'property-detail',
-    'public-lister-profile',
+
 ]);
 
 export const isPublicView = (view: string) => {
@@ -44,6 +43,8 @@ export const isPublicView = (view: string) => {
 // Choose the message depending on the requested action.
 
 export const signInReasonFor = (view: string) => {
+    if (view === 'property-detail') return 'Sign in to view this home';
+    if (view === 'public-lister-profile') return 'Sign in to view this lister';
     if (view === 'saved') {
         return 'Sign in to see your saved homes';
     }

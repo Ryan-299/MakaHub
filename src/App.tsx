@@ -602,19 +602,46 @@ export default function App() {
   // Personal screens require authentication.
   useEffect(() => {
     if (isPublicView(currentView)) {
-      lastPublicViewRef.current = currentView;
+      if (!['welcome', 'login', 'signup'].includes(currentView)) {
+        lastPublicViewRef.current = currentView;
+      }
       return;
     }
 
-    if (isSignedOut && !isClerkHandshake) {
+    if (
+      isSignedOut &&
+      !isClerkHandshake &&
+      ![
+        'login',
+        'signup',
+        'role-selection',
+        'lister-subtype',
+        'lister-about',
+        'lister-phone',
+      ].includes(currentView)
+    ) {
+
       openSignInPrompt(signInReasonFor(currentView));
       setCurrentView(lastPublicViewRef.current);
     }
   }, [isSignedOut, isClerkHandshake, currentView, setCurrentView]);
 
-  // Preserve the browsing page behind the popup.
+  // Authentication and onboarding screens shown inside the popup.
+  const authModalViews = [
+    'login',
+    'signup',
+    'role-selection',
+    'lister-subtype',
+    'lister-about',
+    'lister-phone',
+  ];
+
+  const isAuthModalView = authModalViews.includes(currentView);
+
+  // Keep the browsing page behind the authentication popup.
   const viewToShow =
-    isSignedOut && !isPublicView(currentView)
+    isAuthModalView ||
+      (isSignedOut && !isPublicView(currentView))
       ? lastPublicViewRef.current
       : currentView;
 
@@ -627,8 +654,8 @@ export default function App() {
     return <SsoCallback />;
   }
 
-  const renderView = () => {
-    switch (viewToShow) {
+  const renderView = (view: typeof currentView = viewToShow) => {
+    switch (view) {
       case 'welcome':
         return <WelcomeView />;
       case 'signup':
@@ -907,7 +934,7 @@ export default function App() {
     <div className="min-h-screen flex flex-col font-sans antialiased text-neutral-900 dark:text-neutral-100 selection:bg-neutral-900 selection:text-white dark:selection:bg-white dark:selection:text-neutral-900 transition-colors duration-200">
 
       {/* Main Top Header - hidden on Auth pages */}
-      {!['welcome', 'signup', 'login', 'role-selection', 'lister-subtype', 'lister-about'].includes(currentView) && <Navbar />}
+      {!['welcome', 'signup', 'login', 'role-selection', 'lister-subtype', 'lister-about'].includes(viewToShow) && <Navbar />}
 
       {/* Slide-over Filter Drawer for Kenyan Hierarchy */}
       <FilterDrawer
@@ -917,7 +944,7 @@ export default function App() {
 
       {/* Main Dynamic View Screen */}
       <div
-        className={`flex-1 w-full min-w-0 transition-[padding] duration-300 ${['welcome', 'login', 'signup', 'role-selection', 'lister-subtype', 'lister-about'].includes(currentView)
+        className={`flex-1 w-full min-w-0 transition-[padding] duration-300 ${['welcome', 'login', 'signup', 'role-selection', 'lister-subtype', 'lister-about'].includes(viewToShow)
           ? ''
           : desktopSidebarExpanded ? 'md:pl-72' : 'md:pl-28'
           }`}
@@ -935,6 +962,26 @@ export default function App() {
       {!currentView.startsWith('admin-') && <MobileNavbar />}
       <SignInPrompt />
 
+      {isAuthModalView && (
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-[700px]">
+            <button
+              type="button"
+              onClick={() => setCurrentView(lastPublicViewRef.current)}
+              aria-label="Close authentication"
+              className="absolute -right-2 -top-2 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-[#1C1C1C] text-xl text-white shadow-lg"
+            >
+              ×
+            </button>
+
+            <div className="max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-[28px] border border-[#C49A6C]/60 shadow-2xl [&>main]:!min-h-0">
+              {renderView(currentView)}
+            </div>
+          </div>
+        </div>
+      )}
+
+
       {/* Footer with sidebar-aware spacing */}
       {![
         'welcome',
@@ -943,9 +990,9 @@ export default function App() {
         'role-selection',
         'lister-subtype',
         'lister-about'
-      ].includes(currentView) && (
+      ].includes(viewToShow) && (
           <div
-            className={`w-full min-w-0 transition-[padding] duration-300 ${['welcome', 'login', 'signup', 'role-selection', 'lister-subtype'].includes(currentView)
+            className={`w-full min-w-0 transition-[padding] duration-300 ${['welcome', 'login', 'signup', 'role-selection', 'lister-subtype'].includes(viewToShow)
               ? ''
               : desktopSidebarExpanded ? 'md:pl-72' : 'md:pl-28'
               }`}
