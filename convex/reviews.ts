@@ -1,5 +1,102 @@
-import { query, mutation } from "./_generated/server";
+
+import { query, mutation, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
+
+// Create Activity notifications and one phone popup for a review.
+const ratingLabel = (rating: number) =>
+  rating === 1 ? "1 star" : `${rating} stars`;
+
+const commentSnippet = (text: string) => {
+  const clean = text.trim().replace(/\s+/g, " ");
+  return clean.length > 100
+    ? `${clean.slice(0, 97).trim()}...`
+    : clean;
+};
+
+async function notifyListerOfReview(
+  ctx: MutationCtx,
+  details: {
+    propertyId: string;
+    reviewId: string;
+    actorUserId: string;
+    actorName: string;
+    rating?: number;
+    comment?: string;
+  }
+) {
+  const propertyId = ctx.db.normalizeId(
+    "properties",
+    details.propertyId
+  );
+
+  if (!propertyId) return;
+
+  const property = await ctx.db.get("properties", propertyId);
+  if (!property?.lister?.id) return;
+
+  const recipientUserId = property.lister.id;
+
+  // Don't notify someone about their own property.
+  if (recipientUserId === details.actorUserId) return;
+
+  const rating = details.rating;
+  const comment = details.comment
+    ? commentSnippet(details.comment)
+    : "";
+
+  if (rating === undefined && !comment) return;
+
+  const now = Date.now();
+
+  // Activity notification for a star rating.
+  if (rating !== undefined) {
+    await ctx.db.insert("notifications", {
+      recipientUserId,
+      userId: recipientUserId,
+      actorUserId: details.actorUserId,
+      title: "New Property Rating",
+      message: `${details.actorName} rated ${property.name} ${ratingLabel(rating)}.`,
+      time: new Date(now).toISOString(),
+      read: false,
+      type: "review",
+      targetPropertyId: details.propertyId,
+      targetReviewId: details.reviewId,
+    });
+  }
+
+  // Separate Activity notification for a written review.
+  if (comment) {
+    await ctx.db.insert("notifications", {
+      recipientUserId,
+      userId: recipientUserId,
+      actorUserId: details.actorUserId,
+      title: "New Property Comment",
+      message: `${details.actorName} commented on ${property.name}:\n"${comment}"`,
+      time: new Date(now + 1).toISOString(),
+      read: false,
+      type: "review",
+      targetPropertyId: details.propertyId,
+      targetReviewId: details.reviewId,
+    });
+  }
+
+  // One phone popup for this review action.
+  await ctx.scheduler.runAfter(
+    0,
+    internal.pushSender.sendToRecipient,
+    {
+      recipientUserId,
+      title:
+        rating !== undefined
+          ? `⭐ ${details.actorName} rated ${property.name}`
+          : `💬 ${details.actorName} reviewed ${property.name}`,
+      message: comment ? `"${comment}"` : ratingLabel(rating!),
+      url: "/",
+    }
+  );
+}
+
 
 export const listByProperty = query({
   args: { propertyId: v.string() },
@@ -45,8 +142,8 @@ export const listReportsForAdmin = query({
   },
 });
 
-export const add = mutation({
 
+export const add = mutation({
   args: {
     propertyId: v.string(),
     authorId: v.optional(v.string()),
@@ -58,13 +155,73 @@ export const add = mutation({
     wouldRecommend: v.optional(v.boolean()),
     reported: v.optional(v.boolean()),
   },
+
   handler: async (ctx, args) => {
-    return await ctx.db.insert("reviews", {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in to leave a review.");
+    }
+
+    const author = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!author) {
+      throw new Error("Your Rentike account could not be found.");
+    }
+
+    const propertyId = ctx.db.normalizeId(
+      "properties",
+      args.propertyId
+    );
+
+    if (!propertyId || !(await ctx.db.get(propertyId))) {
+      throw new Error("Property not found.");
+    }
+
+    if (
+      args.rating !== undefined &&
+      (!Number.isFinite(args.rating) ||
+        args.rating < 0 ||
+        args.rating > 5)
+    ) {
+      throw new Error("Ratings must be between 0 and 5.");
+    }
+
+    if ((args.comment ?? "").length > 2000) {
+      throw new Error("Reviews cannot exceed 2000 characters.");
+    }
+
+    const authorName = author.name || "Rentike user";
+
+    const reviewId = await ctx.db.insert("reviews", {
       ...args,
+      authorId: identity.subject,
+      authorName,
+      authorAvatar: author.avatar,
       reported: false,
     });
+
+    await notifyListerOfReview(ctx, {
+      propertyId: args.propertyId,
+      reviewId: reviewId.toString(),
+      actorUserId: identity.subject,
+      actorName: authorName,
+      rating:
+        typeof args.rating === "number" && args.rating >= 1
+          ? args.rating
+          : undefined,
+      comment: args.comment,
+    });
+
+    return reviewId;
   },
 });
+
 
 export const addReply = mutation({
   args: {
@@ -120,6 +277,7 @@ export const editReply = mutation({
     });
   },
 });
+
 export const editReview = mutation({
   args: {
     reviewId: v.id("reviews"),
@@ -130,20 +288,88 @@ export const editReview = mutation({
   },
 
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in to edit a review.");
+    }
+
     const review = await ctx.db.get(args.reviewId);
 
     if (!review) {
-      throw new Error("Review not found");
+      throw new Error("Review not found.");
     }
 
+    if (review.authorId !== identity.subject) {
+      throw new Error("You can only edit your own review.");
+    }
+
+    const author = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", identity.subject)
+      )
+      .first();
+
+    if (!author) {
+      throw new Error("User account not found.");
+    }
+
+    if (
+      args.rating !== undefined &&
+      (!Number.isFinite(args.rating) ||
+        args.rating < 0 ||
+        args.rating > 5)
+    ) {
+      throw new Error("Ratings must be between 0 and 5.");
+    }
+
+    if (args.comment !== undefined && args.comment.length > 2000) {
+      throw new Error("Reviews cannot exceed 2000 characters.");
+    }
+
+    // Identify what actually changed.
+    const ratingChanged =
+      args.rating !== undefined &&
+      args.rating >= 1 &&
+      args.rating !== review.rating;
+
+    const newComment = (args.comment ?? "").trim();
+    const oldComment = (review.comment ?? "").trim();
+
+    const commentChanged =
+      args.comment !== undefined &&
+      newComment.length > 0 &&
+      newComment !== oldComment;
+
+    // Preserve fields that were not provided.
     await ctx.db.patch(args.reviewId, {
-      rating: args.rating,
-      comment: args.comment,
-      wouldRecommend: args.wouldRecommend,
+      ...(args.rating !== undefined
+        ? { rating: args.rating }
+        : {}),
+      ...(args.comment !== undefined
+        ? { comment: args.comment }
+        : {}),
+      ...(args.wouldRecommend !== undefined
+        ? { wouldRecommend: args.wouldRecommend }
+        : {}),
       updatedAt: args.updatedAt,
     });
+
+    // Notify the lister only when stars or written text changed.
+    if (ratingChanged || commentChanged) {
+      await notifyListerOfReview(ctx, {
+        propertyId: review.propertyId,
+        reviewId: args.reviewId.toString(),
+        actorUserId: identity.subject,
+        actorName: author.name || "Rentike user",
+        rating: ratingChanged ? args.rating : undefined,
+        comment: commentChanged ? newComment : undefined,
+      });
+    }
   },
 });
+
 export const reportReview = mutation({
   args: {
     reviewId: v.id("reviews"),
