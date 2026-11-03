@@ -1487,41 +1487,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           userId: currentUser.id,
           propertyId: id,
         });
-        // Notify the lister only when the property is being SAVED
-        if (!isSaved) {
-          const prop = properties.find((p) => p.id === id);
-
-          if (prop?.lister?.id) {
-            const now = new Date().toISOString();
-
-            const saveNotif: UserNotification = {
-              id: `notif-save-${Date.now()}`,
-              recipientUserId: prop.lister.id,
-              userId: prop.lister.id,
-              actorUserId: currentUser.id,
-              title: 'Property Saved',
-              message: `${currentUser.name} saved your property ${prop.name}.`,
-              time: now,
-              createdAt: now,
-              read: false,
-              type: 'review',
-              targetPropertyId: id,
-            };
-
-            setNotifications((prev) => [saveNotif, ...prev]);
-
-            await convexClient.mutation(api.notifications.send, {
-              recipientUserId: saveNotif.recipientUserId,
-              userId: saveNotif.userId,
-              actorUserId: saveNotif.actorUserId,
-              title: saveNotif.title,
-              message: saveNotif.message,
-              time: saveNotif.time,
-              type: saveNotif.type,
-              targetPropertyId: saveNotif.targetPropertyId,
-            });
-          }
-        }
+        // The server now notifies the lister (in-app + phone pop-up).
       } catch (error) {
         console.error('Failed to sync saved property to Convex:', error);
       }

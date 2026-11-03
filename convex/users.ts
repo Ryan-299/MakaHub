@@ -168,27 +168,119 @@ export const upsertUser = mutation({
   },
 });
 
+
 export const toggleSaveProperty = mutation({
   args: {
     userId: v.string(),
     propertyId: v.string(),
   },
+
   handler: async (ctx, args) => {
-    const existing = await ctx.db
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity || identity.subject !== args.userId) {
+      throw new Error("You must be signed in to save a property.");
+    }
+
+    const saver = await ctx.db
       .query("users")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .withIndex("by_userId", (q) =>
+        q.eq("userId", identity.subject)
+      )
       .first();
 
-    if (!existing) return;
+    if (!saver) {
+      throw new Error("User account not found.");
+    }
 
-    const currentSaved = existing.savedPropertyIds || [];
-    const updated = currentSaved.includes(args.propertyId)
+    const propertyId = ctx.db.normalizeId(
+      "properties",
+      args.propertyId
+    );
+
+    if (!propertyId) {
+      throw new Error("Invalid property ID.");
+    }
+
+    const property = await ctx.db.get("properties", propertyId);
+
+    if (!property) {
+      throw new Error("Property not found.");
+    }
+
+    const currentSaved = saver.savedPropertyIds || [];
+    const wasSaved = currentSaved.includes(args.propertyId);
+
+    const updated = wasSaved
       ? currentSaved.filter((id) => id !== args.propertyId)
       : [...currentSaved, args.propertyId];
 
-    await ctx.db.patch(existing._id, { savedPropertyIds: updated });
+    await ctx.db.patch(saver._id, {
+      savedPropertyIds: updated,
+    });
+
+    // No notification for unsaving or saving your own listing.
+    if (wasSaved || property.lister.id === identity.subject) {
+      return;
+    }
+
+    const recipientUserId = property.lister.id;
+    const now = Date.now();
+    const oneDayAgo = now - 24 * 60 * 60 * 1000;
+
+    // Avoid notifying the same lister repeatedly when somebody
+    // saves, unsaves, and saves the same property within 24 hours.
+    const recentNotifications = await ctx.db
+      .query("notifications")
+      .withIndex("by_recipient", (q) =>
+        q.eq("recipientUserId", recipientUserId)
+      )
+      .filter((q) =>
+        q.gte(q.field("_creationTime"), oneDayAgo)
+      )
+      .collect();
+
+    const alreadyNotified = recentNotifications.some(
+      (notification) =>
+        notification.title === "Property Saved" &&
+        notification.actorUserId === identity.subject &&
+        notification.targetPropertyId === args.propertyId
+    );
+
+    if (alreadyNotified) {
+      return;
+    }
+
+    const saverName = saver.name || "Someone";
+    const propertyName = property.name;
+
+    // Create the notification inside Rentike.
+    await ctx.db.insert("notifications", {
+      recipientUserId,
+      userId: recipientUserId,
+      actorUserId: identity.subject,
+      title: "Property Saved",
+      message: `${saverName} saved your property ${propertyName}.`,
+      time: new Date(now).toISOString(),
+      read: false,
+      type: "review",
+      targetPropertyId: args.propertyId,
+    });
+
+    // Send the matching phone push notification.
+    await ctx.scheduler.runAfter(
+      0,
+      internal.pushSender.sendToRecipient,
+      {
+        recipientUserId,
+        title: "❤️ Property Saved",
+        message: `${saverName} saved ${propertyName}`,
+        url: "/",
+      }
+    );
   },
 });
+
 export const getPropertySaveCounts = query({
   args: {},
   handler: async (ctx) => {
