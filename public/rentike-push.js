@@ -48,9 +48,20 @@ self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
     const url = event.notification.data?.url || self.location.origin + '/';
+    const isAndroid = /Android/i.test(self.navigator.userAgent || '');
 
     event.waitUntil(
         (async () => {
+            if (isAndroid) {
+                try {
+                    const opened = await self.clients.openWindow(url);
+                    opened?.postMessage({ type: 'rentike-open', url });
+                } catch (error) {
+                    console.error('Could not open Rentike:', error);
+                }
+                return;
+            }
+
             const windows = await self.clients.matchAll({
                 type: 'window',
                 includeUncontrolled: true,
@@ -66,14 +77,14 @@ self.addEventListener('notificationclick', (event) => {
                     focused.postMessage({ type: 'rentike-open', url });
                     return;
                 } catch (error) {
-                    console.warn('Could not focus Rentike, opening it instead:', error);
+                    console.warn('Could not focus Rentike:', error);
                 }
             }
 
             try {
                 await self.clients.openWindow(url);
             } catch (error) {
-                console.error('Could not open Rentike from notification:', error);
+                console.error('Could not open Rentike:', error);
             }
         })()
     );
