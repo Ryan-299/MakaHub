@@ -307,6 +307,11 @@ export const add = mutation({
         targetPropertyId: propertyId.toString(),
         read: false,
       });
+      await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
+        recipientUserId: admin.userId,
+        title: "🏠 New Listing Awaiting Approval",
+        message: `"${args.name}" has been submitted and is waiting for your review.`,
+      });
     }
     // Notify the lister that their property is awaiting review.
     await ctx.db.insert("notifications", {
@@ -318,6 +323,11 @@ export const add = mutation({
       type: "system",
       targetPropertyId: propertyId.toString(),
       read: false,
+    });
+    await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
+      recipientUserId: args.lister.id,
+      title: "📝 Listing Submitted",
+      message: `Your listing "${args.name}" has been submitted and is awaiting review.`,
     });
     return propertyId;
   },
@@ -505,6 +515,11 @@ export const addWithUnits = mutation({
         targetPropertyId: propertyId.toString(),
         read: false,
       });
+      await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
+        recipientUserId: admin.userId,
+        title: "🏠 New Listing Awaiting Approval",
+        message: `"${args.name}" has been submitted and is waiting for your review.`,
+      });
     }
     // Notify the lister that their property is awaiting review.
     await ctx.db.insert("notifications", {
@@ -516,6 +531,11 @@ export const addWithUnits = mutation({
       type: "system",
       targetPropertyId: propertyId.toString(),
       read: false,
+    });
+    await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
+      recipientUserId: args.lister.id,
+      title: "📝 Listing Submitted",
+      message: `Your listing "${args.name}" has been submitted and is awaiting review.`,
     });
     return propertyId;
   },
@@ -637,6 +657,11 @@ export const updateProperty = mutation({
           type: "approval",
           targetPropertyId: doc._id.toString(),
           read: false,
+        });
+        await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
+          recipientUserId: admin.userId,
+          title: "🔁 Listing Resubmitted",
+          message: `"${updates.name || doc.name}" was updated after rejection and is waiting for your review.`,
         });
       }
     }

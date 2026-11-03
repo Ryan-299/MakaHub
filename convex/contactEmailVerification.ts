@@ -1,4 +1,4 @@
-
+import { internal } from "./_generated/api";
 import { internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 
@@ -161,7 +161,12 @@ export const completeVerification = internalMutation({
             type: "system",
             read: false,
         });
-
+        await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
+            recipientUserId: identity.subject,
+            title: "📧 Contact Email Updated",
+            message:
+                "Your contact email has been successfully updated. Seekers can now use this email to contact you through your public profile.",
+        });
         return { status: "verified" };
     },
 });

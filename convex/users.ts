@@ -754,7 +754,11 @@ export const updateMyPhone = mutation({
       type: "system",
       read: false,
     });
-
+    await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
+      recipientUserId: identity.subject,
+      title: "📞 Phone Number Updated",
+      message: `Your phone number has been changed to ${phone}. If you did not make this change, please contact Rentike support.`,
+    });
     return { status: "saved", phone };
   },
 });
@@ -807,7 +811,13 @@ export const notifyMyPasswordChanged = mutation({
       type: "system",
       read: false,
     });
-
+    await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
+      recipientUserId: identity.subject,
+      title: `🔒 ${title}`,
+      message: args.passwordWasSet
+        ? "A password was added to your account. If this wasn't you, please contact Rentike support."
+        : "Your password was changed. If this wasn't you, please contact Rentike support.",
+    });
     return { status: "created" };
   },
 });

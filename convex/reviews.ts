@@ -538,7 +538,13 @@ export const reportReview = mutation({
         targetReviewId: args.reviewId.toString(),
         targetPropertyId: review.propertyId,
       });
+      await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
+        recipientUserId: admin.userId,
+        title: "🚩 New Review Report",
+        message: `A review by ${review.authorName} was reported. Reason: ${cleanReason}`,
+      });
     }
+
 
     return reportId;
   },
