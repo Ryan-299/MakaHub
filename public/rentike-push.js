@@ -61,10 +61,19 @@ self.addEventListener('notificationclick', (event) => {
             );
 
             if (existing) {
-                await existing.navigate(url);
-                await existing.focus();
-            } else {
+                try {
+                    const focused = (await existing.focus()) || existing;
+                    focused.postMessage({ type: 'rentike-open', url });
+                    return;
+                } catch (error) {
+                    console.warn('Could not focus Rentike, opening it instead:', error);
+                }
+            }
+
+            try {
                 await self.clients.openWindow(url);
+            } catch (error) {
+                console.error('Could not open Rentike from notification:', error);
             }
         })()
     );

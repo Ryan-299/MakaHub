@@ -226,6 +226,10 @@ export default function App() {
     isLoggingOut,
     setCurrentView,
     setTargetEnquiryId,
+    listerEnquiries,
+    seekerEnquiries,
+    isListerMode,
+    switchUserMode,
     filterDrawerOpen,
     setFilterDrawerOpen,
     showSplashScreen,
@@ -319,24 +323,104 @@ export default function App() {
   ]);
 
 
-  // Open the correct enquiry when a phone notification is tapped.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
+  // Open the right enquiry when a phone notification is tapped.
+  const [pendingEnquiryId, setPendingEnquiryId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
 
-    const params = new URLSearchParams(window.location.search);
-    const linkedEnquiryId = params.get('enquiryId');
+    const fromLink = new URLSearchParams(window.location.search).get('enquiryId');
 
-    // Keep the destination if the user needs to log in first.
-    if (linkedEnquiryId) {
-      sessionStorage.setItem('rentike_pending_enquiry', linkedEnquiryId);
+    if (fromLink) {
+      try {
+        sessionStorage.setItem('rentike_pending_enquiry', fromLink);
+      } catch {
+        // Keep the enquiry in memory if storage is unavailable.
+      }
+      return fromLink;
     }
 
-    const enquiryId =
-      linkedEnquiryId ??
-      sessionStorage.getItem('rentike_pending_enquiry');
+    try {
+      return sessionStorage.getItem('rentike_pending_enquiry');
+    } catch {
+      return null;
+    }
+  });
 
-    if (!enquiryId) return;
+  // Start counting only after authentication is ready.
+  const pendingSinceRef = useRef<number | null>(null);
+  const [pendingRecheck, setPendingRecheck] = useState(0);
 
+  // Remove the enquiry parameter without reloading Rentike.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('enquiryId')) return;
+
+    params.delete('enquiryId');
+    const remainingQuery = params.toString();
+
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}${remainingQuery ? `?${remainingQuery}` : ''}${window.location.hash}`
+    );
+  }, []);
+
+  // Receive notification taps when Rentike is already open.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+      return;
+    }
+
+    const handleWorkerMessage = (event: MessageEvent) => {
+      const data = event.data as { type?: unknown; url?: unknown } | null;
+
+      if (!data || data.type !== 'rentike-open' || typeof data.url !== 'string') {
+        return;
+      }
+
+      try {
+        const target = new URL(data.url, window.location.origin);
+        if (target.origin !== window.location.origin) return;
+
+        const enquiryId = target.searchParams.get('enquiryId');
+        if (!enquiryId) return;
+
+        try {
+          sessionStorage.setItem('rentike_pending_enquiry', enquiryId);
+        } catch {
+          // Keep the enquiry in memory.
+        }
+
+        pendingSinceRef.current = null;
+        setPendingEnquiryId(enquiryId);
+      } catch {
+        // Ignore invalid notification links.
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleWorkerMessage);
+    navigator.serviceWorker.startMessages?.();
+
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleWorkerMessage);
+    };
+  }, []);
+
+  // Open the conversation after the user and inboxes are available.
+  useEffect(() => {
+    if (!pendingEnquiryId) return;
+
+    const finish = () => {
+      try {
+        sessionStorage.removeItem('rentike_pending_enquiry');
+      } catch {
+        // Nothing to clean up.
+      }
+
+      pendingSinceRef.current = null;
+      setPendingEnquiryId(null);
+    };
+
+    // Preserve the destination while signed out.
     if (isSignedIn === false) {
       setShowSplashScreen(false);
       setCurrentView('login');
@@ -346,44 +430,72 @@ export default function App() {
     // Wait for authentication and the Rentike user profile.
     if (isSignedIn !== true || !currentUser) return;
 
-    if (
-      currentUser.role !== 'lister' &&
-      currentUser.role !== 'seeker'
-    ) {
+    if (currentUser.role !== 'lister' && currentUser.role !== 'seeker') {
+      finish();
       return;
     }
 
-    setTargetEnquiryId(enquiryId);
-    setShowSplashScreen(false);
+    // Find which inbox actually owns this conversation.
+    const inListerInbox =
+      currentUser.role === 'lister' &&
+      listerEnquiries.some((enquiry) => enquiry.id === pendingEnquiryId);
 
-    setCurrentView(
-      currentUser.role === 'lister'
-        ? 'lister-enquiries'
-        : 'seeker-enquiries'
+    const inSeekerInbox = seekerEnquiries.some(
+      (enquiry) => enquiry.id === pendingEnquiryId
     );
 
-    sessionStorage.removeItem('rentike_pending_enquiry');
+    if (!inListerInbox && !inSeekerInbox) {
+      // Begin the timeout only after the account is ready.
+      if (pendingSinceRef.current === null) {
+        pendingSinceRef.current = Date.now();
+      }
 
-    // Remove the consumed link without reloading Rentike.
-    if (linkedEnquiryId) {
-      params.delete('enquiryId');
-      const remainingQuery = params.toString();
+      const waited = Date.now() - pendingSinceRef.current;
 
-      window.history.replaceState(
-        window.history.state,
-        '',
-        `${window.location.pathname}${remainingQuery ? `?${remainingQuery}` : ''}${window.location.hash}`
-      );
+      if (waited < 15000) {
+        const timer = window.setTimeout(
+          () => setPendingRecheck((count) => count + 1),
+          1000
+        );
+
+        return () => window.clearTimeout(timer);
+      }
+
+      // Conversation unavailable: open the user's current inbox.
+      setShowSplashScreen(false);
+      setCurrentView(isListerMode ? 'lister-enquiries' : 'seeker-enquiries');
+      finish();
+      return;
     }
+
+    setShowSplashScreen(false);
+
+    if (inListerInbox) {
+      if (!isListerMode) switchUserMode('lister');
+
+      setTargetEnquiryId(pendingEnquiryId);
+      setCurrentView('lister-enquiries');
+    } else {
+      if (isListerMode) switchUserMode('seeker');
+
+      setTargetEnquiryId(pendingEnquiryId);
+      setCurrentView('seeker-enquiries');
+    }
+
+    finish();
   }, [
+    pendingEnquiryId,
+    pendingRecheck,
     isSignedIn,
-    currentUser?.id,
-    currentUser?.role,
+    currentUser,
+    listerEnquiries,
+    seekerEnquiries,
+    isListerMode,
+    switchUserMode,
     setTargetEnquiryId,
     setCurrentView,
     setShowSplashScreen,
   ]);
-
   // Scroll to top on view changes
   useEffect(() => {
     const scrollToTop = () => {
