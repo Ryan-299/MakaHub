@@ -142,6 +142,31 @@ export const upsertUser = mutation({
         [],
     };
 
+    // Welcome new Seekers and Listers only on their first role assignment.
+    if (
+      currentRole === "unassigned" &&
+      (requestedRole === "seeker" || requestedRole === "lister")
+    ) {
+      const welcomeTitle = "Welcome to Rentike 👋";
+      const welcomeMessage =
+        "Welcome to Rentike. Discover homes, list properties, and connect directly — all in one place";
+
+      await ctx.db.insert("notifications", {
+        recipientUserId: effectiveUserId,
+        userId: effectiveUserId,
+        title: welcomeTitle,
+        message: welcomeMessage,
+        time: new Date().toISOString(),
+        type: "system",
+        read: false,
+      });
+
+      await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
+        recipientUserId: effectiveUserId,
+        title: welcomeTitle,
+        message: welcomeMessage,
+      });
+    }
     if (existing) {
       await ctx.db.patch(existing._id, userData);
       return existing._id;

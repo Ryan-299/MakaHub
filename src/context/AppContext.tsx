@@ -1547,51 +1547,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (error) {
       console.error('Failed to save MakaoHub user to Convex:', error);
     }
-    if (role === 'seeker') {
-      const welcomeTime = new Date().toISOString();
 
-      const welcomeNotification: UserNotification = {
-        id: `notif-welcome-${updated.id}`,
-        recipientUserId: updated.id,
-        userId: updated.id,
-        title: 'Welcome to Rentike 👋',
-        message:
-          'Welcome to Rentike. Discover homes, list properties, and connect directly — all in one place',
-        time: welcomeTime,
-        createdAt: welcomeTime,
-        read: false,
-        type: 'system',
-      };
-
-      setNotifications((prev) => {
-        const alreadyExists = prev.some(
-          (notification) =>
-            notification.type === 'system' &&
-            notification.title === 'Welcome to Rentike 👋' &&
-            (notification.recipientUserId === updated.id ||
-              notification.userId === updated.id)
-        );
-
-        return alreadyExists
-          ? prev
-          : [welcomeNotification, ...prev];
-      });
-
-      if (isConvexConfigured && convexClient) {
-        convexClient
-          .mutation(api.notifications.send, {
-            recipientUserId: welcomeNotification.recipientUserId,
-            userId: welcomeNotification.userId,
-            title: welcomeNotification.title,
-            message: welcomeNotification.message,
-            time: welcomeNotification.time,
-            type: welcomeNotification.type,
-          })
-          .catch((error) => {
-            console.error('Failed to send welcome notification:', error);
-          });
-      }
-    }
     if (role === 'seeker') {
       setCurrentView('tenant-home');
     } else if (role === 'lister') {
