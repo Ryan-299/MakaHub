@@ -8,6 +8,12 @@ import { FilterDrawer } from './components/FilterDrawer';
 import { SplashScreen } from './components/SplashScreen';
 import { OfflineScreen } from './components/OfflineScreen';
 import { SsoCallback } from './components/SsoCallback';
+import {
+  SignInPrompt,
+  openSignInPrompt,
+  isPublicView,
+  signInReasonFor,
+} from './components/SignInPrompt';
 // Views
 import { WelcomeView } from './views/WelcomeView';
 import { SignupView } from './views/SignupView';
@@ -578,6 +584,40 @@ export default function App() {
     setShowSplashScreen(false);
   }, [setShowSplashScreen]);
 
+  // Allow unsigned-in visitors to browse Rentike.
+  const isSignedOut = isLoaded && !isSignedIn;
+  const lastPublicViewRef = useRef<typeof currentView>('tenant-home');
+
+  // Open Home instead of Welcome for unsigned-in visitors.
+  useEffect(() => {
+    if (
+      isSignedOut &&
+      !isClerkHandshake &&
+      currentView === 'welcome'
+    ) {
+      setCurrentView('tenant-home');
+    }
+  }, [isSignedOut, isClerkHandshake, currentView, setCurrentView]);
+
+  // Personal screens require authentication.
+  useEffect(() => {
+    if (isPublicView(currentView)) {
+      lastPublicViewRef.current = currentView;
+      return;
+    }
+
+    if (isSignedOut && !isClerkHandshake) {
+      openSignInPrompt(signInReasonFor(currentView));
+      setCurrentView(lastPublicViewRef.current);
+    }
+  }, [isSignedOut, isClerkHandshake, currentView, setCurrentView]);
+
+  // Preserve the browsing page behind the popup.
+  const viewToShow =
+    isSignedOut && !isPublicView(currentView)
+      ? lastPublicViewRef.current
+      : currentView;
+
   // ---- All hooks are above this line. Early returns are only safe below. ----
 
   if (
@@ -588,7 +628,7 @@ export default function App() {
   }
 
   const renderView = () => {
-    switch (currentView) {
+    switch (viewToShow) {
       case 'welcome':
         return <WelcomeView />;
       case 'signup':
@@ -893,6 +933,7 @@ export default function App() {
       </div>
 
       {!currentView.startsWith('admin-') && <MobileNavbar />}
+      <SignInPrompt />
 
       {/* Footer with sidebar-aware spacing */}
       {![
