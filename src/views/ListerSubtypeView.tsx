@@ -240,7 +240,7 @@ export const ListerSubtypeView: React.FC = () => {
           <button
             type="button"
             onClick={handleContinue}
-            className="w-full mt-5 py-3 rounded-xl bg-black text-white font-semibold"
+            className="w-full mt-5 py-3 rounded-xl bg-[#C49A6C] text-[#111111] font-semibold"
           >
             Continue
           </button>

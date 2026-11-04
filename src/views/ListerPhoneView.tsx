@@ -57,14 +57,25 @@ export const ListerPhoneView: React.FC = () => {
                 }`}
         >
             <div className="w-full max-w-md">
-                <button
-                    type="button"
-                    onClick={() => setCurrentView('lister-subtype')}
-                    className="mb-8 flex items-center gap-2 text-sm opacity-70 hover:opacity-100"
-                >
-                    <ArrowLeft size={18} />
-                    Back
-                </button>
+                <header className="mb-8 flex items-center justify-between gap-3">
+                    <button
+                        type="button"
+                        onClick={() => setCurrentView('lister-subtype')}
+                        className="flex items-center gap-2 text-sm font-medium"
+                    >
+                        <ArrowLeft size={18} />
+                        <span>Back</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => setCurrentView('lister-about')}
+                        className="text-sm font-semibold hover:underline"
+                        style={{ color: '#C49A6C' }}
+                    >
+                        Skip for now
+                    </button>
+                </header>
 
                 <div className="mb-8">
                     <div
@@ -134,14 +145,7 @@ export const ListerPhoneView: React.FC = () => {
                         Save & Continue
 
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => setCurrentView('lister-about')}
-                        className={`mt-4 w-full text-sm font-medium underline underline-offset-4 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
-                            }`}
-                    >
-                        Skip for now
-                    </button>
+
                 </div>
             </div>
         </main>

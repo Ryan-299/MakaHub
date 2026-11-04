@@ -965,14 +965,7 @@ export default function App() {
       {isAuthModalView && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
           <div className="relative w-full max-w-[700px]">
-            <button
-              type="button"
-              onClick={() => setCurrentView(lastPublicViewRef.current)}
-              aria-label="Close authentication"
-              className="absolute -right-2 -top-2 z-50 flex h-9 w-9 items-center justify-center rounded-full bg-[#1C1C1C] text-xl text-white shadow-lg"
-            >
-              ×
-            </button>
+
 
             <div className="max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-[28px] border border-[#C49A6C]/60 shadow-2xl [&>main]:!min-h-0">
               {renderView(currentView)}
