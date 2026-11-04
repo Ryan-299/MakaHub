@@ -346,11 +346,32 @@ export const SeekerEnquiriesView: React.FC = () => {
                   <h1 className="text-2xl font-bold text-neutral-950 dark:text-white">
                     Messages
                   </h1>
-                  {/* TEMPORARY: Remove after debugging */}
-                  <p className="text-[10px] text-neutral-400 mt-0.5">
-                    build {__BUILD_ID__} · auth {convexAuthLoading ? '…' : convexAuthed ? 'yes' : 'no'} · role {currentUser?.role || 'none'} · chats {seekerEnquiries.length}
-                  </p>
+
                 </div>
+
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                  className="ml-auto flex items-center rounded-full border border-[#E2D3C2] dark:border-neutral-700 bg-[#F7F3EC] dark:bg-[#151515] p-1 shadow-[4px_4px_10px_rgba(28,22,16,0.10),-4px_-4px_10px_rgba(255,255,255,0.9)] dark:shadow-[4px_4px_10px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)]"
+                >
+                  <span
+                    className={`w-8 h-8 rounded-full flex items-center justify-center ${!isDark
+                        ? 'bg-white text-neutral-600 shadow-sm'
+                        : 'text-neutral-500'
+                      }`}
+                  >
+                    <Sun className="w-4 h-4" />
+                  </span>
+                  <span
+                    className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark
+                        ? 'bg-[#C49A6C] text-white shadow-sm'
+                        : 'text-[#8B792B]'
+                      }`}
+                  >
+                    <Moon className="w-4 h-4" />
+                  </span>
+                </button>
 
 
               </div>
