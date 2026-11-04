@@ -2,7 +2,7 @@ import React from 'react';
 
 const PrivacyPolicyView: React.FC = () => {
     React.useEffect(() => {
-        document.title = 'MakaoHub - Privacy Policy';
+        document.title = 'Rentike - Privacy Policy';
     }, []);
     const handleBack = () => {
         if (window.opener && !window.opener.closed) {
@@ -34,7 +34,7 @@ const PrivacyPolicyView: React.FC = () => {
                         className="text-lg tracking-[0.18em] text-black dark:text-white"
                         style={{ fontFamily: "'Anurati', sans-serif" }}
                     >
-                        MAKAOHUB
+                        RENTIKE
                     </span>
                 </div>
             </header>
@@ -47,886 +47,568 @@ const PrivacyPolicyView: React.FC = () => {
                     </p>
 
                     <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                        MakaoHub Privacy Policy
+                        Rentike Privacy Policy
                     </h1>
 
                     <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-500 dark:text-neutral-400">
-                        <span>Effective date: 8 September 2026</span>
+                        <span>Effective date: 4 November 2026</span>
                         <span>Version 1.0</span>
                     </div>
                 </div>
+
 
                 <div className="space-y-10 text-[15px] leading-7 text-neutral-700 dark:text-neutral-300 sm:text-base">
                     {/* Introduction */}
                     <section className="space-y-4">
                         <p>
-                            MakaoHub respects your privacy and is committed to handling your
-                            personal information responsibly, securely, and transparently.
+                            Rentike respects your privacy and is committed to handling
+                            your personal information responsibly, securely and transparently.
                         </p>
-
                         <p>
-                            This Privacy Policy explains how MakaoHub collects, uses, stores,
-                            shares, and protects information when you use our web application
-                            and mobile applications for Android and iOS.
+                            This Privacy Policy explains how Rentike collects, uses, stores,
+                            shares and protects information when you access our website,
+                            web application or installed Progressive Web App (PWA).
                         </p>
-
                         <p>
-                            By creating an account or using MakaoHub, you acknowledge the
-                            practices described in this Privacy Policy.
+                            Rentike is a Kenyan rental-property discovery platform developed
+                            and operated by Shen Studios, based in Nakuru, Kenya.
+                            This policy applies to visitors, property seekers and property listers.
                         </p>
                     </section>
 
-                    {/* 1 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
+                    {/* Section 1 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
                             1. Information We Collect
                         </h2>
-
                         <p>
-                            The information we collect depends on how you use MakaoHub and
-                            the features you choose to use.
+                            The information we collect depends on how you use Rentike
+                            and the features you choose to access.
                         </p>
 
-                        <h3 className="mb-3 mt-6 text-lg font-semibold text-black dark:text-white">
+                        <h3 className="pt-2 text-lg font-semibold text-black dark:text-white">
                             1.1 Account Information
                         </h3>
-
-                        <p className="mb-3">
-                            When you create or manage a MakaoHub account, we may collect
-                            information such as:
-                        </p>
-
+                        <p>When you register or manage a Rentike account, we may collect:</p>
                         <ul className="list-disc space-y-2 pl-6">
-                            <li>Your name.</li>
-                            <li>Phone number.</li>
+                            <li>Your name or company name.</li>
                             <li>Email address.</li>
+                            <li>Phone number, where provided.</li>
                             <li>Profile photograph.</li>
-                            <li>
-                                Account role, such as property seeker or property lister.
-                            </li>
-                            <li>
-                                Account and authentication information necessary to secure your
-                                account.
-                            </li>
+                            <li>Account role, such as Seeker or Lister.</li>
+                            <li>Lister category and profile information.</li>
+                            <li>Authentication and account-security information.</li>
+                            <li>Account creation and update records.</li>
                         </ul>
-
-                        <p className="mt-4">
-                            You are responsible for ensuring that the information you provide
-                            is accurate and kept up to date.
-                        </p>
-                    </section>
-
-                    {/* 2 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            2. Property Listing Information
-                        </h2>
-
                         <p>
-                            If you use MakaoHub as a landlord, caretaker, agent, property
-                            manager, or other authorized property lister, we may collect and
-                            display information you provide about rental properties.
+                            Some information is necessary to create and secure an account.
+                            Other information, such as a profile photograph, public introduction
+                            or contact phone number, may be optional. If required information
+                            is not provided, some features may be unavailable.
                         </p>
-
-                        <p className="mb-3 mt-4">This may include:</p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Name of your property.</li>
-                            <li>Location of your property.</li>
-                            <li>Rental price.</li>
-                            <li>Property type.</li>
-                            <li>Vacancy information.</li>
-                            <li>Move-in costs and fees.</li>
-                            <li>Amenities.</li>
-                            <li>Property descriptions.</li>
-                            <li>Photographs and videos.</li>
-                            <li>Lister contact information, where applicable.</li>
-                        </ul>
-
-                        <p className="mt-4">
-                            Property listing information is provided for the purpose of
-                            making rental properties discoverable to property seekers.
-                        </p>
-
-                        <p className="mt-4">
-                            Information intentionally included in a public property listing
-                            may be visible to other MakaoHub users.
-                        </p>
-                    </section>
-
-                    {/* 3 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            3. Enquiries and Messages
-                        </h2>
-
                         <p>
-                            MakaoHub allows property seekers and property listers to
-                            communicate through private enquiries and messaging features.
+                            You are responsible for providing accurate information and
+                            keeping it reasonably up to date.
                         </p>
 
-                        <p className="mb-3 mt-4">We may store information such as:</p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Users participating in the conversation.</li>
-                            <li>Property connected to the enquiry.</li>
-                            <li>Messages sent between users.</li>
-                            <li>Dates and times of messages.</li>
-                            <li>Contact information submitted as part of an enquiry.</li>
-                            <li>Message and enquiry status information.</li>
-                        </ul>
-
-                        <p className="mt-4">
-                            Private enquiry conversations are not intended to be publicly
-                            displayed.
-                        </p>
-
-                        <p className="mb-3 mt-4">
-                            MakaoHub personnel may access relevant information where
-                            reasonably necessary for purposes such as:
-                        </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Providing customer support.</li>
-                            <li>Investigating reported abuse or fraud.</li>
-                            <li>Protecting users.</li>
-                            <li>Maintaining the security of MakaoHub.</li>
-                            <li>Enforcing our Terms of Service.</li>
-                            <li>Complying with legal obligations.</li>
-                        </ul>
-                    </section>
-
-                    {/* 4 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            4. Location Information
-                        </h2>
-
-                        <p>
-                            MakaoHub uses location information to help users discover rental
-                            properties and view property locations on maps.
-                        </p>
-
-                        <h3 className="mb-3 mt-6 text-lg font-semibold text-black dark:text-white">
-                            4.1 Property Location
+                        <h3 className="pt-2 text-lg font-semibold text-black dark:text-white">
+                            1.2 Technical and Device Information
                         </h3>
-
                         <p>
-                            Property listers may provide the location of a rental property
-                            when creating a listing.
+                            When you access Rentike, technical service providers may process
+                            browser type, device information, IP address, session identifiers,
+                            and security or diagnostic records to operate the application
+                            and protect its users.
                         </p>
+                    </section>
 
-                        <p className="mt-4">
-                            This information may be displayed to users as part of the
-                            property listing or map experience.
-                        </p>
-
-                        <h3 className="mb-3 mt-6 text-lg font-semibold text-black dark:text-white">
-                            4.2 Device Location
-                        </h3>
-
+                    {/* Section 2 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            2. Guest Browsing
+                        </h2>
                         <p>
-                            Where MakaoHub offers a feature such as{' '}
-                            <strong className="text-black dark:text-white">
-                                “Use Current Location”
-                            </strong>
-                            , your device may ask for permission to share location
-                            information.
+                            Rentike allows visitors to explore certain rental property information
+                            without creating an account. Guests may browse listings, view photographs
+                            and videos, explore maps, and use available search and filtering tools.
                         </p>
-
-                        <p className="mt-4">Granting location permission is optional.</p>
-
-                        <p className="mb-3 mt-4">
-                            If you grant permission, your location information may be used
-                            to:
-                        </p>
-
+                        <p>An account is required for activities such as:</p>
                         <ul className="list-disc space-y-2 pl-6">
-                            <li>Show properties near you.</li>
-                            <li>Improve map positioning.</li>
-                            <li>Provide location-based property discovery.</li>
+                            <li>Sending property enquiries or accessing private messages.</li>
+                            <li>Saving or favouriting properties.</li>
+                            <li>Publishing or managing property listings.</li>
+                            <li>Submitting ratings or reviews.</li>
+                            <li>Managing an account or public profile.</li>
                         </ul>
-
-                        <p className="mt-4">
-                            You may disable location access at any time through your browser,
-                            device, or application settings.
+                        <p>
+                            Rentike may still use essential browser storage and process limited
+                            technical information when visitors browse without signing in.
                         </p>
+                    </section>
 
-                        <p className="mt-4">
-                            MakaoHub will not intentionally access your device location
+                    {/* Section 3 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            3. Property Listing Information
+                        </h2>
+                        <p>
+                            Property listers may submit information about properties
+                            they are authorised to advertise, including:
+                        </p>
+                        <ul className="list-disc space-y-2 pl-6">
+                            <li>Property name, description and type.</li>
+                            <li>Address, location or geographic coordinates.</li>
+                            <li>Monthly rent and move-in costs.</li>
+                            <li>Available units and vacancy information.</li>
+                            <li>Amenities and facilities.</li>
+                            <li>Property photographs and videos.</li>
+                            <li>Contact information associated with a listing, where applicable.</li>
+                        </ul>
+                        <p>
+                            This information helps property seekers discover homes and compare
+                            available options. Approved listings and associated details may be
+                            publicly visible, including to visitors without accounts.
+                        </p>
+                        <p>
+                            Listers should avoid including unnecessary private or sensitive
+                            information in public descriptions, photographs or videos.
+                        </p>
+                    </section>
+
+                    {/* Section 4 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            4. Public Profiles and Contact Information
+                        </h2>
+                        <p>
+                            Public lister profiles may display a name or business name,
+                            profile photograph, lister category, introduction, contact phone
+                            number and contact email address when provided for public contact.
+                        </p>
+                        <p className="font-semibold text-black dark:text-white">
+                            Information displayed on a public profile may be visible
+                            to other Rentike users or visitors.
+                        </p>
+                        <p>
+                            Only provide contact information you are comfortable making available
+                            for property-related communication. Account passwords and verification
+                            codes are not intended for public display.
+                        </p>
+                    </section>
+
+                    {/* Section 5 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            5. Enquiries and Private Messages
+                        </h2>
+                        <p>
+                            Rentike allows property seekers and listers to communicate
+                            through enquiries and messaging features. We may process:
+                        </p>
+                        <ul className="list-disc space-y-2 pl-6">
+                            <li>Users participating in a conversation.</li>
+                            <li>Property associated with an enquiry.</li>
+                            <li>Messages exchanged between users.</li>
+                            <li>Message timestamps and status.</li>
+                            <li>Contact information submitted during an enquiry.</li>
+                        </ul>
+                        <p>
+                            Private enquiries and conversations are not intended for public display.
+                            Authorised Rentike personnel may access relevant information where
+                            reasonably necessary for support, complaints, fraud prevention,
+                            security, enforcement of platform rules or legal compliance.
+                        </p>
+                        <p>
+                            Do not share passwords, verification codes or unnecessary
+                            sensitive information through messages.
+                        </p>
+                    </section>
+
+                    {/* Section 6 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            6. Location Information
+                        </h2>
+                        <h3 className="pt-2 text-lg font-semibold text-black dark:text-white">
+                            6.1 Property Locations
+                        </h3>
+                        <p>
+                            Property listers may provide addresses, map positions and geographic
+                            coordinates when creating a listing. These may be displayed
+                            on property pages and maps.
+                        </p>
+                        <h3 className="pt-2 text-lg font-semibold text-black dark:text-white">
+                            6.2 Device Location
+                        </h3>
+                        <p>
+                            Some features may request permission to access your device location.
+                            Granting this permission is optional. With your permission,
+                            location information may be used to show nearby properties,
+                            centre maps and help calculate routes or distances.
+                        </p>
+                        <p>
+                            You can withdraw permission through browser or device settings.
+                            Rentike will not intentionally access precise device location
                             without the required permission.
                         </p>
                     </section>
 
-                    {/* 5 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            5. Saved Properties and Preferences
+                    {/* Section 7 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            7. Saved Properties and Preferences
                         </h2>
-
-                        <p className="mb-3">
-                            MakaoHub may store information about how you personalize your
-                            experience, including:
-                        </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Properties you save or favorite.</li>
-                            <li>Property-search preferences.</li>
-                            <li>Selected filters.</li>
-                            <li>Theme or display preferences.</li>
-                            <li>Other preferences associated with your account or device.</li>
-                        </ul>
-
-                        <p className="mt-4">
-                            This information helps MakaoHub provide a more useful and
-                            personalized experience.
-                        </p>
-                    </section>
-
-                    {/* 6 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            6. Reviews, Reports, and Other User Content
-                        </h2>
-
-                        <p className="mb-3">Users may be able to submit:</p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Property reviews.</li>
-                            <li>Ratings.</li>
-                            <li>Reports.</li>
-                            <li>Comments.</li>
-                            <li>Photographs.</li>
-                            <li>Other permitted content.</li>
-                        </ul>
-
-                        <p className="mt-4">
-                            Reviews and certain other forms of user-generated content may be
-                            publicly visible.
-                        </p>
-
-                        <p className="mt-4">
-                            Reports submitted to MakaoHub for moderation, fraud prevention,
-                            or safety purposes are generally handled privately.
-                        </p>
-
-                        <p className="mt-4">
-                            We may use reports and related information to investigate
-                            possible violations of our Terms of Service.
-                        </p>
-                    </section>
-
-                    {/* 7 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            7. How We Use Personal Information
-                        </h2>
-
-                        <p className="mb-3">MakaoHub may use personal information to:</p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Create and maintain user accounts.</li>
-                            <li>Authenticate users.</li>
-                            <li>Provide property discovery and search features.</li>
-                            <li>Display rental listings.</li>
-                            <li>Provide map and location functionality.</li>
-                            <li>
-                                Allow property seekers and property listers to communicate.
-                            </li>
-                            <li>Deliver notifications.</li>
-                            <li>Save user preferences and favorite properties.</li>
-                            <li>Display and manage reviews.</li>
-                            <li>Investigate reports.</li>
-                            <li>Detect and prevent fraud, abuse, and misuse.</li>
-                            <li>Protect MakaoHub systems and users.</li>
-                            <li>Provide customer support.</li>
-                            <li>
-                                Improve the reliability, security, and functionality of our
-                                applications.
-                            </li>
-                            <li>Enforce our Terms of Service.</li>
-                            <li>Comply with applicable legal obligations.</li>
-                        </ul>
-
-                        <p className="mt-4">
-                            We do not use personal information for purposes that are
-                            incompatible with the reason for which it was collected, unless
-                            otherwise permitted by law.
-                        </p>
-                    </section>
-
-                    {/* 8 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            8. Sharing Information Between MakaoHub Users
-                        </h2>
-
                         <p>
-                            Some MakaoHub features are specifically designed to allow users
-                            to communicate and share information with one another.
+                            Rentike may store saved or favourited properties, searches and filters,
+                            display preferences, theme settings and other account or device
+                            preferences to support a consistent experience.
                         </p>
-
-                        <p className="mt-4">
-                            For example, when a property seeker sends an enquiry to a
-                            property lister, information submitted with that enquiry may be
-                            made available to the relevant lister.
-                        </p>
-
-                        <p className="mb-3 mt-4">This may include:</p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>The seeker's name.</li>
-                            <li>Phone number.</li>
-                            <li>Email address, where provided.</li>
-                            <li>Profile photograph, where applicable.</li>
-                            <li>Enquiry message.</li>
-                        </ul>
-
-                        <p className="mt-4">
-                            Similarly, information that a property lister chooses to publish
-                            in connection with a rental listing may be visible to property
-                            seekers.
-                        </p>
-
-                        <p className="mt-4">
-                            Users should avoid sharing sensitive, confidential, or
-                            unnecessary personal information in listings, reviews, or
-                            messages.
+                        <p>
+                            Some preferences may be stored locally on your device;
+                            account-related data may be stored through Rentike backend services.
                         </p>
                     </section>
 
-                    {/* 9 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            9. We Do Not Sell Personal Information
+                    {/* Section 8 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            8. Reviews, Ratings and Reports
                         </h2>
+                        <p>
+                            Registered users may be able to submit property reviews, ratings,
+                            comments and reports. We may process their content, associated
+                            properties, account details and submission dates.
+                        </p>
+                        <p>
+                            Reviews, ratings and comments may be publicly visible. Reports
+                            of suspicious properties, users or activity are generally handled
+                            privately and may be reviewed to investigate complaints
+                            or enforce platform rules.
+                        </p>
+                    </section>
 
+                    {/* Section 9 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            9. Notifications and Communications
+                        </h2>
+                        <p>
+                            Rentike may send account and security messages, email verification
+                            codes, account-change notices, enquiry and property-activity
+                            notifications, listing updates and important service announcements.
+                        </p>
+                        <p>
+                            Communications may be delivered within Rentike, by email or through
+                            supported browser or device notifications. With push notifications
+                            enabled, relevant subscription information may be processed
+                            to deliver them.
+                        </p>
+                        <p>
+                            You can manage supported notification permissions in your browser
+                            or device settings. Certain account-security communications
+                            may remain necessary to protect your account.
+                        </p>
+                    </section>
+
+                    {/* Section 10 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            10. How We Use Personal Information
+                        </h2>
+                        <p>Rentike processes personal information to:</p>
+                        <ul className="list-disc space-y-2 pl-6">
+                            <li>Create, authenticate and maintain user accounts.</li>
+                            <li>Publish and display property listings.</li>
+                            <li>Provide search, discovery, maps and location tools.</li>
+                            <li>Connect property seekers with listers through enquiries and messages.</li>
+                            <li>Manage saved properties, preferences and public profiles.</li>
+                            <li>Deliver notifications and service communications.</li>
+                            <li>Display and moderate reviews and investigate reports.</li>
+                            <li>Prevent fraud, abuse and unauthorised access.</li>
+                            <li>Maintain security, reliability and customer support.</li>
+                            <li>Comply with applicable legal requirements.</li>
+                        </ul>
+                        <p>
+                            We aim to process personal information for specific, legitimate
+                            purposes and in accordance with applicable data-protection law.
+                        </p>
+                    </section>
+
+                    {/* Section 11 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            11. Legal Grounds for Processing
+                        </h2>
+                        <p>
+                            Depending on the circumstances, personal information may be
+                            processed to provide services users request, to operate and secure
+                            the platform, to meet legal obligations, for legitimate interests
+                            permitted by law, or where valid consent is given.
+                        </p>
+                        <p>
+                            Where processing is based on consent, users may withdraw it
+                            subject to applicable law and any consequences for features
+                            that require the information.
+                        </p>
+                    </section>
+
+                    {/* Section 12 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            12. Sharing Personal Information
+                        </h2>
                         <p className="font-semibold text-black dark:text-white">
-                            MakaoHub does not sell users' personal information.
+                            Rentike does not sell users' personal information.
                         </p>
-
-                        <p className="mb-3 mt-4">
-                            Personal information may, however, be processed or shared where
-                            reasonably necessary to:
-                        </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Provide MakaoHub services.</li>
-                            <li>Enable communication between users.</li>
-                            <li>Operate technical infrastructure.</li>
-                            <li>Provide customer support.</li>
-                            <li>Investigate fraud, abuse, or security incidents.</li>
-                            <li>Comply with applicable laws or lawful requests.</li>
-                        </ul>
-                    </section>
-
-                    {/* 10 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            10. Service Providers and Third-Party Services
-                        </h2>
-
+                        <h3 className="pt-2 text-lg font-semibold text-black dark:text-white">
+                            12.1 Sharing Between Users
+                        </h3>
                         <p>
-                            MakaoHub may rely on third-party service providers to operate
-                            certain parts of our applications and services.
+                            Information submitted in an enquiry may be shared with the relevant
+                            property lister. Information placed in public profiles or property
+                            listings may be available to seekers and other visitors.
                         </p>
-
-                        <p className="mb-3 mt-4">These may include providers of:</p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Database and backend infrastructure.</li>
-                            <li>Cloud hosting.</li>
-                            <li>File and image storage.</li>
-                            <li>Authentication services.</li>
-                            <li>Map and location services.</li>
-                            <li>Email or communication services.</li>
-                            <li>Security and technical infrastructure.</li>
-                        </ul>
-
-                        <p className="mt-4">
-                            These service providers may process information on behalf of
-                            MakaoHub where necessary to provide their services.
-                        </p>
-
-                        <p className="mb-3 mt-4">
-                            MakaoHub may also provide links to or integrations with external
-                            services such as:
-                        </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>WhatsApp.</li>
-                            <li>Telephone applications.</li>
-                            <li>Mapping applications.</li>
-                        </ul>
-
-                        <p className="mt-4">
-                            When you choose to use an external service, that service may
-                            process your information in accordance with its own privacy
-                            policy and terms of service.
-                        </p>
-
-                        <p className="mt-4">
-                            MakaoHub does not control the privacy practices of independent
-                            third-party services.
-                        </p>
-                    </section>
-
-                    {/* 11 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            11. Data Security
-                        </h2>
-
-                        <p className="mb-3">
-                            MakaoHub takes reasonable technical and organizational measures
-                            to protect personal information against:
-                        </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Unauthorized access.</li>
-                            <li>Unlawful use.</li>
-                            <li>Loss.</li>
-                            <li>Alteration.</li>
-                            <li>Destruction.</li>
-                            <li>Unauthorized disclosure.</li>
-                        </ul>
-
-                        <p className="mt-4">
-                            These measures may include account authentication, access
-                            controls, secure communications, backend security controls, and
-                            administrative safeguards.
-                        </p>
-
-                        <p className="mt-4">
-                            However, no website, mobile application, database, electronic
-                            communication system, or method of data storage can guarantee
-                            absolute security.
-                        </p>
-
-                        <p className="mt-4">
-                            Users are responsible for keeping their account credentials
-                            secure and should never share passwords, authentication codes, or
-                            other account-security information with other people.
-                        </p>
-                    </section>
-
-                    {/* 12 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            12. How Long We Keep Information
-                        </h2>
-
-                        <p className="mb-3">
-                            MakaoHub retains personal information only for as long as
-                            reasonably necessary for purposes such as:
-                        </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Maintaining an active user account.</li>
-                            <li>Providing MakaoHub services.</li>
-                            <li>Preserving property listings and user communications.</li>
-                            <li>Investigating disputes, fraud, or abuse.</li>
-                            <li>Maintaining security records.</li>
-                            <li>Complying with legal obligations.</li>
-                            <li>Resolving complaints.</li>
-                        </ul>
-
-                        <p className="mt-4">
-                            Information may be deleted, anonymised, or retained for a limited
-                            period after an account is closed where reasonably necessary or
-                            legally required.
-                        </p>
-
-                        <p className="mt-4">
-                            As MakaoHub develops, more specific retention periods may be
-                            introduced for particular categories of information.
-                        </p>
-                    </section>
-
-                    {/* 13 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            13. Your Privacy Rights
-                        </h2>
-
+                        <h3 className="pt-2 text-lg font-semibold text-black dark:text-white">
+                            12.2 Technology Service Providers
+                        </h3>
                         <p>
-                            Subject to applicable Kenyan law, users may have certain rights
-                            concerning their personal information.
+                            Rentike uses service providers for authentication (including Clerk),
+                            backend infrastructure (including Convex), hosting (including Cloudflare),
+                            mapping (including Google Maps), and email delivery. These providers
+                            may process information needed to provide their services.
                         </p>
+                        <h3 className="pt-2 text-lg font-semibold text-black dark:text-white">
+                            12.3 External Communication Services
+                        </h3>
+                        <p>
+                            Where Rentike links to services such as WhatsApp, telephone applications
+                            or Google Maps, those services operate under their own privacy policies
+                            and terms.
+                        </p>
+                        <h3 className="pt-2 text-lg font-semibold text-black dark:text-white">
+                            12.4 Legal and Safety Requirements
+                        </h3>
+                        <p>
+                            Relevant information may be preserved or shared where legally permitted
+                            or required to respond to valid legal requests, investigate fraud,
+                            protect users, enforce platform rules or maintain security.
+                        </p>
+                    </section>
 
-                        <p className="mb-3 mt-4">These may include the right to:</p>
+                    {/* Section 13 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            13. Cookies and Browser Storage
+                        </h2>
+                        <p>
+                            Rentike may use cookies, local storage and similar technologies
+                            necessary for the operation of its website and web application.
+                        </p>
+                        <p>
+                            These technologies may help maintain authentication sessions,
+                            secure accounts, remember theme preferences, preserve settings
+                            and support essential web-app functionality.
+                        </p>
+                        <p>
+                            Some may be provided by third-party services used to operate Rentike.
+                            You can manage cookies and website data through your browser settings,
+                            although blocking essential storage may affect sign-in and other features.
+                        </p>
+                        <p>
+                            If Rentike introduces additional tracking technologies requiring
+                            specific notices or consent, appropriate information and controls
+                            will be provided as required by law.
+                        </p>
+                    </section>
 
+                    {/* Section 14 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            14. Data Security
+                        </h2>
+                        <p>
+                            Rentike takes reasonable technical and organisational measures
+                            intended to protect personal information against unauthorised
+                            access, misuse, alteration, disclosure and loss.
+                        </p>
+                        <p>
+                            These measures may include secure authentication, access controls,
+                            protected communications, backend security and administrative safeguards.
+                            No internet-connected service can guarantee absolute security.
+                        </p>
+                        <p>
+                            Users should protect their credentials and never share
+                            passwords or verification codes.
+                        </p>
+                    </section>
+
+                    {/* Section 15 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            15. How Long We Retain Information
+                        </h2>
+                        <p>
+                            Rentike retains personal information for as long as reasonably necessary
+                            to maintain accounts, provide listings and communications, preserve
+                            appropriate records, resolve complaints, investigate fraud or security
+                            incidents and meet legal requirements.
+                        </p>
+                        <p>
+                            When information is no longer needed, it may be deleted or anonymised
+                            as appropriate. Some information may temporarily remain in backups
+                            or be retained where legally required.
+                        </p>
+                    </section>
+
+                    {/* Section 16 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            16. Your Privacy Rights
+                        </h2>
+                        <p>Subject to applicable Kenyan law, users may have the right to:</p>
                         <ul className="list-disc space-y-2 pl-6">
-                            <li>Know what personal information is being processed.</li>
+                            <li>Be informed about how personal information is used.</li>
                             <li>Request access to personal information.</li>
-                            <li>
-                                Request the correction of inaccurate or incomplete
-                                information.
-                            </li>
-                            <li>Object to certain types of processing.</li>
-                            <li>Request the restriction of certain processing.</li>
-                            <li>
-                                Request the deletion of personal information where legally
-                                applicable.
-                            </li>
-                            <li>
-                                Withdraw consent where processing is based on consent.
-                            </li>
-                            <li>
-                                Request information about how personal data is being used.
-                            </li>
+                            <li>Request correction of inaccurate or misleading information.</li>
+                            <li>Object to certain processing.</li>
+                            <li>Request deletion or restriction where applicable.</li>
+                            <li>Withdraw consent where processing relies on consent.</li>
+                            <li>Request data portability where applicable.</li>
                         </ul>
-
-                        <p className="mt-4">
-                            MakaoHub may need to verify your identity before completing
-                            certain privacy-related requests.
-                        </p>
-
-                        <p className="mt-4">
-                            Some information may need to be retained where required by law or
-                            where reasonably necessary for security, fraud prevention,
-                            dispute resolution, or other lawful purposes.
-                        </p>
-                    </section>
-
-                    {/* 14 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            14. Account Deletion
-                        </h2>
-
-                        <p>Users may request the deletion of their MakaoHub account.</p>
-
-                        <p className="mt-4">
-                            When an account deletion request is completed, MakaoHub may
-                            delete or anonymise personal information associated with the
-                            account, subject to information that must reasonably or legally
-                            be retained.
-                        </p>
-
-                        <p className="mb-3 mt-4">
-                            Certain information may not disappear immediately where it forms
-                            part of:
-                        </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Fraud or security investigations.</li>
-                            <li>Legal records.</li>
-                            <li>Disputes.</li>
-                            <li>System backups.</li>
-                            <li>
-                                Information required to be retained under applicable law.
-                            </li>
-                        </ul>
-
-                        <p className="mt-4">
-                            MakaoHub will provide account deletion or support options through
-                            the application as those features become available.
-                        </p>
-                    </section>
-
-                    {/* 15 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            15. Children and Age Requirements
-                        </h2>
-
                         <p>
-                            MakaoHub accounts are intended for persons aged{' '}
-                            <strong className="text-black dark:text-white">
-                                18 years or older
-                            </strong>
-                            .
-                        </p>
-
-                        <p className="mt-4">
-                            Persons under the age of 18 should not create a MakaoHub account.
-                        </p>
-
-                        <p className="mt-4">
-                            If we become aware that an account has been created contrary to
-                            this age requirement, MakaoHub may restrict, suspend, or remove
-                            the account where appropriate.
+                            Rentike may request identity verification before handling certain
+                            privacy requests. You can contact Rentike Support to exercise these
+                            rights or raise concerns with Kenya's Office of the Data Protection
+                            Commissioner where applicable.
                         </p>
                     </section>
 
-                    {/* 16 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            16. Browser Storage, Cookies, and Similar Technologies
+                    {/* Section 17 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            17. Account Deletion
                         </h2>
-
                         <p>
-                            MakaoHub may use browser storage, cookies, or similar
-                            technologies where necessary to provide and improve application
-                            functionality.
+                            Users may request deletion of their Rentike accounts through
+                            available account-management or support options.
                         </p>
-
-                        <p className="mb-3 mt-4">
-                            These technologies may be used for purposes such as:
-                        </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Maintaining login sessions.</li>
-                            <li>Remembering theme preferences.</li>
-                            <li>Preserving application settings.</li>
-                            <li>Improving application functionality.</li>
-                            <li>Maintaining security.</li>
-                        </ul>
-
-                        <p className="mt-4">
-                            If MakaoHub later introduces analytics, advertising, or other
-                            technologies that materially change how users are tracked, this
-                            Privacy Policy will be updated accordingly.
-                        </p>
-
-                        <p className="mt-4">
-                            Where required, users will be provided with appropriate
-                            information, notices, or controls relating to those technologies.
-                        </p>
-                    </section>
-
-                    {/* 17 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            17. Payments and Subscriptions
-                        </h2>
-
                         <p>
-                            MakaoHub may offer paid services, including subscription plans,
-                            featured listings, promotional features, or other premium
-                            services provided through our applications.
-                        </p>
-
-                        <p className="mb-3 mt-4">
-                            When a user purchases a paid MakaoHub service, certain
-                            payment-related information may be processed, including:
-                        </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>The amount paid.</li>
-                            <li>The selected service or subscription plan.</li>
-                            <li>Payment status.</li>
-                            <li>Transaction or payment reference.</li>
-                            <li>Date and time of the transaction.</li>
-                            <li>
-                                Contact information required to complete or confirm the
-                                payment.
-                            </li>
-                            <li>
-                                Other information reasonably necessary to process, verify, or
-                                record the transaction.
-                            </li>
-                        </ul>
-
-                        <p className="mt-4">
-                            Payments may be processed through authorized third-party payment
-                            providers. Where a third-party payment provider is used, that
-                            provider may collect and process payment information in
-                            accordance with its own privacy policy and applicable legal
-                            requirements.
-                        </p>
-
-                        <p className="mt-4">
-                            MakaoHub does not intend to directly store complete bank-card
-                            details, mobile-money PINs, passwords, or other confidential
-                            payment credentials handled by authorized payment providers.
-                        </p>
-
-                        <p className="mb-3 mt-4">
-                            Payment-related information retained by MakaoHub may be used to:
-                        </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Activate or renew subscriptions.</li>
-                            <li>Provide paid or premium features.</li>
-                            <li>Confirm successful payments.</li>
-                            <li>Maintain transaction records.</li>
-                            <li>Resolve payment-related enquiries or disputes.</li>
-                            <li>Prevent fraud or misuse.</li>
-                            <li>
-                                Comply with applicable accounting, tax, or legal obligations.
-                            </li>
-                        </ul>
-
-                        <p className="mt-4 font-semibold text-black dark:text-white">
-                            MakaoHub does not collect or process rent, rental deposits,
-                            booking deposits, or other property-related payments between
-                            property seekers and property listers.
-                        </p>
-
-                        <p className="mt-4">
-                            Any such payment arrangements are made independently between the
-                            relevant users.
-                        </p>
-
-                        <p className="mt-4">
-                            If MakaoHub introduces additional payment services in the future
-                            that materially change how personal or financial information is
-                            processed, this Privacy Policy will be updated accordingly.
+                            When a request is processed, relevant personal information may
+                            be deleted or anonymised, subject to legal and operational requirements.
+                            Some records may be retained for legal compliance, security investigations,
+                            fraud prevention, dispute resolution or system backups.
                         </p>
                     </section>
 
-                    {/* 18 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            18. International Processing and Storage
+                    {/* Section 18 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            18. Children and Age Requirements
                         </h2>
-
                         <p>
-                            Some technical service providers used to operate MakaoHub may
-                            process or store information using infrastructure located outside
-                            Kenya.
+                            Rentike accounts are intended for individuals aged 18 years
+                            or older. Persons under 18 should not create an account.
                         </p>
-
-                        <p className="mt-4">
-                            Where personal information is transferred, stored, or processed
-                            internationally, MakaoHub will seek to use appropriate safeguards
-                            where required by applicable data-protection law.
+                        <p>
+                            If Rentike becomes aware of an account created contrary
+                            to this requirement, appropriate steps may be taken to restrict
+                            or remove it.
                         </p>
                     </section>
 
-                    {/* 19 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            19. Legal Requirements and Protection of Users
+                    {/* Section 19 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            19. International Data Processing
                         </h2>
-
-                        <p className="mb-3">
-                            MakaoHub may preserve, access, or disclose information where
-                            reasonably necessary to:
-                        </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Comply with applicable law.</li>
-                            <li>
-                                Respond to lawful requests from authorised public authorities.
-                            </li>
-                            <li>Enforce our Terms of Service.</li>
-                            <li>Investigate fraud or criminal activity.</li>
-                            <li>Protect the rights, safety, or security of users.</li>
-                            <li>Protect MakaoHub's systems and services.</li>
-                        </ul>
-
-                        <p className="mt-4">
-                            MakaoHub will not intentionally disclose personal information to
-                            law-enforcement agencies, government authorities, or other public
-                            authorities without a lawful basis.
+                        <p>
+                            Some third-party technology providers may process or store information
+                            using infrastructure outside Kenya. Where personal information is
+                            transferred internationally, Rentike will seek to apply lawful transfer
+                            conditions and appropriate safeguards as required by Kenyan data-protection law.
                         </p>
                     </section>
 
-                    {/* 20 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
-                            20. Data Breaches
+                    {/* Section 20 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            20. Personal Data Breaches
                         </h2>
-
-                        <p className="mb-3">
-                            If MakaoHub becomes aware of a personal-data breach, we will take
-                            reasonable steps to:
+                        <p>
+                            If Rentike becomes aware of a personal-data breach, appropriate steps
+                            may be taken to investigate and contain it, secure affected systems,
+                            assess possible harm, take corrective measures and notify affected
+                            individuals or relevant authorities where required by law.
                         </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Investigate the incident.</li>
-                            <li>Contain the breach.</li>
-                            <li>Protect affected systems.</li>
-                            <li>Determine what information may have been affected.</li>
-                            <li>Take appropriate corrective measures.</li>
-                            <li>
-                                Notify affected users or relevant authorities where required by
-                                applicable law.
-                            </li>
-                        </ul>
                     </section>
 
-                    {/* 21 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
+                    {/* Section 21 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
                             21. Changes to This Privacy Policy
                         </h2>
-
                         <p>
-                            MakaoHub may update this Privacy Policy as our applications,
-                            services, business operations, and legal obligations change.
+                            Rentike may update this Privacy Policy to reflect changes in its
+                            services, security practices, data processing or legal obligations.
                         </p>
-
-                        <p className="mt-4">
-                            When significant changes are made, users may be informed through
-                            appropriate means, including notifications within MakaoHub where
-                            appropriate.
-                        </p>
-
-                        <p className="mt-4">
-                            The latest version and effective date of this Privacy Policy will
-                            remain available through MakaoHub.
-                        </p>
-
-                        <p className="mt-4">
-                            Significant changes affecting how personal information is
-                            processed may require additional notice, consent, or user action
-                            where appropriate.
+                        <p>
+                            The latest version and effective date will remain available through
+                            Rentike. Significant changes may require additional notice or
+                            user action where appropriate.
                         </p>
                     </section>
 
-                    {/* 22 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
+                    {/* Section 22 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
                             22. Relationship With Our Terms of Service
                         </h2>
-
                         <p>
-                            This Privacy Policy should be read together with the{' '}
+                            This Privacy Policy should be read together with Rentike's Terms of Service.
+                            The Terms of Service govern platform use; this Privacy Policy explains
+                            how personal information is collected, processed, stored, shared and protected.
+                        </p>
+                        <p>
                             <a
                                 href="/terms"
                                 className="font-semibold text-black underline underline-offset-4 dark:text-white"
                             >
-                                MakaoHub Terms of Service
+                                View the Terms of Service
                             </a>
-                            .
-                        </p>
-
-                        <p className="mt-4">
-                            The Terms of Service explain the rules governing the use of
-                            MakaoHub, while this Privacy Policy explains how personal
-                            information is collected, used, stored, shared, and protected.
                         </p>
                     </section>
 
-                    {/* 23 */}
-                    <section>
-                        <h2 className="mb-4 text-xl font-bold text-black dark:text-white">
+                    {/* Section 23 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
                             23. Contact and Privacy Requests
                         </h2>
-
                         <p>
-                            Questions, concerns, or requests relating to privacy or personal
-                            information may be directed to{' '}
-                            <strong className="text-black dark:text-white">
-                                MakaoHub Support
-                            </strong>{' '}
-                            through the official contact options provided within our
-                            applications.
+                            For questions, concerns or requests about privacy, personal
+                            information, account correction, deletion or suspected misuse, contact:
                         </p>
-
-                        <p className="mb-3 mt-4">
-                            Users may contact MakaoHub regarding matters such as:
-                        </p>
-
-                        <ul className="list-disc space-y-2 pl-6">
-                            <li>Accessing personal information.</li>
-                            <li>Correcting personal information.</li>
-                            <li>Requesting account deletion.</li>
-                            <li>Reporting suspected misuse of personal information.</li>
-                            <li>Asking questions about this Privacy Policy.</li>
-                        </ul>
-
-                        <div className="mt-6 rounded-2xl border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-800 dark:bg-[#111111]">
+                        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-800 dark:bg-[#111111]">
                             <p className="font-semibold text-black dark:text-white">
-                                MakaoHub
+                                Rentike Support
                             </p>
-                            <p>Developed and operated by SHEN Studios</p>
+                            <p>
+                                <a
+                                    href="mailto:support@rentike.co.ke"
+                                    className="underline underline-offset-4"
+                                >
+                                    support@rentike.co.ke
+                                </a>
+                            </p>
+                            <p className="mt-3 font-semibold text-black dark:text-white">
+                                Rentike
+                            </p>
+                            <p>Developed and operated by Shen Studios</p>
                             <p>Nakuru, Kenya</p>
                         </div>
+                        <p>
+                            Users may also contact support with questions
+                            concerning this Privacy Policy.
+                        </p>
                     </section>
                 </div>
 
@@ -945,12 +627,12 @@ const PrivacyPolicyView: React.FC = () => {
                             onClick={() => window.history.back()}
                             className="font-medium text-neutral-600 underline underline-offset-4 hover:text-black dark:text-neutral-400 dark:hover:text-white"
                         >
-                            Return to MakaoHub
+                            Return to Rentike
                         </button>
                     </div>
 
                     <p className="mt-8 text-xs text-neutral-500">
-                        © 2026 MakaoHub. Developed and operated by SHEN Studios.
+                        © 2026 Rentike. Developed and operated by Shen Studios.
                     </p>
                 </div>
             </main>

@@ -184,6 +184,7 @@ export const Footer: React.FC = () => {
                   type="button"
                   onClick={() => setActiveModal('faq')}
                   className={linkClass}
+                  style={{ display: 'none' }}
                 >
                   Help Center
                 </button>
@@ -196,6 +197,7 @@ export const Footer: React.FC = () => {
                   type="button"
                   onClick={() => setActiveModal('faq')}
                   className={linkClass}
+                  style={{ display: 'none' }}
                 >
                   FAQ
                 </button>

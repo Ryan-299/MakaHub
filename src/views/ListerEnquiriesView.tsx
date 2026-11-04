@@ -723,8 +723,7 @@ export const ListerEnquiriesView: React.FC = () => {
           </div>
         )}
 
-
-        {listerEnquiries.length === 0 ? (
+        {messageTab !== 'inbox' ? null : listerEnquiries.length === 0 ? (
           <div className="bg-transparent dark:bg-transparent rounded-none p-12 text-center border border-neutral-200 dark:border-[#2A2A2A] max-w-xl mx-auto space-y-5 shadow-xs my-8 font-sans">
             <div className="w-16 h-16 rounded-3xl bg-neutral-100 dark:bg-[#181818] border border-neutral-200 dark:border-[#303030] flex items-center justify-center mx-auto text-neutral-700 dark:text-[#F5F5F5]">
               <MessageSquare className="w-8 h-8" />

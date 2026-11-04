@@ -31,7 +31,7 @@ export const HelpAndLegalModals: React.FC<HelpAndLegalModalsProps> = ({ activeMo
             <h3 className="font-bold text-base sm:text-lg">
               {activeModal === 'faq' && 'FAQ / Help Centre'}
               {activeModal === 'contact' && 'Contact Us'}
-              {activeModal === 'about' && 'About MakaoHub'}
+              {activeModal === 'about' && 'About Rentike'}
               {activeModal === 'privacy' && 'Privacy Policy'}
               {activeModal === 'terms' && 'Terms of Service'}
             </h3>
@@ -671,51 +671,87 @@ export const HelpAndLegalModals: React.FC<HelpAndLegalModalsProps> = ({ activeMo
             </div>
 
           )}
+
           {activeModal === 'contact' && (
             <div className="space-y-4">
               <p>
-                Have questions or need assistance with finding or listing a rental home?
+                Have questions or need assistance with finding
+                or listing a rental home? Contact Rentike Support.
               </p>
-              <div className="space-y-3 p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800">
-                <div className="flex items-center gap-3 text-xs">
-                  <Mail className="w-4 h-4 text-neutral-700 dark:text-neutral-300 shrink-0" />
-                  <span>Support messages can be submitted directly through your active user enquiries.</span>
+
+              <div className="space-y-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                <div>
+                  <p className="mb-1 text-xs text-neutral-500 dark:text-neutral-400">
+                    Support Email
+                  </p>
+                  <a
+                    href="mailto:support@rentike.co.ke"
+                    className="text-sm font-semibold text-[#C49A6C] hover:underline"
+                  >
+                    support@rentike.co.ke
+                  </a>
                 </div>
-                <div className="flex items-center gap-3 text-xs">
-                  <CheckCircle2 className="w-4 h-4 text-neutral-700 dark:text-neutral-300 shrink-0" />
-                  <span>Our support team actively monitors listing verification and user feedback.</span>
+
+                <div>
+                  <p className="mb-1 text-xs text-neutral-500 dark:text-neutral-400">
+                    Phone Number
+                  </p>
+                  <a
+                    href="tel:+254791576330"
+                    className="text-sm font-semibold text-[#C49A6C] hover:underline"
+                  >
+                    0791576330
+                  </a>
                 </div>
               </div>
-              <p className="text-xs text-neutral-400 text-center pt-2">
-                Contact information and automated ticketing integration will be available here.
+            </div>
+          )}
+
+
+
+          {activeModal === 'about' && (
+            <div className="space-y-4">
+              <p className="font-medium text-neutral-900 dark:text-white">
+                Finding a home or filling a vacancy shouldn't be complicated.
+              </p>
+
+              <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
+                Founded by <strong>Igal Ryan</strong>, Rentike is a Kenyan rental
+                discovery platform built to make finding, listing and managing
+                rental properties simpler.
+              </p>
+
+              <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
+                Rentike connects property seekers with landlords, caretakers,
+                property managers and real estate agencies in one convenient
+                place. Whether you're searching for your next home or looking
+                to fill vacant units, Rentike helps you explore properties,
+                manage listings and connect directly.
+              </p>
+
+              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-3 text-xs">
+                <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-white">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-[#C49A6C]" />
+                  <span>Discover &amp; Compare Rental Homes</span>
+                </div>
+
+                <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-white">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-[#C49A6C]" />
+                  <span>List Properties &amp; Manage Vacancies</span>
+                </div>
+
+                <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-white">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-[#C49A6C]" />
+                  <span>Connect Directly Through Enquiries &amp; Messages</span>
+                </div>
+              </div>
+
+              <p className="text-center text-xs font-semibold tracking-widest text-[#C49A6C]">
+                FIND · CONNECT · MOVE IN
               </p>
             </div>
           )}
 
-          {activeModal === 'about' && (
-            <div className="space-y-3">
-              <p className="font-medium text-neutral-900 dark:text-white">
-                Finding a home or filling a vacancy shouldn’t be a complicated process.
-              </p>
-              <p className="text-xs sm:text-sm text-neutral-600 dark:text-neutral-400">
-                MakaoHub connects property seekers with landlords, caretakers, agents and property managers across Kenya. Seekers can discover available homes, compare prices and move-in costs, check vacancies, explore locations and contact listers directly. Property listers can showcase their rentals, manage vacancies and connect with genuinely interested tenants from one place.
-              </p>
-              <div className="p-4 rounded-2xl bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 space-y-2 text-xs">
-                <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-white">
-                  <CheckCircle2 className="w-4 h-4 text-neutral-800 dark:text-neutral-200" />
-                  <span>Discover & Compare Rental Homes</span>
-                </div>
-                <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-white">
-                  <CheckCircle2 className="w-4 h-4 text-neutral-800 dark:text-neutral-200" />
-                  <span>List Properties & Manage Vacancies</span>
-                </div>
-                <div className="flex items-center gap-2 font-bold text-neutral-900 dark:text-white">
-                  <CheckCircle2 className="w-4 h-4 text-neutral-800 dark:text-neutral-200" />
-                  <span>Direct Enquiries, Calls, WhatsApp & Reviews</span>
-                </div>
-              </div>
-            </div>
-          )}
 
           {activeModal === 'privacy' && (
             <div className="space-y-3 text-xs sm:text-sm">
