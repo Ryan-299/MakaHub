@@ -53,7 +53,7 @@ export const ListerPhoneView: React.FC = () => {
     };
     return (
         <main
-            className={`min-h-screen w-full flex items-center justify-center px-6 ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
+            className={`min-h-screen w-full flex items-center justify-center px-6 py-8 ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
                 }`}
         >
             <div className="w-full max-w-md">
@@ -136,7 +136,7 @@ export const ListerPhoneView: React.FC = () => {
                     <button
                         type="button"
                         onClick={handleSave}
-                        className="w-full mt-6 rounded-2xl px-5 py-4 text-base font-semibold transition-opacity hover:opacity-90"
+                        className="w-full mt-5 rounded-2xl px-5 py-3 text-base font-semibold transition-opacity hover:opacity-90"
                         style={{
                             backgroundColor: '#C49A6C',
                             color: '#111111',
