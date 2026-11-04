@@ -152,7 +152,7 @@ export const SignInPrompt: React.FC = () => {
             <div
                 className="relative mx-auto flex w-full max-w-[460px] flex-col items-center rounded-[28px] border px-6 py-8 sm:px-10 sm:py-10"
                 style={{
-                    backgroundColor: isDark ? '#0D0D0D' : '#FCFAF7',
+                    backgroundColor: isDark ? '#000000' : '#F7F5F1',
                     borderColor: isDark
                         ? 'rgba(196, 154, 108, 0.65)'
                         : 'rgba(196, 154, 108, 0.45)',
@@ -161,19 +161,6 @@ export const SignInPrompt: React.FC = () => {
                         : '0 18px 50px rgba(28, 22, 16, 0.08)',
                 }}
             >
-                {/* Close button */}
-
-                <button
-                    type="button"
-                    onClick={() => setReason(null)}
-                    aria-label="Close"
-                    className={`absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full transition-colors ${isDark
-                        ? 'text-neutral-400 hover:bg-white/5 hover:text-white'
-                        : 'text-neutral-500 hover:bg-black/5 hover:text-black'
-                        }`}
-                >
-                    <X className="h-4 w-4" />
-                </button>
 
                 <div className="flex w-full flex-col items-center text-center">
                     {/* Rentike logo */}
@@ -186,7 +173,7 @@ export const SignInPrompt: React.FC = () => {
                         }
                         alt="Rentike"
                         draggable={false}
-                        className="h-auto w-16 object-contain sm:w-20"
+                        className="h-auto w-14 object-contain sm:w-16"
                     />
 
                     {/* Rentike wordmark */}
@@ -219,7 +206,7 @@ export const SignInPrompt: React.FC = () => {
                     {/* Description */}
 
                     <p
-                        className="mt-3 text-[13px] leading-[1.6] sm:text-[15px]"
+                        className="mt-3 text-[15px] leading-[1.6]"
                         style={{
                             fontFamily:
                                 "'Manrope', 'Plus Jakarta Sans', system-ui, sans-serif",
@@ -243,7 +230,7 @@ export const SignInPrompt: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => goTo('signup')}
-                            className="h-[52px] w-full rounded-2xl text-sm font-semibold transition-all duration-200 hover:opacity-90 active:scale-[0.99] sm:h-14 sm:text-base"
+                            className="h-[52px] w-full rounded-full text-base font-semibold transition-all duration-200 hover:opacity-90 active:scale-[0.99] sm:h-14 sm:text-base"
                             style={{
                                 backgroundColor: '#C49A6C',
                                 color: '#111111',
@@ -258,7 +245,7 @@ export const SignInPrompt: React.FC = () => {
                         <button
                             type="button"
                             onClick={() => goTo('login')}
-                            className="h-[52px] w-full rounded-2xl text-sm font-semibold transition-all duration-200 hover:opacity-80 active:scale-[0.99] sm:h-14 sm:text-base"
+                            className="h-[52px] w-full rounded-full text-base font-semibold transition-all duration-200 hover:opacity-80 active:scale-[0.99] sm:h-14 sm:text-base"
                             style={{
                                 backgroundColor: 'transparent',
                                 color: isDark ? '#F7F5F1' : '#171512',
