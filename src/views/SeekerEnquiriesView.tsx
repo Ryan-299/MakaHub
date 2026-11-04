@@ -37,7 +37,7 @@ export const SeekerEnquiriesView: React.FC = () => {
     notifications = [],
     markNotificationRead,
     currentUser,
-    isDark,
+    resolvedTheme,
     toggleTheme,
     sendEnquiryReply,
     markEnquiryAsRead,
@@ -48,6 +48,7 @@ export const SeekerEnquiriesView: React.FC = () => {
     targetMessageId,
     setTargetMessageId,
   } = useApp();
+  const isDark = resolvedTheme === 'dark';
   const {
     isAuthenticated: convexAuthed,
     isLoading: convexAuthLoading,
@@ -359,8 +360,8 @@ export const SeekerEnquiriesView: React.FC = () => {
                 >
                   <span
                     className={`w-8 h-8 rounded-full flex items-center justify-center ${!isDark
-                        ? 'bg-white text-neutral-600 shadow-sm'
-                        : 'text-neutral-500'
+                      ? 'bg-white text-neutral-600 shadow-sm'
+                      : 'text-neutral-500'
                       }`}
                   >
                     <Sun className="w-4 h-4" />
@@ -368,8 +369,8 @@ export const SeekerEnquiriesView: React.FC = () => {
 
                   <span
                     className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark
-                        ? 'bg-[#C49A6C] text-white shadow-sm'
-                        : 'text-[#B8792B]'
+                      ? 'bg-[#C49A6C] text-white shadow-sm'
+                      : 'text-[#B8792B]'
                       }`}
                   >
                     <Moon className="w-4 h-4" />
