@@ -682,7 +682,7 @@ export const UserProfileView: React.FC = () => {
                 setActiveTab('billing');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
               }}
-              className="w-full bg-[#F7F3EC] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[8px_8px_18px_rgba(28,22,16,0.12),-8px_-8px_18px_rgba(255,255,255,0.95)] dark:shadow-[8px_8px_18px_rgba(0,0,0,0.50),-5px_-5px_12px_rgba(255,255,255,0.035)] flex items-center justify-between gap-4 text-left transition-all"
+              className="hidden w-full bg-[#F7F3EC] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[8px_8px_18px_rgba(28,22,16,0.12),-8px_-8px_18px_rgba(255,255,255,0.95)] dark:shadow-[8px_8px_18px_rgba(0,0,0,0.50),-5px_-5px_12px_rgba(255,255,255,0.035)] flex items-center justify-between gap-4 text-left transition-all"
             >
               <div className="flex items-center gap-4 min-w-0">
                 <div className="w-11 h-11 shrink-0 rounded-2xl bg-[#F2E7D8] dark:bg-[#24201C] text-[#B8792B] flex items-center justify-center">
@@ -759,7 +759,7 @@ export const UserProfileView: React.FC = () => {
             <button
               type="button"
               onClick={() => setActiveHelpModal('faq')}
-              className="w-full bg-[#F7F3EC] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[8px_8px_18px_rgba(28,22,16,0.12),-8px_-8px_18px_rgba(255,255,255,0.95)] dark:shadow-[8px_8px_18px_rgba(0,0,0,0.50),-5px_-5px_12px_rgba(255,255,255,0.035)] flex items-center justify-between gap-4 text-left transition-all"
+              className="hidden w-full bg-[#F7F3EC] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[8px_8px_18px_rgba(28,22,16,0.12),-8px_-8px_18px_rgba(255,255,255,0.95)] dark:shadow-[8px_8px_18px_rgba(0,0,0,0.50),-5px_-5px_12px_rgba(255,255,255,0.035)] flex items-center justify-between gap-4 text-left transition-all"
             >
               <div className="flex items-center gap-4 min-w-0">
                 <div className="w-11 h-11 shrink-0 rounded-2xl bg-[#F2E7D8] dark:bg-[#24201C] text-[#B8792B] flex items-center justify-center">
@@ -779,6 +779,31 @@ export const UserProfileView: React.FC = () => {
 
               <ChevronRight className="w-4 h-4 shrink-0 text-[var(--rentike-bronze)]" />
             </button>
+
+            {/* About Rentike */}
+            <button
+              type="button"
+              onClick={() => setActiveHelpModal('about')}
+              className="w-full bg-[#F7F3EC] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-[#303030] flex items-center justify-between gap-4 text-left transition-colors hover:border-[#C49A6C]"
+            >
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-11 h-11 shrink-0 rounded-2xl bg-[#F2E7D8] dark:bg-[#24201C] text-[#C49A6C] flex items-center justify-center">
+                  <Info className="w-5 h-5" />
+                </div>
+
+                <div className="min-w-0">
+                  <h3 className="text-sm font-semibold text-neutral-950 dark:text-white">
+                    About Rentike
+                  </h3>
+                  <p className="mt-0.5 text-xs text-neutral-500 dark:text-[#8A8A8A]">
+                    Learn about Rentike and our mission.
+                  </p>
+                </div>
+              </div>
+
+              <ChevronRight className="w-4 h-4 shrink-0 text-[var(--rentike-bronze)]" />
+            </button>
+
             {/* Contact Us */}
             <button
               type="button"
