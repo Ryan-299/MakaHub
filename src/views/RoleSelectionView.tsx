@@ -95,18 +95,7 @@ export const RoleSelectionView: React.FC = () => {
       </header>
 
       {/* Main Centered Role Selection Column (Max-width 460px on desktop) */}
-      <div
-        className="w-[calc(100%-32px)] sm:w-full max-w-[560px] mx-auto flex flex-col items-center rounded-[28px] px-6 sm:px-10 py-8 sm:py-10 border"
-        style={{
-          backgroundColor: isDark ? '#0D0D0D' : '#FCFAF7',
-          borderColor: isDark
-            ? 'rgba(196, 154, 108, 0.65)'
-            : 'rgba(196, 154, 108, 0.45)',
-          boxShadow: isDark
-            ? '0 18px 50px rgba(0, 0, 0, 0.35)'
-            : '0 18px 50px rgba(28, 22, 16, 0.08)',
-        }}
-      >
+      <div className="w-full max-w-[560px] mx-auto flex flex-col items-center px-3 sm:px-10 py-6 sm:py-10">
         {/* 1. Large Rentike Logo */}
         <div className="mb-5 flex flex-col items-center">
           <img

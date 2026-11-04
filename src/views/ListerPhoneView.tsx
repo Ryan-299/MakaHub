@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { ArrowLeft, Phone } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { api } from '../../convex/_generated/api';
+import { convexClient, isConvexConfigured } from '../lib/convex';
 
 export const ListerPhoneView: React.FC = () => {
     const {
         currentUser,
         assignListerSubtype,
+        setCurrentUser,
         setCurrentView,
         resolvedTheme,
     } = useApp();
@@ -18,41 +21,36 @@ export const ListerPhoneView: React.FC = () => {
     const handleSave = async () => {
         setError('');
 
-        const cleaned = phone.replace(/[\s-]/g, '');
-
-        let normalizedPhone = cleaned;
-
-        if (cleaned.startsWith('+254')) {
-            normalizedPhone = cleaned;
-        } else if (cleaned.startsWith('254')) {
-            normalizedPhone = `+${cleaned}`;
-        } else if (cleaned.startsWith('0')) {
-            normalizedPhone = `+254${cleaned.slice(1)}`;
-        } else if (/^[71]\d{8}$/.test(cleaned)) {
-            normalizedPhone = `+254${cleaned}`;
-        }
-
-        if (!/^\+254[71]\d{8}$/.test(normalizedPhone)) {
-            setError('Please enter a valid Kenyan phone number.');
+        if (!phone.trim()) {
+            setError('Please enter your phone number.');
             return;
         }
 
-        if (!currentUser?.listerSubtype) {
-            setCurrentView('lister-subtype');
+        if (!currentUser || !isConvexConfigured || !convexClient) {
+            setError('Unable to save your phone number. Please try again.');
             return;
         }
 
         try {
-            await assignListerSubtype(currentUser.listerSubtype, normalizedPhone);
-        } catch (err) {
-            setError(
-                err instanceof Error
-                    ? err.message
-                    : 'Unable to save this phone number. Please try again.'
+            const result = await convexClient.mutation(
+                api.users.updateMyPhone,
+                { phone: phone.trim() }
             );
+
+            if (result.status === 'saved' || result.status === 'unchanged') {
+                setCurrentUser({ ...currentUser, phone: result.phone });
+                setCurrentView('lister-about');
+                return;
+            }
+            if (result.status === 'taken') {
+                setError('This phone number is already used by another account.');
+            } else if (result.status === 'invalid') {
+                setError('Enter a valid Kenyan mobile number, e.g. 0712 345 678.');
+            }
+        } catch (err) {
+            setError('Could not save your phone number. Please try again.');
         }
     };
-
     return (
         <main
             className={`min-h-screen w-full flex items-center justify-center px-6 ${isDark ? 'bg-black text-white' : 'bg-white text-neutral-900'
@@ -61,7 +59,7 @@ export const ListerPhoneView: React.FC = () => {
             <div className="w-full max-w-md">
                 <button
                     type="button"
-                    onClick={() => setCurrentView('role-selection')}
+                    onClick={() => setCurrentView('lister-subtype')}
                     className="mb-8 flex items-center gap-2 text-sm opacity-70 hover:opacity-100"
                 >
                     <ArrowLeft size={18} />
@@ -78,15 +76,20 @@ export const ListerPhoneView: React.FC = () => {
                         <Phone size={22} />
                     </div>
 
-                    <h1 className="text-3xl font-semibold tracking-tight">
-                        Complete your lister profile
+                    <h1
+                        className="font-editorial text-4xl sm:text-5xl font-normal leading-tight"
+                        style={{
+                            fontFamily: "'Cormorant Garamond', Georgia, serif",
+                        }}
+                    >
+                        Contact Phone Number
                     </h1>
 
                     <p
                         className={`mt-3 text-sm leading-6 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
                             }`}
                     >
-                        Add a phone number to continue to your MakaoHub lister dashboard.
+                        Add a number seekers can use to contact you.
                     </p>
                 </div>
 
@@ -117,19 +120,27 @@ export const ListerPhoneView: React.FC = () => {
                         className={`mt-3 text-xs leading-5 ${isDark ? 'text-neutral-500' : 'text-neutral-500'
                             }`}
                     >
-                        This number will be saved to your MakaoHub account. SMS verification
-                        is not required at this stage.
+                        This number will appear on your public profile.
                     </p>
-
                     <button
                         type="button"
                         onClick={handleSave}
-                        className={`w-full mt-6 py-4 rounded-xl font-semibold transition ${isDark
-                            ? 'bg-white text-black hover:bg-neutral-200'
-                            : 'bg-black text-white hover:bg-neutral-800'
-                            }`}
+                        className="w-full mt-6 rounded-2xl px-5 py-4 text-base font-semibold transition-opacity hover:opacity-90"
+                        style={{
+                            backgroundColor: '#C49A6C',
+                            color: '#111111',
+                        }}
                     >
                         Save & Continue
+
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setCurrentView('lister-about')}
+                        className={`mt-4 w-full text-sm font-medium underline underline-offset-4 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
+                            }`}
+                    >
+                        Skip for now
                     </button>
                 </div>
             </div>

@@ -1587,7 +1587,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return [...prev, updated];
       });
 
-      setCurrentView('lister-about');
+      setCurrentView('lister-phone');
     } catch (error) {
       console.error('Failed to save lister subtype to Convex:', error);
       throw new Error('Unable to save your lister category. Please try again.');

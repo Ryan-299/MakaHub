@@ -121,18 +121,7 @@ export const ListerSubtypeView: React.FC = () => {
       </header>
 
       {/* Main Content Column */}
-      <div
-        className="w-[calc(100%-32px)] sm:w-full max-w-[760px] mx-auto text-center space-y-6 rounded-[28px] px-4 sm:px-8 md:px-10 py-7 sm:py-9 border animate-in fade-in"
-        style={{
-          backgroundColor: isDark ? '#0D0D0D' : '#FCFAF7',
-          borderColor: isDark
-            ? 'rgba(196, 154, 108, 0.65)'
-            : 'rgba(196, 154, 108, 0.45)',
-          boxShadow: isDark
-            ? '0 18px 50px rgba(0, 0, 0, 0.35)'
-            : '0 18px 50px rgba(28, 22, 16, 0.08)',
-        }}
-      >
+      <div className="w-full max-w-[760px] mx-auto text-center space-y-6 px-3 sm:px-8 md:px-10 py-6 sm:py-9 animate-in fade-in">
         <div
           className={`inline-block text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full mb-3 ${isDark ? 'bg-white text-black' : 'bg-black text-white'
             }`}

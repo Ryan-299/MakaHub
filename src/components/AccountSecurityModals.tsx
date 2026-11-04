@@ -386,7 +386,7 @@ const PhoneNumberModal: React.FC<{
                 </h2>
 
                 <p className="mt-1 text-sm leading-6 text-neutral-500 dark:text-neutral-400">
-                    Enter your Kenyan mobile number. No SMS verification is required.
+                    Enter your phone number. This number will be displayed in your public profile.
                 </p>
 
                 <div className="mt-5">

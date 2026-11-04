@@ -115,19 +115,14 @@ export const ListerAboutView: React.FC = () => {
                 }`}
         >
 
-            <div
-                className={`mx-auto flex w-full max-w-[780px] flex-col rounded-[28px] border px-6 py-8 sm:px-10 sm:py-10 ${isDark
-                    ? 'border-[#7A5B3C] bg-[#111111]'
-                    : 'border-[#E5C8A6] bg-[#FFFCF8]'
-                    }`}
-            >
+            <div className="mx-auto flex w-full max-w-[780px] flex-col px-3 py-6 sm:px-8 sm:py-10">
 
 
                 {/* Header */}
                 <header className="flex items-center justify-between gap-3">
                     <button
                         type="button"
-                        onClick={() => setCurrentView('lister-subtype')}
+                        onClick={() => setCurrentView('lister-phone')}
                         className="flex items-center gap-2 text-sm font-medium"
                     >
                         <ArrowLeft size={19} />
