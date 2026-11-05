@@ -223,6 +223,14 @@ export const AddPropertyView: React.FC = () => {
     (editingProperty?.images || []).map(() => null)
   );
   const [photoError, setPhotoError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!photoError) return;
+
+    document.getElementById('listing-error-message')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    });
+  }, [photoError]);
   const [unitPhotoError, setUnitPhotoError] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2552,7 +2560,7 @@ export const AddPropertyView: React.FC = () => {
 
               {/* Error Alert */}
               {photoError && (
-                <div className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-red-950/40 border border-neutral-300 dark:border-red-900/60 flex items-start justify-between gap-3 text-xs text-neutral-900 dark:text-red-200 animate-in fade-in duration-200">
+                <div id="listing-error-message" className="p-3.5 rounded-2xl bg-neutral-50 dark:bg-red-950/40 border border-neutral-300 dark:border-red-900/60 flex items-start justify-between gap-3 text-xs text-neutral-900 dark:text-red-200 animate-in fade-in duration-200">
                   <div className="flex items-start gap-2.5">
                     <AlertCircle className="w-4 h-4 text-neutral-800 dark:text-red-400 shrink-0 mt-0.5" />
                     <span className="text-red-600 dark:text-red-400 font-medium">
