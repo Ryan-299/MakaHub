@@ -956,9 +956,24 @@ export const AddPropertyView: React.FC = () => {
         );
         return;
       }
-      if (images.length !== 1 || !photoFiles[0]) {
-        setPhotoError('Add exactly one new building cover photo.');
-        return;
+      // Check every selected unit type BEFORE uploading anything.
+      for (const unitType of selectedUnitTypes) {
+        const details = mixedUnitDetails[unitType];
+        const rent = Number(details?.monthlyRent?.trim() || '0');
+
+        if (!details || !Number.isFinite(rent) || rent <= 0) {
+          setActiveUnitType(unitType);
+          setPhotoError(`Enter the monthly rent for ${unitType}.`);
+          return;
+        }
+
+        const unitPhotos = mixedUnitMedia[unitType]?.photoFiles ?? [];
+
+        if (unitPhotos.length === 0) {
+          setActiveUnitType(unitType);
+          setPhotoError(`Add at least one photo for ${unitType}.`);
+          return;
+        }
       }
 
       if (!name.trim() || !county || !subCounty || !ward || !estate.trim()) {
@@ -979,9 +994,8 @@ export const AddPropertyView: React.FC = () => {
 
         // Process all selected property types using the existing Mixed Units loop.
         for (const unitType of selectedUnitTypes) {
-          const details = mixedUnitDetails[unitType];
-          const media = mixedUnitMedia[unitType];
-
+          const details = mixedUnitDetails[unitType] ?? createEmptyUnitDetails();
+          const media = mixedUnitMedia[unitType] ?? createEmptyUnitMedia();
           setUploadProgressText(`Uploading ${unitType} media...`);
 
           const imageIds: Id<'_storage'>[] = [];
