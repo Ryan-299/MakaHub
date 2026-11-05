@@ -1,0 +1,6 @@
+
+User-agent: *
+Allow: /
+Disallow: /sso-callback
+
+Sitemap: https://rentike.co.ke/sitemap.xml

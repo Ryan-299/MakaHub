@@ -1,15 +1,66 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-KE">
 
 <head>
-  <link rel="icon" type="image/png" href="/favicon3.png" />
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rentike — Kenyan Rental Property Marketplace</title>
+
+  <!-- What Google shows in search results -->
+  <title>Rentike — Houses, Bedsitters &amp; Apartments for Rent in Kenya</title>
   <meta name="description"
-    content="Discover and list available rental homes across Kenya. Fast, verified, and reliable rental housing." />
-  <meta property="og:title" content="Rentike — Kenyan Rental Property Marketplace" />
-  <meta property="og:description" content="Discover available rental homes across Kenya." />
+    content="Find houses, bedsitters, single rooms and apartments for rent across Kenya. See photos, rent and available units, and contact landlords and caretakers on Rentike." />
+  <link rel="canonical" href="https://rentike.co.ke/" />
+  <meta name="robots" content="index, follow" />
+
+  <!-- Icons -->
+  <link rel="icon" type="image/png" href="/favicon3.png" />
+  <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+  <meta name="theme-color" content="#F7F3EC" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0D0D0D" media="(prefers-color-scheme: dark)" />
+
+  <!-- Link previews: WhatsApp, Facebook, LinkedIn -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Rentike" />
+  <meta property="og:locale" content="en_KE" />
+  <meta property="og:url" content="https://rentike.co.ke/" />
+  <meta property="og:title" content="Rentike — Find a place you'll call home" />
+  <meta property="og:description"
+    content="Discover available rental homes across Kenya: houses, bedsitters, single rooms and apartments." />
+  <!-- Swap to /og-image.png (1200 × 630) once it's designed, for the big preview card -->
+  <meta property="og:image" content="https://rentike.co.ke/pwa-512x512.png" />
+  <meta property="og:image:alt" content="Rentike logo" />
+
+  <!-- Link previews: X (Twitter) -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Rentike — Find a place you'll call home" />
+  <meta name="twitter:description"
+    content="Discover available rental homes across Kenya: houses, bedsitters, single rooms and apartments." />
+  <meta name="twitter:image" content="https://rentike.co.ke/pwa-512x512.png" />
+
+  <!-- Tells Google what Rentike is (name + logo in search results) -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": "https://rentike.co.ke/#website",
+        "url": "https://rentike.co.ke/",
+        "name": "Rentike",
+        "description": "Rental homes across Kenya: houses, bedsitters, single rooms and apartments.",
+        "inLanguage": "en-KE"
+      },
+      {
+        "@type": "Organization",
+        "@id": "https://rentike.co.ke/#organization",
+        "name": "Rentike",
+        "url": "https://rentike.co.ke/",
+        "logo": "https://rentike.co.ke/pwa-512x512.png"
+      }
+    ]
+  }
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
@@ -38,6 +89,11 @@
 <body
   class="text-[#121212] dark:text-[#F5F5F5] antialiased selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
   <div id="root"></div>
+  <noscript>
+    <h1>Rentike — Houses, Bedsitters &amp; Apartments for Rent in Kenya</h1>
+    <p>Find rental homes across Kenya: see photos, rent and available units, and contact landlords and caretakers.
+      Please enable JavaScript to use Rentike.</p>
+  </noscript>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
