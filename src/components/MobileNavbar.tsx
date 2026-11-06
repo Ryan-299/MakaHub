@@ -167,7 +167,13 @@ export const MobileNavbar: React.FC = () => {
 
             <button
               type="button"
-              onClick={() => setCurrentView(currentUser ? 'profile' : 'login')}
+              onClick={() => {
+                if (currentUser) {
+                  setCurrentView('profile');
+                } else {
+                  openSignInPrompt('Sign in to view your account');
+                }
+              }}
               className={`flex flex-col items-center justify-center min-w-[58px] px-2 py-1.5 rounded-2xl text-xs font-semibold transition-all ${currentView === 'profile'
                 ? 'text-[var(--rentike-bronze)] bg-[#F8F3EB] dark:bg-[#181818] shadow-[4px_4px_10px_rgba(0,0,0,0.10)]'
                 : 'text-neutral-500 dark:text-neutral-400 hover:text-[var(--rentike-bronze)]'
