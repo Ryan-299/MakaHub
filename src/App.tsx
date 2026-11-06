@@ -14,6 +14,7 @@ import {
   isPublicView,
   signInReasonFor,
 } from './components/SignInPrompt';
+import { EnableNotificationsCard } from './components/EnableNotificationsCard';
 // Views
 import { WelcomeView } from './views/WelcomeView';
 import { SignupView } from './views/SignupView';
@@ -961,6 +962,7 @@ export default function App() {
 
       {!currentView.startsWith('admin-') && <MobileNavbar />}
       <SignInPrompt />
+      <EnableNotificationsCard />
 
       {isAuthModalView && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
