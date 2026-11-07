@@ -33,9 +33,19 @@ const TermsOfServiceView: React.FC = () => {
                     </button>
                     <span
                         className="text-lg tracking-[0.18em] text-black dark:text-white"
-                        style={{ fontFamily: "'Anurati', sans-serif" }}
+                        style={{ fontFamily: '"Anurati", sans-serif' }}
                     >
-                        RENTIKE
+                        RENTIKE{' '}
+                        <span
+                            className="text-white dark:text-black"
+                            style={{
+                                backgroundColor: '#B68B5A',
+                                borderRadius: '6px',
+                                padding: '2px 5px',
+                            }}
+                        >
+                            254
+                        </span>
                     </span>
                 </div>
             </header>
