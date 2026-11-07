@@ -446,7 +446,7 @@ export const LoginView: React.FC = () => {
               className={`text-center text-sm mb-8 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
                 }`}
             >
-              Choose a new password for your MakaoHub account.
+              Choose a new password for your Rentike 254 account.
             </p>
 
             <label className="block text-xs font-semibold mb-2">
@@ -604,7 +604,7 @@ export const LoginView: React.FC = () => {
           <div className="mb-5 flex flex-col items-center">
             <img
               src={isDark ? rentikeDarkThemeIcon : rentikeLightThemeIcon}
-              alt="Rentike"
+              alt="Rentike 254"
               draggable={false}
               className="w-20 sm:w-24 h-auto object-contain"
             />
@@ -618,7 +618,7 @@ export const LoginView: React.FC = () => {
                 color: isDark ? '#F7F5F1' : '#171512',
               }}
             >
-              RENTIKE
+              RENTIKE 254
             </div>
           </div>
           <h1
@@ -632,7 +632,7 @@ export const LoginView: React.FC = () => {
             className={`text-center text-sm mb-8 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
               }`}
           >
-            Enter the email address linked to your Renike account.
+            Enter the email address linked to your Rentike 254 account.
           </p>
 
           <label className="block text-xs font-semibold mb-2">
@@ -778,7 +778,7 @@ export const LoginView: React.FC = () => {
               color: isDark ? '#F7F5F1' : '#171512',
             }}
           >
-            RENTIKE
+            RENTIKE 254
           </div>
         </div>
 
@@ -790,7 +790,7 @@ export const LoginView: React.FC = () => {
             fontFamily: "'Cormorant Garamond', Georgia, Cambria, 'Times New Roman', Times, serif"
           }}
         >
-          Log In to Rentike
+          Log In to Rentike 254
         </h1>
 
         {/* 3. Supporting Text */}
@@ -857,7 +857,7 @@ export const LoginView: React.FC = () => {
                 className="font-semibold underline"
                 style={{ color: '#B68B5A' }}
               >
-                Contact Rentike Support
+                Contact Rentike 254 Support
               </a>
             </p>
           </div>
@@ -1070,7 +1070,7 @@ export const LoginView: React.FC = () => {
           className={`mt-8 text-xs font-body ${isDark ? 'text-neutral-400' : 'text-neutral-500'
             }`}
         >
-          <span>New to Rentike? </span>
+          <span>New to Rentike 254? </span>
           <button
             type="button"
             id="login-to-signup-btn"
@@ -1085,7 +1085,7 @@ export const LoginView: React.FC = () => {
 
       {/* Bottom spacer for optical balance */}
       <footer className="w-full py-2 flex justify-center opacity-0 pointer-events-none">
-        <span className="text-[10px]">Rentike</span>
+        <span className="text-[10px]">Rentike 254</span>
       </footer>
     </main>
   );
