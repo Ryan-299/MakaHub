@@ -14,9 +14,9 @@ export default defineConfig(() => {
         registerType: 'autoUpdate',
 
         manifest: {
-          name: 'Rentike',
-          short_name: 'Rentike',
-          description: 'Find your next home with Rentike.',
+          name: 'Rentike 254',
+          short_name: 'Rentike 254',
+          description: 'Find your next home with Rentike 254.',
           theme_color: '#000000',
           background_color: '#F7F3EC',
           display: 'standalone',
