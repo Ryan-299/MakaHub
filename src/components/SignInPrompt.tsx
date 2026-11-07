@@ -181,13 +181,23 @@ export const SignInPrompt: React.FC = () => {
                     <div
                         className="mt-3"
                         style={{
-                            fontFamily: "'Anurati', sans-serif",
+                            fontFamily: '"Anurati", sans-serif',
                             fontSize: '1.2rem',
                             letterSpacing: '0.16em',
                             color: isDark ? '#F7F5F1' : '#111111',
                         }}
                     >
-                        RENTIKE
+                        RENTIKE{' '}
+                        <span
+                            style={{
+                                backgroundColor: '#B68B5A',
+                                borderRadius: '6px',
+                                padding: '2px 5px',
+                                color: isDark ? '#000000' : '#FFFFFF',
+                            }}
+                        >
+                            254
+                        </span>
                     </div>
 
                     {/* Dynamic heading */}

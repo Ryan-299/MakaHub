@@ -618,7 +618,17 @@ export const LoginView: React.FC = () => {
                 color: isDark ? '#F7F5F1' : '#171512',
               }}
             >
-              RENTIKE 254
+              RENTIKE{' '}
+              <span
+                style={{
+                  backgroundColor: '#B68B5A',
+                  borderRadius: '6px',
+                  padding: '2px 5px',
+                  color: isDark ? '#000000' : '#FFFFFF',
+                }}
+              >
+                254
+              </span>
             </div>
           </div>
           <h1
@@ -770,6 +780,7 @@ export const LoginView: React.FC = () => {
           />
 
           <div
+
             className="mt-3"
             style={{
               fontFamily: "'Anurati', sans-serif",
@@ -778,7 +789,17 @@ export const LoginView: React.FC = () => {
               color: isDark ? '#F7F5F1' : '#171512',
             }}
           >
-            RENTIKE 254
+            RENTIKE{' '}
+            <span
+              style={{
+                backgroundColor: '#B68B5A',
+                borderRadius: '6px',
+                padding: '2px 5px',
+                color: isDark ? '#000000' : '#FFFFFF',
+              }}
+            >
+              254
+            </span>
           </div>
         </div>
 
