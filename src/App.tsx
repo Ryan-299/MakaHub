@@ -577,7 +577,9 @@ export default function App() {
     };
 
     const pageName = pageTitles[currentView] || 'Home';
-    document.title = `${pageName} — Rentike`;
+    document.title = pageName === 'Home'
+      ? 'Rentike 254 | Houses, Bedsitters & Apartments for Rent in Kenya'
+      : `${pageName} — Rentike`;
   }, [currentView]);
 
   // FIX: also moved above the early return (useCallback is a hook too).
