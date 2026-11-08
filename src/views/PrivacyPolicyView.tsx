@@ -2,7 +2,7 @@ import React from 'react';
 
 const PrivacyPolicyView: React.FC = () => {
     React.useEffect(() => {
-        document.title = 'Rentike - Privacy Policy';
+        document.title = 'Rentike 254 - Privacy Policy';
     }, []);
     const handleBack = () => {
         if (window.opener && !window.opener.closed) {
@@ -56,7 +56,7 @@ const PrivacyPolicyView: React.FC = () => {
                     </p>
 
                     <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                        Rentike Privacy Policy
+                        Rentike 254 Privacy Policy
                     </h1>
 
                     <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-500 dark:text-neutral-400">

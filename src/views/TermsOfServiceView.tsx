@@ -2,7 +2,7 @@ import React from 'react';
 
 const TermsOfServiceView: React.FC = () => {
     React.useEffect(() => {
-        document.title = 'Rentike - Terms of Service';
+        document.title = 'Rentike 254 - Terms of Service';
     }, []);
 
     const handleBack = () => {
@@ -58,7 +58,7 @@ const TermsOfServiceView: React.FC = () => {
                     </p>
 
                     <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                        Rentike Terms of Service
+                        Rentike 254 Terms of Service
                     </h1>
 
                     <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-500 dark:text-neutral-400">

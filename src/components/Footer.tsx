@@ -74,7 +74,7 @@ export const Footer: React.FC = () => {
               <button
                 type="button"
                 onClick={handleHomeClick}
-                aria-label="Rentike Home"
+                aria-label="Rentike 254 Home"
                 className="
     inline-flex items-center gap-3
     w-fit max-w-full
@@ -99,17 +99,33 @@ export const Footer: React.FC = () => {
                 />
 
                 {/* Rentike brand name in Anurati */}
-                <span
-                  className="
+                {/* Rentike 254 brand name */}
+                <span className="inline-flex items-center gap-2 whitespace-nowrap">
+                  <span
+                    className="
       font-anurati
       text-[24px] sm:text-[30px]
       tracking-[0.12em]
       text-[#242424]
       dark:text-[#F5F1E8]
-      whitespace-nowrap
     "
-                >
-                  RENTIKE
+                  >
+                    RENTIKE
+                  </span>
+
+                  <span
+                    className="
+      inline-flex items-center justify-center
+      rounded-md
+      bg-[#B68B5A]
+      px-2 py-1
+      font-manrope text-[12px] sm:text-[13px]
+      font-semibold tracking-normal
+      text-white dark:text-black
+    "
+                  >
+                    254
+                  </span>
                 </span>
               </button>
 
@@ -235,7 +251,7 @@ export const Footer: React.FC = () => {
                 text-[#817A72] dark:text-[#999999]
               "
             >
-              © {new Date().getFullYear()} Rentike. All rights reserved.
+              © {new Date().getFullYear()} Rentike 254. All rights reserved.
             </p>
 
             {/* Powered by Shen Studios */}

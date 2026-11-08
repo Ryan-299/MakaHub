@@ -78,7 +78,20 @@ export const WelcomeView: React.FC = () => {
                 color: isDark ? '#F7F5F1' : '#111111',
               }}
             >
-              RENTIKE
+              RENTIKE{' '}
+              <span
+                style={{
+                  backgroundColor: '#B68B5A',
+                  borderRadius: '6px',
+                  padding: '2px 5px',
+                  color: isDark ? '#000000' : '#FFFFFF',
+                  fontFamily: 'Manrope, sans-serif',
+                  fontSize: '0.6em',
+                  letterSpacing: 'normal',
+                }}
+              >
+                254
+              </span>
             </div>
           </div>
           {/* 2. Headline with Cormorant Garamond / refined editorial serif */}

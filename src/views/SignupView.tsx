@@ -353,7 +353,20 @@ export const SignupView: React.FC = () => {
               color: isDark ? '#F7F5F1' : '#171512',
             }}
           >
-            RENTIKE
+            RENTIKE{' '}
+            <span
+              style={{
+                backgroundColor: '#B68B5A',
+                borderRadius: '6px',
+                padding: '2px 5px',
+                color: isDark ? '#000000' : '#FFFFFF',
+                fontFamily: 'Manrope, sans-serif',
+                fontSize: '0.6em',
+                letterSpacing: 'normal',
+              }}
+            >
+              254
+            </span>
           </div>
         </div>
 
@@ -554,7 +567,7 @@ export const SignupView: React.FC = () => {
               className={`text-[12px] leading-5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
                 }`}
             >
-              I agree to Rentike&apos;s{' '}
+              I agree to our{' '}
               <a
                 href="/terms"
                 target="_blank"
