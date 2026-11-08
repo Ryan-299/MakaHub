@@ -567,7 +567,7 @@ export const SignupView: React.FC = () => {
               className={`text-[12px] leading-5 ${isDark ? 'text-neutral-400' : 'text-neutral-600'
                 }`}
             >
-              I agree to our{' '}
+              I agree to the{' '}
               <a
                 href="/terms"
                 target="_blank"
