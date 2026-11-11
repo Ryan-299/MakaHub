@@ -206,7 +206,7 @@ export const RoleSelectionView: React.FC = () => {
                       : 'text-neutral-500'
                     }`}
                 >
-                  Search, save and enquire about available rental homes.
+                  Discover Rentals & BnBs
                 </p>
               </div>
 
@@ -286,7 +286,7 @@ export const RoleSelectionView: React.FC = () => {
                     : 'text-neutral-500'
                   }`}
               >
-                List and manage rental properties on Rentike.
+                List Properties & Host BnBs
               </p>
             </div>
 
