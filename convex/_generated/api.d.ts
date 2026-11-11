@@ -19,6 +19,7 @@ import type * as pushSender from "../pushSender.js";
 import type * as pushSubscriptions from "../pushSubscriptions.js";
 import type * as reviews from "../reviews.js";
 import type * as users from "../users.js";
+import type * as validators from "../validators.js";
 
 import type {
   ApiFromModules,
@@ -38,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   pushSubscriptions: typeof pushSubscriptions;
   reviews: typeof reviews;
   users: typeof users;
+  validators: typeof validators;
 }>;
 
 /**

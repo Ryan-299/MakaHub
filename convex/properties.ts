@@ -1,6 +1,8 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+
 import { internal } from "./_generated/api";
+import { bnbDetailsValidator } from "./validators";
 // Generate an upload URL for uploading files (images, videos) to Convex File Storage
 export const generateUploadUrl = mutation({
   args: {},
@@ -388,6 +390,7 @@ export const addWithUnits = mutation({
     createdAt: v.string(),
     viewsCount: v.optional(v.number()),
     enquiriesCount: v.optional(v.number()),
+    bnb: v.optional(bnbDetailsValidator),
     unitTypes: v.array(v.object({
       type: v.string(),
       monthlyRent: v.number(),
@@ -430,7 +433,9 @@ export const addWithUnits = mutation({
       : contactPhone;
 
 
-    if (args.unitTypes.length < 1) {
+    const isBnbListing = args.type === "BnB";
+
+    if (!isBnbListing && args.unitTypes.length < 1) {
       throw new Error("Select at least one unit type.");
     }
 
@@ -440,6 +445,44 @@ export const addWithUnits = mutation({
 
     if (!args.coverPhotoStorageId) {
       throw new Error("A building cover photo is required.");
+    }
+
+    if (isBnbListing) {
+      const bnb = args.bnb;
+
+      if (!bnb) {
+        throw new Error("BnB details are required.");
+      }
+
+      if (args.unitTypes.length !== 0) {
+        throw new Error("A BnB can't be combined with rental unit types.");
+      }
+
+      const wholeNumbers = [
+        bnb.maxGuests,
+        bnb.bedrooms,
+        bnb.beds,
+        bnb.bathrooms,
+        bnb.minNights ?? 1,
+      ];
+
+      if (
+        !Number.isFinite(bnb.pricePerNight) ||
+        bnb.pricePerNight <= 0 ||
+        !Number.isFinite(bnb.cleaningFee ?? 0) ||
+        (bnb.cleaningFee ?? 0) < 0 ||
+        wholeNumbers.some((value) => !Number.isSafeInteger(value) || value < 0) ||
+        bnb.maxGuests < 1 ||
+        (bnb.minNights ?? 1) < 1 ||
+        (bnb.houseRules?.length ?? 0) > 2000
+      ) {
+        throw new Error("Invalid BnB price or details.");
+      }
+    } else if (
+      args.bnb !== undefined ||
+      args.unitTypes.some((unit) => unit.type === "BnB")
+    ) {
+      throw new Error("A BnB can't be combined with rental unit types.");
     }
 
     for (const unit of args.unitTypes) {
@@ -508,7 +551,9 @@ export const addWithUnits = mutation({
       await ctx.db.insert("notifications", {
         recipientUserId: admin.userId,
         userId: args.lister.id,
-        title: "New Property Awaiting Approval",
+        title: isBnbListing
+          ? "New BnB Awaiting Approval"
+          : "New Property Awaiting Approval",
         message: `"${args.name}" has been submitted and is waiting for your review.`,
         time: new Date().toISOString(),
         type: "approval",
@@ -517,7 +562,9 @@ export const addWithUnits = mutation({
       });
       await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
         recipientUserId: admin.userId,
-        title: "🏠 New Listing Awaiting Approval",
+        title: isBnbListing
+          ? "🏖️ New BnB Awaiting Approval"
+          : "🏠 New Listing Awaiting Approval",
         message: `"${args.name}" has been submitted and is waiting for your review.`,
       });
     }
@@ -525,8 +572,12 @@ export const addWithUnits = mutation({
     await ctx.db.insert("notifications", {
       recipientUserId: args.lister.id,
       userId: args.lister.id,
-      title: "Listing Submitted",
-      message: `Your listing "${args.name}" has been submitted and is awaiting review.`,
+      title: isBnbListing
+        ? "BnB Submitted"
+        : "Listing Submitted",
+      message: isBnbListing
+        ? `Your BnB "${args.name}" has been submitted and is awaiting review.`
+        : `Your listing "${args.name}" has been submitted and is awaiting review.`,
       time: new Date().toISOString(),
       type: "system",
       targetPropertyId: propertyId.toString(),
@@ -534,8 +585,12 @@ export const addWithUnits = mutation({
     });
     await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
       recipientUserId: args.lister.id,
-      title: "📝 Listing Submitted",
-      message: `Your listing "${args.name}" has been submitted and is awaiting review.`,
+      title: isBnbListing
+        ? "📝 BnB Submitted"
+        : "📝 Listing Submitted",
+      message: isBnbListing
+        ? `Your BnB "${args.name}" has been submitted and is awaiting review.`
+        : `Your listing "${args.name}" has been submitted and is awaiting review.`,
     });
     return propertyId;
   },

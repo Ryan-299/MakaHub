@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { bnbDetailsValidator } from "./validators";
 
 export default defineSchema({
   properties: defineTable({
@@ -55,6 +56,7 @@ export default defineSchema({
     createdAt: v.string(),
     viewsCount: v.optional(v.number()),
     enquiriesCount: v.optional(v.number()),
+    bnb: v.optional(bnbDetailsValidator),
   })
     .index("by_status", ["status"])
     .index("by_lister", ["lister.id"])
