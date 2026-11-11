@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import {
     ArrowLeft,
     ArrowRight,
+    BedDouble,
     Building,
     Building2,
     Briefcase,
@@ -21,6 +22,10 @@ const roleStyles: Record<
     ListerSubtype,
     { Icon: LucideIcon; color: string }
 > = {
+    'BnB Host': {
+        Icon: BedDouble,
+        color: '#59B8A6',
+    },
     'Landlord / Property Owner': {
         Icon: User,
         color: '#B8895E',

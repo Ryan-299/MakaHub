@@ -29,7 +29,7 @@ import {
   HardHat,
   Briefcase,
   Users,
-
+  BedDouble,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SUBSCRIPTION_PLANS, DEFAULT_MARY_SUBSCRIPTION } from '../data/subscriptionPlans';
@@ -503,6 +503,11 @@ export const UserProfileView: React.FC = () => {
                       <div className="mt-2">
                         {(() => {
                           const roleStyles = {
+                            'BnB Host': {
+                              Icon: BedDouble,
+                              color: '#59B8A6',
+                              background: 'rgba(89,184,166,0.12)',
+                            },
                             'Landlord / Property Owner': {
                               Icon: User,
                               color: '#B8895E',

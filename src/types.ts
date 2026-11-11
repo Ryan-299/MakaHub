@@ -7,7 +7,8 @@ export type ListerSubtype =
   | 'Real Estate Agent'
   | 'Property Agency'
   | 'Property Company'
-  | 'Property Developer';
+  | 'Property Developer'
+  | 'BnB Host';
 
 export type PropertyType =
   | 'Single Room'

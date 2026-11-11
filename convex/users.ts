@@ -566,7 +566,8 @@ export const updateListerProfile = mutation({
       v.literal("Real Estate Agent"),
       v.literal("Property Agency"),
       v.literal("Property Company"),
-      v.literal("Property Developer")
+      v.literal("Property Developer"),
+      v.literal("BnB Host")
     ),
     bio: v.string(),
   },

@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
-import { Building, ShieldCheck, User, Users, Briefcase, Building2, HardHat, ArrowLeft, Sun, Moon } from 'lucide-react';
+import { Building, ShieldCheck, User, Users, Briefcase, Building2, HardHat, ArrowLeft, Sun, Moon, BedDouble } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ListerSubtype } from '../types';
 
 const LISTER_SUBTYPES: { title: ListerSubtype; description: string; icon: any }[] = [
+  {
+    title: 'BnB Host',
+    description: 'Host offering short stays such as BnBs, serviced apartments or holiday homes.',
+    icon: BedDouble
+  },
   {
     title: 'Landlord / Property Owner',
     description: 'Individual owner managing their own residential rental properties.',
@@ -154,6 +159,7 @@ export const ListerSubtypeView: React.FC = () => {
             const isSelected = selectedSubtype === item.title;
 
             const roleColors: Record<string, string> = {
+              'BnB Host': '#59B8A6',
               'Landlord / Property Owner': '#B8895E',
               'Caretaker': '#438D80',
               'Property Manager': '#547AB0',

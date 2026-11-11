@@ -2,7 +2,9 @@
 import React, { useEffect, useState } from 'react';
 import {
     ArrowLeft,
+    BedDouble,
     User,
+
     HardHat,
     Briefcase,
     Users,
@@ -18,6 +20,12 @@ import { convexClient, isConvexConfigured } from '../lib/convex';
 import type { ListerSubtype } from '../types';
 
 const LISTER_ROLES = [
+    {
+        title: 'BnB Host',
+        icon: BedDouble,
+        color: '#59B8A6',
+        background: 'rgba(89,184,166,0.12)',
+    },
     {
         title: 'Landlord / Property Owner',
         icon: User,
