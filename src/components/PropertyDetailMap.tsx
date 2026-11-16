@@ -131,9 +131,7 @@ export const PropertyDetailMap: React.FC<PropertyDetailMapProps> = ({
 
         const isBnb = property.type === 'BnB';
         const nameLabel = document.createElement('div');
-        nameLabel.textContent = property.type === 'BnB'
-          ? property.name
-          : property.type;
+        nameLabel.textContent = property.type;
 
 
         nameLabel.style.cssText = `
