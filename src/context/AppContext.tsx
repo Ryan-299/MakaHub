@@ -34,6 +34,9 @@ import { registerSubmittedMedia, cleanupDeletedPropertyMedia } from '../utils/me
 import { convexClient, isConvexConfigured } from '../lib/convex';
 import { api } from '../../convex/_generated/api';
 
+import { readSchedule, stayProblem, isNightOpen, toDayNumber, kenyaToday } from '../utils/bnbAvailability';
+
+
 export type AppView =
   | 'welcome'
   | 'login'
@@ -105,12 +108,15 @@ interface AppContextType {
   assignListerSubtype: (subtype: ListerSubtype) => Promise<void>;
   loginUser: (role: UserRole) => void;
   logoutUser: () => void;
+  deleteAccount: () => Promise<void>;
   updateCurrentUserName: (name: string) => Promise<void>;
 
   // Property management
   properties: PropertyListing[];
+  isPropertiesLoading: boolean;
   availableProperties: PropertyListing[]; // Vacancies > 0 & Status === 'Approved'
   filteredProperties: PropertyListing[]; // Matching current search & filter criteria
+  availableBnbs: PropertyListing[];
 
   savedProperties: PropertyListing[];
   toggleSaveProperty: (id: string) => void;
@@ -192,6 +198,15 @@ interface AppContextType {
   setFilters: React.Dispatch<React.SetStateAction<FilterCriteria>>;
   resetFilters: () => void;
   isFilterActive: boolean;
+  // Home tab (All / Rentals / BnBs / Commercial), shared by the home page and the filter drawer
+  homeCategory: HomeCategory;
+  setHomeCategory: (category: HomeCategory) => void;
+  // BnB-only filters. Search text and location come from `filters`, shared with rentals.
+  bnbFilters: BnbFilters;
+  setBnbFilters: React.Dispatch<React.SetStateAction<BnbFilters>>;
+  resetBnbFilters: () => void;
+  isBnbFilterActive: boolean;
+  filteredBnbs: PropertyListing[];
   filterDrawerOpen: boolean;
   setFilterDrawerOpen: (open: boolean) => void;
   seekerLocation: { lat: number; lng: number } | null;
@@ -231,6 +246,137 @@ const DEFAULT_FILTERS: FilterCriteria = {
   minRent: '',
   maxRent: '',
   amenities: []
+};
+
+// Chat notifications read like a messaging app: "Ryan Igal · Bnb" as the
+// title and the message itself as the text (cut short if it's long).
+const chatNotificationTitle = (senderName: string, propertyName: string) =>
+  `${senderName} · ${propertyName}`;
+
+const chatNotificationPreview = (text: string) => {
+  const clean = text.trim();
+  return clean.length > 120 ? `${clean.slice(0, 117).trimEnd()}…` : clean;
+};
+
+export type HomeCategory = 'all' | 'rentals' | 'bnbs' | 'commercial';
+
+export interface BnbFilters {
+  minGuests: number; // 0 = any
+  minBedrooms: number; // 0 = any
+  minPrice: number | ''; // price per night, inclusive
+  maxPrice: number | '';
+  checkIn: string; // "YYYY-MM-DD" or ''
+  checkOut: string; // "YYYY-MM-DD" or ''
+  freeTonight: boolean;
+  amenities: string[];
+}
+
+export const DEFAULT_BNB_FILTERS: BnbFilters = {
+  minGuests: 0,
+  minBedrooms: 0,
+  minPrice: '',
+  maxPrice: '',
+  checkIn: '',
+  checkOut: '',
+  freeTonight: false,
+  amenities: []
+};
+
+// Search box + County / Sub-county / Ward / Estate, using the same rules as the
+// rental filtering in `filteredProperties` (which is left unchanged).
+const matchesSearchAndLocation = (p: PropertyListing, filters: FilterCriteria): boolean => {
+  const clean = (value: string | undefined) =>
+    (value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  if (filters.searchQuery) {
+    const q = filters.searchQuery.toLowerCase().trim();
+    const words = q.split(/[\s,]+/).filter((w) => w.length > 1);
+    const loc = p.location;
+    const matchesQuery =
+      p.name.toLowerCase().includes(q) ||
+      (loc.estate || '').toLowerCase().includes(q) ||
+      (loc.subCounty || '').toLowerCase().includes(q) ||
+      (loc.county || '').toLowerCase().includes(q) ||
+      (loc.ward || '').toLowerCase().includes(q) ||
+      p.type.toLowerCase().includes(q) ||
+      (p.description || '').toLowerCase().includes(q) ||
+      (words.length > 0 &&
+        words.some(
+          (w) =>
+            (loc.estate || '').toLowerCase().includes(w) ||
+            (loc.subCounty || '').toLowerCase().includes(w) ||
+            (loc.county || '').toLowerCase().includes(w) ||
+            (loc.ward || '').toLowerCase().includes(w) ||
+            p.name.toLowerCase().includes(w)
+        ));
+    if (!matchesQuery) return false;
+  }
+
+  if (filters.county && clean(p.location.county) !== clean(filters.county)) return false;
+
+  if (filters.subCounty) {
+    const pSub = clean(p.location.subCounty);
+    const fSub = clean(filters.subCounty);
+    if (pSub !== fSub && !pSub.includes(fSub) && !fSub.includes(pSub)) return false;
+  }
+
+  if (filters.ward) {
+    const pWard = clean(p.location.ward);
+    const fWard = clean(filters.ward);
+    if (!pWard || (pWard !== fWard && !pWard.includes(fWard) && !fWard.includes(pWard))) return false;
+  }
+
+  if (filters.estate) {
+    const pEstate = clean(p.location.estate);
+    const fEstate = clean(filters.estate);
+    const matchesEstate =
+      pEstate === fEstate ||
+      pEstate.includes(fEstate) ||
+      fEstate.includes(pEstate) ||
+      clean(p.location.address).includes(fEstate) ||
+      clean(p.name).includes(fEstate);
+    if (!matchesEstate) return false;
+  }
+
+  return true;
+};
+
+// BnB-only checks: guests, bedrooms, price per night, dates, amenities.
+export const matchesBnbFilters = (p: PropertyListing, bnbFilters: BnbFilters, today: number): boolean => {
+  const bnb = p.bnb;
+  if (!bnb) return false;
+
+  if (bnbFilters.minGuests > 0 && bnb.maxGuests < bnbFilters.minGuests) return false;
+  if (bnbFilters.minBedrooms > 0 && bnb.bedrooms < bnbFilters.minBedrooms) return false;
+  if (bnbFilters.minPrice !== '' && bnb.pricePerNight < bnbFilters.minPrice) return false;
+  if (bnbFilters.maxPrice !== '' && bnb.pricePerNight > bnbFilters.maxPrice) return false;
+
+  if (bnbFilters.amenities.length > 0) {
+    const hasAll = bnbFilters.amenities.every((a) => p.amenities.includes(a));
+    if (!hasAll) return false;
+  }
+
+  const checkIn = toDayNumber(bnbFilters.checkIn);
+  const checkOut = toDayNumber(bnbFilters.checkOut);
+  const needsDates = bnbFilters.freeTonight || checkIn !== null;
+  if (!needsDates) return true;
+
+  const schedule = readSchedule(bnb, today);
+  if (!schedule) return false;
+
+  if (bnbFilters.freeTonight && !isNightOpen(schedule, today)) return false;
+
+  if (checkIn !== null) {
+    if (checkOut !== null && checkOut > checkIn) {
+      // The whole stay must be bookable, including the host's min/max nights.
+      if (stayProblem(schedule, checkIn, checkOut) !== null) return false;
+    } else if (!isNightOpen(schedule, checkIn)) {
+      // Only a check-in date chosen so far: that night must be free.
+      return false;
+    }
+  }
+
+  return true;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -1072,9 +1218,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [filters, setFilters] = useState<FilterCriteria>(DEFAULT_FILTERS);
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [homeCategory, setHomeCategory] = useState<HomeCategory>('all');
+  const [bnbFilters, setBnbFilters] = useState<BnbFilters>(DEFAULT_BNB_FILTERS);
   const [seekerLocation, setSeekerLocation] = useState<{ lat: number; lng: number } | null>(null);
   useEffect(() => {
-    if (currentUser?.role !== 'seeker') return;
+    if (currentView !== 'tenant-home') return;
     if (seekerLocation) return;
 
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -1097,7 +1245,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         maximumAge: 300000,
       }
     );
-  }, [currentUser?.role, seekerLocation]);
+  }, [currentView, seekerLocation]);
   const [mapTarget, setMapTarget] = useState<MapNavigationTarget | null>(null);
 
   const triggerMapNavigation = (
@@ -1191,7 +1339,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 : new Date().toISOString()
             ),
             viewsCount: doc.viewsCount ?? 0,
-            enquiriesCount: doc.enquiriesCount ?? 0
+            enquiriesCount: doc.enquiriesCount ?? 0,
+            bnb: doc.bnb
           }));
 
           const convexIds = new Set(convexListings.map((p) => p.id));
@@ -1335,8 +1484,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Rule #22: Vacancies > 0 & Status === 'Approved' appear in Seeker availability & live map!
   const availableProperties = properties.filter(
-    (p) => p.status === 'Approved' && p.vacancies > 0
+    (p) => p.status === 'Approved' && p.vacancies > 0 && p.type !== 'BnB'
   );
+
+  const availableBnbs = useMemo(() => {
+    const now = new Date();
+    const today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0')
+    ].join('-');
+
+    return properties.filter((p) => {
+      if (
+        p.type !== 'BnB' ||
+        p.status !== 'Approved' ||
+        !p.bnb?.accepting
+      ) {
+        return false;
+      }
+
+      const { availableFrom, hostingDurationNights } = p.bnb;
+
+      if (!availableFrom || !hostingDurationNights) return false;
+
+      const finalCheckOut = new Date(`${availableFrom}T00:00:00Z`);
+
+      if (Number.isNaN(finalCheckOut.getTime())) return false;
+
+      finalCheckOut.setUTCDate(
+        finalCheckOut.getUTCDate() + hostingDurationNights
+      );
+
+      return finalCheckOut.toISOString().slice(0, 10) > today;
+    });
+  }, [properties]);
+
 
   // Synchronized search & filtered properties (used identically across Discovery, Map, and Lists)
   const filteredProperties = useMemo(() => {
@@ -1414,6 +1597,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return true;
     });
   }, [availableProperties, filters]);
+
+  // BnBs after the search box, the shared location filters and the BnB filters.
+  const filteredBnbs = useMemo(() => {
+    const today = kenyaToday();
+    return availableBnbs.filter(
+      (p) => matchesSearchAndLocation(p, filters) && matchesBnbFilters(p, bnbFilters, today)
+    );
+  }, [availableBnbs, filters, bnbFilters]);
 
   // Lister calculations: Strictly properties created by / owned by the current signed-in lister
   const listerListings = properties.filter((p) => {
@@ -2981,8 +3172,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         id: `notif-${Date.now()}`,
         recipientUserId: prop.lister.id,
         userId: prop.lister.id,
-        title: 'New Enquiry Received',
-        message: `${seekerName || currentUser?.name || 'Kevin Otieno'} sent an enquiry for ${prop.name}.`,
+        title: chatNotificationTitle(seekerName || currentUser?.name || 'New enquiry', prop.name),
+        message: chatNotificationPreview(cleanMsg),
         time: nowIso,
         createdAt: nowIso,
         read: false,
@@ -3089,8 +3280,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         id: `notif-${Date.now()}`,
         recipientUserId: enq.seekerId,
         userId: enq.seekerId,
-        title: 'Lister Replied to Your Enquiry',
-        message: `${senderName} replied to your enquiry about ${enq.propertyName}.`,
+        title: chatNotificationTitle(senderName, enq.propertyName),
+        message: chatNotificationPreview(replyText),
         time: nowIso,
         createdAt: nowIso,
         read: false,
@@ -3123,8 +3314,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         id: `notif-${Date.now()}`,
         recipientUserId: enq.listerId,
         userId: enq.listerId,
-        title: 'New Enquiry Message',
-        message: `${senderName} sent a message regarding ${enq.propertyName}.`,
+        title: chatNotificationTitle(senderName, enq.propertyName),
+        message: chatNotificationPreview(replyText),
         time: nowIso,
         createdAt: nowIso,
         read: false,
@@ -3224,8 +3415,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const resetBnbFilters = () => {
+    setBnbFilters(DEFAULT_BNB_FILTERS);
+  };
+
+  const isBnbFilterActive =
+    bnbFilters.minGuests > 0 ||
+    bnbFilters.minBedrooms > 0 ||
+    bnbFilters.minPrice !== '' ||
+    bnbFilters.maxPrice !== '' ||
+    !!bnbFilters.checkIn ||
+    !!bnbFilters.checkOut ||
+    bnbFilters.freeTonight ||
+    bnbFilters.amenities.length > 0;
+
   const resetFilters = () => {
     setFilters(DEFAULT_FILTERS);
+    setBnbFilters(DEFAULT_BNB_FILTERS);
     setSelectedPropertyId(null);
     triggerMapNavigation(-1.286389, 36.817223, 7, 'recenter', 'Kenya');
   };
@@ -3301,6 +3507,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         properties,
         availableProperties,
         filteredProperties,
+        availableBnbs,
+
         isPropertiesLoading,
         savedProperties,
         toggleSaveProperty,
@@ -3361,6 +3569,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setFilters,
         resetFilters,
         isFilterActive,
+        homeCategory,
+        setHomeCategory,
+        bnbFilters,
+        setBnbFilters,
+        resetBnbFilters,
+        isBnbFilterActive,
+        filteredBnbs,
         filterDrawerOpen,
         setFilterDrawerOpen,
         seekerLocation,

@@ -11,6 +11,7 @@ export type ListerSubtype =
   | 'BnB Host';
 
 export type PropertyType =
+  | 'BnB'
   | 'Single Room'
   | 'Double Room'
   | 'Bedsitter'
@@ -38,6 +39,24 @@ export interface UnitGroupSummary {
   type: PropertyType;
   rent: number;
   vacant: number;
+}
+
+export interface BnbDetails {
+  pricePerNight: number;
+  cleaningFee?: number;
+  minNights?: number;
+  maxNights?: number;
+  availableFrom?: string;
+  hostingDurationNights?: number;
+  maxGuests: number;
+  bedrooms: number;
+  beds: number;
+  bathrooms: number;
+  checkInTime?: string;
+  checkOutTime?: string;
+  houseRules?: string;
+  blockedDates?: string[];
+  accepting: boolean;
 }
 
 export interface PropertyListing {
@@ -86,6 +105,7 @@ export interface PropertyListing {
   createdAt: string;
   viewsCount?: number;
   enquiriesCount?: number;
+  bnb?: BnbDetails;
 }
 
 export interface ListerReviewReply {

@@ -26,6 +26,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { PropertyListing } from '../types';
 import { VacancyManagerModal } from '../components/VacancyManagerModal';
+import { BnbAvailabilityModal } from '../components/BnbAvailabilityModal';
 
 const ListingCardImage: React.FC<{
   src?: string;
@@ -454,7 +455,7 @@ ${isRejected
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 lg:gap-5">
               {displayedListings.map((prop) => {
                 const isAvailable = prop.vacancies > 0;
 
@@ -554,43 +555,83 @@ ${isRejected
                         </p>
 
                         <p className="text-xs sm:text-sm font-extrabold text-neutral-950 dark:text-[#F5F5F5] pt-0.5">
-                          KSh {prop.monthlyRent.toLocaleString()}
-                          <span className="text-[10px] sm:text-xs font-normal text-neutral-500 dark:text-[#8A8A8A] ml-1">/ mo</span>
+
+                          KSh {(prop.type === 'BnB'
+                            ? prop.bnb?.pricePerNight ?? 0
+                            : prop.monthlyRent).toLocaleString()}
+                          <span className="text-[10px] sm:text-xs font-normal text-neutral-500 dark:text-[#8A8A8A] ml-1">
+                            {prop.type === 'BnB' ? '/ night' : '/ mo'}
+                          </span>
+
                         </p>
                       </div>
 
-                      {/* 37. UNIT VACANCY METRICS (Vacant, Occupied, Under Repair) */}
-                      <div className="bg-neutral-50 dark:bg-[#151515] group-hover:bg-neutral-100/70 dark:group-hover:bg-[#1E1E1E] transition-colors p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-neutral-200 dark:border-[#292929] grid grid-cols-3 gap-1 sm:gap-2 text-center">
-                        <div>
-                          <span className="text-[8px] sm:text-[10px] font-bold text-neutral-400 dark:text-[#7D7D7D] uppercase tracking-wider block">
-                            Vacant
-                          </span>
-                          <span
-                            className={`text-xs sm:text-sm md:text-base font-extrabold ${isAvailable ? 'text-black dark:text-white font-bold' : 'text-neutral-400 dark:text-[#7D7D7D]'
-                              }`}
-                          >
-                            {prop.vacancies}
-                          </span>
-                        </div>
+                      {prop.type === 'BnB' ? (
+                        <div className="bg-neutral-50 dark:bg-[#151515] p-3 rounded-2xl border border-neutral-200 dark:border-[#292929] grid grid-cols-3 gap-2 text-center">
+                          <div>
+                            <span className="text-[10px] font-bold text-neutral-400 uppercase block">
+                              Guests
+                            </span>
+                            <span className="text-sm font-extrabold text-neutral-900 dark:text-white">
+                              {prop.bnb?.maxGuests ?? 0}
+                            </span>
+                          </div>
 
-                        <div className="border-x border-neutral-200 dark:border-[#292929]">
-                          <span className="text-[8px] sm:text-[10px] font-bold text-neutral-400 dark:text-[#7D7D7D] uppercase tracking-wider block">
-                            Occupied
-                          </span>
-                          <span className="text-xs sm:text-sm md:text-base font-extrabold text-neutral-800 dark:text-[#F5F5F5]">
-                            {prop.occupied}
-                          </span>
-                        </div>
+                          <div className="border-x border-neutral-200 dark:border-[#292929]">
+                            <span className="text-[10px] font-bold text-neutral-400 uppercase block">
+                              Bedrooms
+                            </span>
+                            <span className="text-sm font-extrabold text-neutral-900 dark:text-white">
+                              {prop.bnb?.bedrooms ?? 0}
+                            </span>
+                          </div>
 
-                        <div>
-                          <span className="text-[8px] sm:text-[10px] font-bold text-neutral-400 dark:text-[#7D7D7D] uppercase tracking-wider block">
-                            Repair
-                          </span>
-                          <span className="text-xs sm:text-sm md:text-base font-extrabold text-neutral-700 dark:text-[#A3A3A3]">
-                            {prop.underRepair}
-                          </span>
+                          <div>
+                            <span className="text-[10px] font-bold text-neutral-400 uppercase block">
+                              Booking
+                            </span>
+                            <span className={`text-xs font-bold ${prop.bnb?.accepting ? 'text-emerald-500' : 'text-red-500'}`}>
+                              {prop.bnb?.accepting ? 'Accepting' : 'Paused'}
+                            </span>
+                          </div>
                         </div>
-                      </div>
+                      ) : (
+                        <>
+
+                          {/* 37. UNIT VACANCY METRICS (Vacant, Occupied, Under Repair) */}
+                          <div className="bg-neutral-50 dark:bg-[#151515] group-hover:bg-neutral-100/70 dark:group-hover:bg-[#1E1E1E] transition-colors p-2 sm:p-3 rounded-xl sm:rounded-2xl border border-neutral-200 dark:border-[#292929] grid grid-cols-3 gap-1 sm:gap-2 text-center">
+                            <div>
+                              <span className="text-[8px] sm:text-[10px] font-bold text-neutral-400 dark:text-[#7D7D7D] uppercase tracking-wider block">
+                                Vacant
+                              </span>
+                              <span
+                                className={`text-xs sm:text-sm md:text-base font-extrabold ${isAvailable ? 'text-black dark:text-white font-bold' : 'text-neutral-400 dark:text-[#7D7D7D]'
+                                  }`}
+                              >
+                                {prop.vacancies}
+                              </span>
+                            </div>
+
+                            <div className="border-x border-neutral-200 dark:border-[#292929]">
+                              <span className="text-[8px] sm:text-[10px] font-bold text-neutral-400 dark:text-[#7D7D7D] uppercase tracking-wider block">
+                                Occupied
+                              </span>
+                              <span className="text-xs sm:text-sm md:text-base font-extrabold text-neutral-800 dark:text-[#F5F5F5]">
+                                {prop.occupied}
+                              </span>
+                            </div>
+
+                            <div>
+                              <span className="text-[8px] sm:text-[10px] font-bold text-neutral-400 dark:text-[#7D7D7D] uppercase tracking-wider block">
+                                Repair
+                              </span>
+                              <span className="text-xs sm:text-sm md:text-base font-extrabold text-neutral-700 dark:text-[#A3A3A3]">
+                                {prop.underRepair}
+                              </span>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     {/* Bottom: Action Controls */}
@@ -697,17 +738,26 @@ text-white dark:text-white
                 );
               })}
             </div>
-          )}
+          )
+          }
         </div>
       </div>
 
       {/* Vacancy Manager Modal */}
       {
         selectedForVacancy && (
-          <VacancyManagerModal
-            property={selectedForVacancy}
-            onClose={() => setSelectedForVacancy(null)}
-          />
+          // BnBs: accepting + blocked nights. Rentals: vacant / occupied / under repair.
+          selectedForVacancy.type === 'BnB' ? (
+            <BnbAvailabilityModal
+              property={selectedForVacancy}
+              onClose={() => setSelectedForVacancy(null)}
+            />
+          ) : (
+            <VacancyManagerModal
+              property={selectedForVacancy}
+              onClose={() => setSelectedForVacancy(null)}
+            />
+          )
         )
       }
 

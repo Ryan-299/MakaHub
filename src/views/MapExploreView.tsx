@@ -9,7 +9,11 @@ import {
   ChevronUp,
   MapPin,
   Home,
-  Heart
+  Heart,
+  BedDouble,
+  Store,
+  Users,
+  Bath
 } from 'lucide-react';
 
 import { InteractiveMap } from '../components/InteractiveMap';
@@ -28,6 +32,8 @@ const MAX_CAROUSEL_PROPERTIES = 12;
 export const MapExploreView: React.FC = () => {
   const {
     filteredProperties,
+    filteredBnbs,
+    homeCategory,
     selectedPropertyId,
     setSelectedPropertyId,
     filters,
@@ -40,6 +46,28 @@ export const MapExploreView: React.FC = () => {
     mapTarget,
     triggerMapNavigation
   } = useApp();
+
+  const mapProperties = useMemo(() => {
+    switch (homeCategory) {
+      case 'rentals':
+        return filteredProperties.filter(
+          (p) => p.type !== 'Commercial / Shop'
+        );
+
+      case 'bnbs':
+        return filteredBnbs;
+
+      case 'commercial':
+        return filteredProperties.filter(
+          (p) => p.type === 'Commercial / Shop'
+        );
+
+      case 'all':
+      default:
+        return [...filteredProperties, ...filteredBnbs];
+    }
+  }, [homeCategory, filteredProperties, filteredBnbs]);
+
 
   const [carouselOpen, setCarouselOpen] = useState(true);
 
@@ -107,8 +135,12 @@ export const MapExploreView: React.FC = () => {
   ]);
 
   const discoveryProperties = useMemo(() => {
-    const available = filteredProperties
-      .filter(property => property.vacancies > 0)
+    const available = mapProperties
+      .filter(property =>
+        property.type === 'BnB'
+          ? Boolean(property.bnb?.accepting)
+          : property.vacancies > 0
+      )
       .map(property => {
         const coords = resolvePropertyCoordinates(property.location);
 
@@ -138,7 +170,7 @@ export const MapExploreView: React.FC = () => {
 
     // When an area is actively selected, the existing
     // filteredProperties list determines what belongs there.
-    if (isAreaSearch || hasGeographicFilters) {
+    if (isAreaSearch || hasGeographicFilters || homeCategory !== 'all') {
       return available
         .sort(
           (a, b) =>
@@ -168,18 +200,24 @@ export const MapExploreView: React.FC = () => {
     // Never pretend we know the person's location.
     return available.slice(0, MAX_CAROUSEL_PROPERTIES);
   }, [
-    filteredProperties,
+    mapProperties,
     areaCenter,
     isAreaSearch,
-    hasGeographicFilters
+    hasGeographicFilters,
+    homeCategory
   ]);
-
   const carouselTitle =
-    isAreaSearch || hasGeographicFilters
-      ? 'Homes in this area'
-      : areaCenter
-        ? 'Homes near you'
-        : 'Explore available homes';
+    homeCategory === 'rentals'
+      ? 'Rentals'
+      : homeCategory === 'bnbs'
+        ? 'BnBs'
+        : homeCategory === 'commercial'
+          ? 'Commercial'
+          : isAreaSearch || hasGeographicFilters
+            ? 'Homes in this area'
+            : areaCenter
+              ? 'Homes near you'
+              : 'Explore available homes';
 
   const carouselSubtitle =
     geographicLabel ||
@@ -323,7 +361,7 @@ export const MapExploreView: React.FC = () => {
         className="absolute inset-0 z-0"
       >
         <InteractiveMap
-          properties={filteredProperties}
+          properties={mapProperties}
           selectedPropertyId={selectedPropertyId}
           onSelectProperty={handleSelectProperty}
           className="w-full h-full rounded-none border-0"
@@ -406,9 +444,15 @@ export const MapExploreView: React.FC = () => {
               "
             >
               <span className="w-2 h-2 bg-emerald-500 rounded-full" />
-              {filteredProperties.length}{' '}
-              {filteredProperties.length === 1 ? 'Home' : 'Homes'}{' '}
-              Available
+
+              {homeCategory === 'bnbs'
+                ? 'BnBs'
+                : homeCategory === 'rentals'
+                  ? 'Rentals'
+                  : homeCategory === 'commercial'
+                    ? 'Commercial'
+                    : `${mapProperties.length} ${mapProperties.length === 1 ? 'Property' : 'Properties'} Available`}
+
             </div>
 
             {isFilterActive && (
@@ -536,19 +580,29 @@ ${selectedPropertyId
           <div className={`flex items-center justify-between gap-3 px-4 py-3 ${selectedPropertyId ? 'hidden' : ''}`}>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <Home className="w-4 h-4 text-[#A47145]" />
+                {homeCategory === 'bnbs' ? (
+                  <BedDouble className="w-4 h-4 text-blue-600" />
+                ) : homeCategory === 'commercial' ? (
+                  <Store className="w-4 h-4 text-emerald-600" />
+                ) : (
+                  <Home className="w-4 h-4 text-[#A47145]" />
+                )}
                 <h2 className="text-sm sm:text-base font-bold truncate">
                   {carouselTitle}
                 </h2>
               </div>
 
               <p className="text-[11px] sm:text-xs text-neutral-500 dark:text-neutral-400 mt-0.5 truncate">
-                {carouselSubtitle}
-                {' · '}
                 {discoveryProperties.length}{' '}
-                {discoveryProperties.length === 1
-                  ? 'home'
-                  : 'homes'}
+                {homeCategory === 'bnbs'
+                  ? discoveryProperties.length === 1 ? 'BnB' : 'BnBs'
+                  : homeCategory === 'rentals'
+                    ? discoveryProperties.length === 1 ? 'rental' : 'rentals'
+                    : homeCategory === 'commercial'
+                      ? discoveryProperties.length === 1 ? 'commercial space' : 'commercial spaces'
+                      : discoveryProperties.length === 1 ? 'property' : 'properties'}
+                {' found'}
+
               </p>
             </div>
 
@@ -601,6 +655,14 @@ ${selectedPropertyId
                 >
                   {discoveryProperties.map((item) => {
                     const property = item.property;
+                    const distanceFromSeekerKm = seekerLocation
+                      ? calculateDistanceInKm(
+                        seekerLocation.lat,
+                        seekerLocation.lng,
+                        item.lat,
+                        item.lng
+                      )
+                      : null;
 
                     const photo =
                       property.coverPhoto ||
@@ -672,18 +734,50 @@ ${selectedPropertyId
                             {property.type}
                           </p>
 
-                          <p className="text-sm font-bold text-[#A47145] dark:text-[#D4A77C]">
-                            KSh {property.monthlyRent.toLocaleString()}
-                            <span className="text-[10px] font-medium">/mo</span>
+                          <p className={`text-sm font-bold ${property.type === 'BnB'
+                            ? 'text-blue-600 dark:text-blue-400'
+                            : 'text-[#A47145] dark:text-[#D4A77C]'
+                            }`}>
+                            {property.type === 'BnB' ? (
+                              property.bnb?.pricePerNight != null ? (
+                                <>
+                                  KSh {property.bnb.pricePerNight.toLocaleString()}
+                                  <span className="text-[10px] font-medium">/night</span>
+                                </>
+                              ) : 'Price unavailable'
+                            ) : (
+                              <>
+                                KSh {property.monthlyRent.toLocaleString()}
+                                <span className="text-[10px] font-medium">/mo</span>
+                              </>
+                            )}
                           </p>
+                          {property.type === 'BnB' && property.bnb && (
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-neutral-600 dark:text-neutral-300">
+                              <span className="inline-flex items-center gap-1">
+                                <Users className="w-3 h-3 text-blue-600" />
+                                {property.bnb.maxGuests} {property.bnb.maxGuests === 1 ? 'guest' : 'guests'}
+                              </span>
 
-                          {item.distanceKm !== null && (
+                              <span className="inline-flex items-center gap-1">
+                                <BedDouble className="w-3 h-3 text-blue-600" />
+                                {property.bnb.bedrooms} {property.bnb.bedrooms === 1 ? 'bedroom' : 'bedrooms'}
+                              </span>
+
+                              <span className="inline-flex items-center gap-1">
+                                <Bath className="w-3 h-3 text-blue-600" />
+                                {property.bnb.bathrooms} {property.bnb.bathrooms === 1 ? 'bathroom' : 'bathrooms'}
+                              </span>
+                            </div>
+                          )}
+                          {distanceFromSeekerKm !== null && (
                             <div className="flex items-center gap-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-                              <MapPin className="w-3 h-3 shrink-0" />
+                              <MapPin className={`w-3 h-3 shrink-0 ${property.type === 'BnB' ? 'text-blue-600' : ''
+                                }`} />
                               <span>
-                                {item.distanceKm < 1
-                                  ? `${Math.round(item.distanceKm * 1000)} m`
-                                  : `${item.distanceKm.toFixed(1)} km`}{' '}
+                                {distanceFromSeekerKm < 1
+                                  ? `${Math.round(distanceFromSeekerKm * 1000)} m`
+                                  : `${distanceFromSeekerKm.toFixed(1)} km`}{' '}
                                 away
                               </span>
                             </div>

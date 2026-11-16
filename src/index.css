@@ -522,3 +522,29 @@ body.rentike-lister-chat-open footer {
 body.rentike-seeker-chat-open footer {
   display: none;
 }
+
+/* Rentike Property Details Map — Popup */
+.rentike-property-detail-map .gm-style-iw-c {
+  padding: 0 !important;
+  border-radius: 18px !important;
+  background: #FFF9F1 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25) !important;
+}
+
+.rentike-property-detail-map .gm-style-iw-d {
+  overflow: hidden !important;
+}
+
+.rentike-property-detail-map .gm-style-iw-chr {
+  display: none !important;
+}
+
+.rentike-property-detail-map .gm-style-iw-tc::after {
+  background: #FFF9F1 !important;
+}
+
+/* Dark mode */
+.dark .rentike-property-detail-map .gm-style-iw-c,
+.dark .rentike-property-detail-map .gm-style-iw-tc::after {
+  background: #171717 !important;
+}

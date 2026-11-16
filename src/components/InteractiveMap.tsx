@@ -77,6 +77,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     drivingMinutes: number | null;
     walkingMinutes: number | null;
     distanceKm: number | null;
+    distanceIsStraightLine?: boolean;
     walkingWarning: string | null;
   } | null>(null);
 
@@ -88,7 +89,9 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
     if (!currentId) return null;
     const found = properties.find((p) => p.id === currentId);
     if (!found) return null;
-    if (properties.length > 1 && found.vacancies <= 0) return null;
+
+    if (properties.length > 1 && found.type !== 'BnB' && found.vacancies <= 0) return null;
+
     return found;
   }, [properties, selectedPropertyId, activePropertyId]);
 
@@ -132,7 +135,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           lng: destination.lng,
         };
 
-        const [drivingResult, walkingResult] = await Promise.all([
+        const [drivingResult, walkingResult] = await Promise.allSettled([
           Route.computeRoutes({
             origin,
             destination: destinationPoint,
@@ -150,8 +153,15 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
         if (cancelled) return;
 
-        const drivingRoute = drivingResult.routes?.[0];
-        const walkingRoute = walkingResult.routes?.[0];
+        const drivingRoute =
+          drivingResult.status === 'fulfilled'
+            ? drivingResult.value.routes?.[0]
+            : undefined;
+
+        const walkingRoute =
+          walkingResult.status === 'fulfilled'
+            ? walkingResult.value.routes?.[0]
+            : undefined;
 
         const distanceMeters =
           drivingRoute?.distanceMeters ??
@@ -168,12 +178,20 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
             walkingRoute?.durationMillis != null
               ? Math.max(1, Math.ceil(walkingRoute.durationMillis / 60000))
               : null,
-
           distanceKm:
             distanceMeters != null
               ? Math.round((distanceMeters / 1000) * 10) / 10
-              : null,
-
+              : activeProperty.type === 'BnB'
+                ? Math.round(
+                  calculateDistanceInKm(
+                    origin.lat,
+                    origin.lng,
+                    destinationPoint.lat,
+                    destinationPoint.lng
+                  ) * 10
+                ) / 10
+                : null,
+          distanceIsStraightLine: activeProperty.type === 'BnB' && distanceMeters == null,
           walkingWarning:
             walkingRoute?.warnings?.[0] ?? null,
         });
@@ -407,7 +425,11 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       const validListings =
         properties.length === 1
           ? properties
-          : properties.filter((p) => p.vacancies > 0);
+          : properties.filter((p) =>
+            p.type === 'BnB'
+              ? Boolean(p.bnb?.accepting)
+              : p.vacancies > 0
+          );
 
       const coordsList: [number, number][] = validListings
         .map((p) => {
@@ -516,10 +538,16 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
       // Filter to listings with vacancies > 0
       // (or single property if passed in detail view)
+
       const validListings =
         properties.length === 1
           ? properties
-          : properties.filter((p) => p.vacancies > 0);
+          : properties.filter((p) =>
+            p.type === 'BnB'
+              ? Boolean(p.bnb?.accepting)
+              : p.vacancies > 0
+          );
+
 
       const bounds = new google.maps.LatLngBounds();
 
@@ -550,7 +578,8 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
           ? 'drop-shadow(0 7px 14px rgba(139, 107, 67, 0.32))'
           : 'drop-shadow(0 5px 10px rgba(0, 0, 0, 0.22))';
 
-        const pinColor = 'var(--rentike-bronze)';
+        const isBnb = prop.type === 'BnB';
+        const pinColor = isBnb ? '#2563EB' : 'var(--rentike-bronze)';
         const propertyLabel =
           prop.type ||
           prop.propertyType ||
@@ -579,7 +608,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       display: flex;
       align-items: center;
       justify-content: center;
-      background: ${isSelected ? '#B9835A' : '#F8F5EF'};
+     background: ${isBnb ? pinColor : isSelected ? '#B9835A' : '#F8F5EF'};
       border: 1px solid rgba(139,107,67,0.18);
       box-shadow:
         inset 2px 2px 4px rgba(255,255,255,0.9),
@@ -588,35 +617,31 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       z-index: 2;
     "
   >
-    <svg
-      width="21"
-      height="21"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M3 11.5L12 4L21 11.5"
-        stroke="${isSelected ? '#FFFFFF' : '#8B6B43'}"
-        stroke-width="2.2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-      <path
-        d="M5.5 10V20H18.5V10"
-        stroke="${isSelected ? '#FFFFFF' : '#8B6B43'}"
-        stroke-width="2.2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-      <path
-        d="M9.5 20V14H14.5V20"
-        stroke="${isSelected ? '#FFFFFF' : '#8B6B43'}"
-        stroke-width="2.2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
-    </svg>
+    
+<svg
+  width="21"
+  height="21"
+  viewBox="0 0 24 24"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+  stroke="${isBnb || isSelected ? '#FFFFFF' : '#8B6B43'}"
+  stroke-width="2.2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  ${isBnb ? `
+    <path d="M2 4v16" />
+    <path d="M2 8h18a2 2 0 0 1 2 2v10" />
+    <path d="M2 17h20" />
+    <path d="M6 8v9" />
+    <path d="M10 8v9" />
+  ` : `
+    <path d="M3 11.5L12 4L21 11.5" />
+    <path d="M5.5 10V20H18.5V10" />
+    <path d="M9.5 20V14H14.5V20" />
+  `}
+</svg>
+
   </div>
 
   <!-- Pointer -->
@@ -627,7 +652,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       left: 50%;
       width: 10px;
       height: 10px;
-      background: ${isSelected ? '#B9835A' : '#F8F5EF'};
+     background: ${isBnb ? '#2563EB' : isSelected ? '#B9835A' : '#F8F5EF'};
       border-right: 1px solid rgba(139,107,67,0.18);
       border-bottom: 1px solid rgba(139,107,67,0.18);
       transform: translateX(-50%) rotate(45deg);
@@ -649,8 +674,8 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
       line-height: 1;
       font-weight: 700;
       font-family: sans-serif;
-      background: ${isSelected ? '#B9835A' : '#F8F5EF'};
-      color: ${isSelected ? '#FFFFFF' : '#8B6B43'};
+     background: ${isBnb ? '#2563EB' : isSelected ? '#B9835A' : '#F8F5EF'};
+     color: ${isBnb || isSelected ? '#FFFFFF' : '#8B6B43'};
       border: 1px solid rgba(139,107,67,0.18);
       box-shadow: 0 3px 8px rgba(0,0,0,0.13);
       pointer-events: none;

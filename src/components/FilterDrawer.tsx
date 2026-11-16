@@ -1,8 +1,12 @@
 import React, { useMemo, useState } from 'react';
-import { X, SlidersHorizontal, MapPin, Check, RotateCcw, ChevronDown } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import {
+  X, SlidersHorizontal, MapPin, Check, RotateCcw, ChevronDown,
+  Home, BedDouble, Store, Users, Banknote, CalendarDays, Sparkles, LayoutGrid,
+} from 'lucide-react';
+import { useApp, type HomeCategory } from '../context/AppContext';
+import { kenyaToday } from '../utils/bnbAvailability';
 import { getCounties, getSubCountiesInCounty, getWardsInSubCounty } from '../utils/kenyaLocations';
-import { KENYA_COUNTY_COORDS, KENYA_SUBCOUNTY_COORDS, KENYA_WARD_COORDS, KENYA_ESTATE_COORDS } from '../utils/kenyaGeocoding';
+import { resolvePropertyCoordinates, KENYA_COUNTY_COORDS, KENYA_SUBCOUNTY_COORDS, KENYA_WARD_COORDS, KENYA_ESTATE_COORDS } from '../utils/kenyaGeocoding';
 import { PropertyType } from '../types';
 
 const PROPERTY_TYPES: PropertyType[] = [
@@ -37,6 +41,72 @@ const RENT_PRESETS = [
   { label: '70k+', min: 70000, max: 300000 }
 ];
 
+// ---- BnB filter options ---------------------------------------------------
+// Same list as the BnB amenities in the host form (AddPropertyView).
+const BNB_AMENITY_OPTIONS = [
+  'Wi-Fi',
+  'Hot Shower',
+  'Backup Power (Generator / Solar)',
+  'Fully Equipped Kitchen',
+  'Air Conditioning',
+  'Smart TV / Netflix',
+  'Swimming Pool',
+  'Free Parking',
+  'Gated & Guarded',
+  'Towels & Bed Linen',
+  'Washing Machine',
+  'Workspace / Desk',
+  'Balcony / View',
+  'Beach Access',
+  'Self Check-in',
+  'Mosquito Nets'
+];
+
+const BNB_GUEST_OPTIONS = [
+  { label: 'Any', value: 0 },
+  { label: '2+ guests', value: 2 },
+  { label: '4+ guests', value: 4 },
+  { label: '6+ guests', value: 6 },
+];
+
+const BNB_BEDROOM_OPTIONS = [
+  { label: 'Any', value: 0 },
+  { label: '1+ bedroom', value: 1 },
+  { label: '2+ bedrooms', value: 2 },
+  { label: '3+ bedrooms', value: 3 },
+];
+
+// Price per night, inclusive on both ends, with no overlaps.
+const BNB_PRICE_PRESETS: { label: string; min: number | ''; max: number | '' }[] = [
+  { label: 'Any', min: '', max: '' },
+  { label: 'Under 3k', min: '', max: 2999 },
+  { label: '3k - 5k', min: 3000, max: 5000 },
+  { label: '5k - 10k', min: 5001, max: 10000 },
+  { label: '10k+', min: 10001, max: '' },
+];
+
+const CATEGORY_OPTIONS: { value: Exclude<HomeCategory, 'all'>; label: string; Icon: typeof Home; iconClass: string; activeClass: string }[] = [
+  { value: 'rentals', label: 'Rentals', Icon: Home, iconClass: 'text-[var(--rentike-bronze)]', activeClass: 'bg-[#242424] border-[#242424] text-white' },
+  { value: 'bnbs', label: 'BnBs', Icon: BedDouble, iconClass: 'text-blue-600 dark:text-blue-400', activeClass: 'bg-blue-600 border-blue-600 text-white' },
+  { value: 'commercial', label: 'Commercial', Icon: Store, iconClass: 'text-emerald-600 dark:text-emerald-400', activeClass: 'bg-emerald-600 border-emerald-600 text-white' },
+];
+
+const SECTION_BOX =
+  'bg-[#F4EFE7] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.75)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]';
+const CHIP_ACTIVE =
+  'bg-[var(--rentike-bronze)] border-[var(--rentike-bronze)] text-[#111111] shadow-[0_4px_12px_rgba(196,154,108,0.22)]';
+const CHIP_IDLE =
+  'bg-[#F8F3EB] dark:bg-[#181818] text-neutral-800 dark:text-[#F5F5F5] border-[#E4D8C8] dark:border-[#2A2A2A] hover:border-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C]';
+const DATE_INPUT =
+  'w-full rounded-xl bg-[#F8F3EB] dark:bg-[#181818] border border-[#E4D8C8] dark:border-[#2A2A2A] px-3 py-2.5 text-sm text-neutral-800 dark:text-neutral-100 shadow-[inset_2px_2px_5px_rgba(0,0,0,0.05),inset_-2px_-2px_5px_rgba(255,255,255,0.75)] dark:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.45),inset_-2px_-2px_5px_rgba(255,255,255,0.03)] focus:outline-none focus:border-[#C49A6C] disabled:opacity-50 disabled:cursor-not-allowed transition-all';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const dayToDateString = (day: number) => new Date(day * DAY_MS).toISOString().slice(0, 10);
+const nextDay = (date: string) => {
+  const ms = Date.parse(`${date}T00:00:00Z`);
+  return Number.isNaN(ms) ? '' : new Date(ms + DAY_MS).toISOString().slice(0, 10);
+};
+
 interface FilterDrawerProps {
   isOpen?: boolean;
   onClose?: () => void;
@@ -50,8 +120,17 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
     setFilters,
     resetFilters,
     availableProperties,
-    setCurrentView, triggerMapNavigation
+    filteredProperties,
+    currentView, triggerMapNavigation,
+    homeCategory,
+    setHomeCategory,
+    bnbFilters,
+    setBnbFilters,
+    resetBnbFilters,
+    filteredBnbs
   } = useApp();
+  // The BnBs tab gets the BnB filters; All, Rentals and Commercial keep the rental filters.
+  const isBnbMode = homeCategory === 'bnbs';
   const [countyDropdownOpen, setCountyDropdownOpen] = useState(false);
   const [subCountyDropdownOpen, setSubCountyDropdownOpen] = useState(false);
   const [wardDropdownOpen, setWardDropdownOpen] = useState(false);
@@ -228,6 +307,62 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
     }));
   };
 
+  // ---- BnB filter handlers ----
+  const todayString = dayToDateString(kenyaToday());
+
+  const toggleBnbAmenity = (amenity: string) => {
+    setBnbFilters((prev) => ({
+      ...prev,
+      amenities: prev.amenities.includes(amenity)
+        ? prev.amenities.filter((a) => a !== amenity)
+        : [...prev.amenities, amenity]
+    }));
+  };
+
+  const handleCheckInChange = (value: string) => {
+    setBnbFilters((prev) => ({
+      ...prev,
+      checkIn: value,
+      // A check-out on or before the new check-in no longer makes sense.
+      checkOut: value && prev.checkOut && prev.checkOut <= value ? '' : value ? prev.checkOut : '',
+      freeTonight: value ? false : prev.freeTonight
+    }));
+  };
+
+  const handleCheckOutChange = (value: string) => {
+    setBnbFilters((prev) => ({ ...prev, checkOut: value, freeTonight: value ? false : prev.freeTonight }));
+  };
+
+  const toggleFreeTonight = () => {
+    setBnbFilters((prev) => ({
+      ...prev,
+      freeTonight: !prev.freeTonight,
+      checkIn: !prev.freeTonight ? '' : prev.checkIn,
+      checkOut: !prev.freeTonight ? '' : prev.checkOut
+    }));
+  };
+
+  // BnB "Clear Filters": BnB filters and location. Rental-only filters stay as they are.
+  const handleClearBnb = () => {
+    resetBnbFilters();
+    resetFilters();
+    setHomeCategory('all');
+  };
+
+
+  // Apply BnB filters without leaving the current page.
+  const handleApplyBnb = () => {
+    setHomeCategory('bnbs');
+
+    if (currentView === 'map-explore' && filteredBnbs.length > 0) {
+      const { lat, lng } = resolvePropertyCoordinates(filteredBnbs[0].location);
+
+      triggerMapNavigation(lat, lng, 15, 'selection', 'BnBs');
+    }
+
+    handleClose();
+  };
+
   const handleApply = () => {
     const normalize = (value: string) =>
       value.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -324,19 +459,43 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
         };
       }
     }
+    if (currentView === 'map-explore') {
+      let navigationTarget = target;
 
-    if (target) {
-      triggerMapNavigation(
-        target.lat,
-        target.lng,
-        target.zoom,
-        'selection',
-        target.label
-      );
+      if (!navigationTarget) {
+        const firstMatching = filteredProperties.find((p) =>
+          p.vacancies > 0 &&
+          (homeCategory === 'commercial'
+            ? p.type === 'Commercial / Shop'
+            : homeCategory === 'rentals'
+              ? p.type !== 'Commercial / Shop'
+              : true)
+        );
+
+        if (firstMatching) {
+          const { lat, lng } = resolvePropertyCoordinates(firstMatching.location);
+
+          navigationTarget = {
+            lat,
+            lng,
+            zoom: 13,
+            label: 'Matching properties'
+          };
+        }
+      }
+
+      if (navigationTarget) {
+        triggerMapNavigation(
+          navigationTarget.lat,
+          navigationTarget.lng,
+          navigationTarget.zoom,
+          'selection',
+          navigationTarget.label
+        );
+      }
     }
 
     handleClose();
-    setCurrentView('map-explore');
   };
 
   return (
@@ -362,7 +521,7 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
                 Filter Properties
               </h2>
               <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">
-                Refine your search to find the right home
+                {isBnbMode ? 'Refine your search to find the right stay' : 'Refine your search to find the right home'}
               </p>
             </div>
           </div>
@@ -377,11 +536,36 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
 
         {/* Scrollable Filters Body */}
         <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6 space-y-8 no-scrollbar">
+          {/* Category 1: Property Category (shared with the home page tabs) */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <LayoutGrid className="w-4 h-4 text-black dark:text-white" />
+              <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">1. Property Category</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {CATEGORY_OPTIONS.map(({ value, label, Icon, iconClass, activeClass }) => {
+                const active = homeCategory === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setHomeCategory(active ? 'all' : value)}
+                    aria-pressed={active}
+                    className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full border text-xs font-semibold transition-all ${active ? activeClass : CHIP_IDLE}`}
+                  >
+                    <Icon className={`w-4 h-4 ${active ? '' : iconClass}`} />
+                    <span>{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Category 1: Location Hierarchy (County -> Sub-county -> Ward -> Estate / Area) */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-black dark:text-white" />
-              <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">1. Location Hierarchy</h3>
+              <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">2. Location Hierarchy</h3>
             </div>
 
             <div className="space-y-3.5 bg-[#F4EFE7] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.75)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]">
@@ -608,117 +792,277 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
             </div>
           </div>
 
-          {/* Category 2: Property Type */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">2. Property Type</h3>
-            <div className="grid grid-cols-2 gap-2 bg-[#F4EFE7] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.75)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]">
-              {PROPERTY_TYPES.map((type) => {
-                const active = filters.propertyType === type;
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => togglePropertyType(type)}
-                    className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all text-left flex items-center justify-between ${active
-                      ? 'bg-[var(--rentike-bronze)] border-[var(--rentike-bronze)] text-[#111111] shadow-[0_4px_12px_rgba(196,154,108,0.22)]'
-                      : 'bg-[#F8F3EB] dark:bg-[#181818] text-neutral-800 dark:text-[#F5F5F5] border-[#E4D8C8] dark:border-[#2A2A2A] hover:border-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C]'
-                      }`}
-                  >
-                    <span>{type}</span>
-                    {active && <Check className="w-3.5 h-3.5" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Category 3: Monthly Rent (KSh) */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">3. Monthly Rent (KSh)</h3>
-            <div className="space-y-4 bg-[#F4EFE7] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.75)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]">
-              {/* Quick Presets */}
-              <div className="flex flex-wrap gap-1.5 pb-1">
-                {RENT_PRESETS.map((preset, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => applyPresetRent(preset.min ?? '', preset.max ?? '')}
-                    className="px-3 py-2 text-xs rounded-xl border border-[#E4D8C8] dark:border-[#2A2A2A] bg-[#F8F3EB] dark:bg-[#181818] text-neutral-800 dark:text-[#F5F5F5] hover:border-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C] transition-all"
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">Min Rent (KSh)</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-400 dark:text-neutral-500">KSh</span>
-                    <input
-                      type="number"
-                      value={filters.minRent}
-                      onChange={(e) =>
-                        setFilters((prev) => ({ ...prev, minRent: e.target.value ? Number(e.target.value) : '' }))
-                      }
-                      placeholder="e.g. 5,000"
-                      className="w-full pl-11 pr-3 py-2 rounded-xl bg-[#F8F3EB] dark:bg-[#181818] border border-[#E4D8C8] dark:border-[#2A2A2A] text-sm text-neutral-800 dark:text-[#F5F5F5] placeholder:text-neutral-400 focus:outline-none focus:border-[var(--rentike-bronze)] focus:ring-2 focus:ring-[var(--rentike-bronze)]/20 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">Max Rent (KSh)</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-400 dark:text-neutral-500">KSh</span>
-                    <input
-                      type="number"
-                      value={filters.maxRent}
-                      onChange={(e) =>
-                        setFilters((prev) => ({ ...prev, maxRent: e.target.value ? Number(e.target.value) : '' }))
-                      }
-                      placeholder="e.g. 25,000"
-                      className="w-full pl-11 pr-3 py-2 rounded-xl bg-[#F8F3EB] dark:bg-[#181818] border border-[#E4D8C8] dark:border-[#2A2A2A] text-sm text-neutral-800 dark:text-[#F5F5F5] placeholder:text-neutral-400 focus:outline-none focus:border-[var(--rentike-bronze)] focus:ring-2 focus:ring-[var(--rentike-bronze)]/20 transition-all"
-                    />
-                  </div>
+          {!isBnbMode && (
+            <>
+              {/* Category 3: Property Type */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">3. Property Type</h3>
+                <div className="grid grid-cols-2 gap-2 bg-[#F4EFE7] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.75)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]">
+                  {PROPERTY_TYPES.map((type) => {
+                    const active = filters.propertyType === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => togglePropertyType(type)}
+                        className={`w-full px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all text-left flex items-center justify-between ${active
+                          ? 'bg-[var(--rentike-bronze)] border-[var(--rentike-bronze)] text-[#111111] shadow-[0_4px_12px_rgba(196,154,108,0.22)]'
+                          : 'bg-[#F8F3EB] dark:bg-[#181818] text-neutral-800 dark:text-[#F5F5F5] border-[#E4D8C8] dark:border-[#2A2A2A] hover:border-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C]'
+                          }`}
+                      >
+                        <span>{type}</span>
+                        {active && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Category 4: Amenities */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">4. Amenities</h3>
-            <div className="grid grid-cols-2 gap-2 bg-[#F4EFE7] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.75)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]">
-              {AMENITY_OPTIONS.map((amenity) => {
-                const checked = filters.amenities.includes(amenity);
-                return (
-                  <label
-                    key={amenity}
-                    className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all ${checked
-                      ? 'bg-[var(--rentike-bronze)] border-[var(--rentike-bronze)] text-[#111111]'
-                      : 'bg-[#F8F3EB] dark:bg-[#181818] border-[#E4D8C8] dark:border-[#2A2A2A] text-neutral-800 dark:text-[#F5F5F5] hover:border-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C]'
-                      }`}
+              {/* Category 3: Monthly Rent (KSh) */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">4. Monthly Rent (KSh)</h3>
+                <div className="space-y-4 bg-[#F4EFE7] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.75)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]">
+                  {/* Quick Presets */}
+                  <div className="flex flex-wrap gap-1.5 pb-1">
+                    {RENT_PRESETS.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => applyPresetRent(preset.min ?? '', preset.max ?? '')}
+                        className="px-3 py-2 text-xs rounded-xl border border-[#E4D8C8] dark:border-[#2A2A2A] bg-[#F8F3EB] dark:bg-[#181818] text-neutral-800 dark:text-[#F5F5F5] hover:border-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C] transition-all"
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">Min Rent (KSh)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-400 dark:text-neutral-500">KSh</span>
+                        <input
+                          type="number"
+                          value={filters.minRent}
+                          onChange={(e) =>
+                            setFilters((prev) => ({ ...prev, minRent: e.target.value ? Number(e.target.value) : '' }))
+                          }
+                          placeholder="e.g. 5,000"
+                          className="w-full pl-11 pr-3 py-2 rounded-xl bg-[#F8F3EB] dark:bg-[#181818] border border-[#E4D8C8] dark:border-[#2A2A2A] text-sm text-neutral-800 dark:text-[#F5F5F5] placeholder:text-neutral-400 focus:outline-none focus:border-[var(--rentike-bronze)] focus:ring-2 focus:ring-[var(--rentike-bronze)]/20 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">Max Rent (KSh)</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-xs font-bold text-neutral-400 dark:text-neutral-500">KSh</span>
+                        <input
+                          type="number"
+                          value={filters.maxRent}
+                          onChange={(e) =>
+                            setFilters((prev) => ({ ...prev, maxRent: e.target.value ? Number(e.target.value) : '' }))
+                          }
+                          placeholder="e.g. 25,000"
+                          className="w-full pl-11 pr-3 py-2 rounded-xl bg-[#F8F3EB] dark:bg-[#181818] border border-[#E4D8C8] dark:border-[#2A2A2A] text-sm text-neutral-800 dark:text-[#F5F5F5] placeholder:text-neutral-400 focus:outline-none focus:border-[var(--rentike-bronze)] focus:ring-2 focus:ring-[var(--rentike-bronze)]/20 transition-all"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Category 5: Amenities */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">5. Amenities</h3>
+                <div className="grid grid-cols-2 gap-2 bg-[#F4EFE7] dark:bg-[#151515] p-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[6px_6px_14px_rgba(0,0,0,0.06),-6px_-6px_14px_rgba(255,255,255,0.75)] dark:shadow-[6px_6px_14px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]">
+                  {AMENITY_OPTIONS.map((amenity) => {
+                    const checked = filters.amenities.includes(amenity);
+                    return (
+                      <label
+                        key={amenity}
+                        className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-xs font-medium cursor-pointer transition-all ${checked
+                          ? 'bg-[var(--rentike-bronze)] border-[var(--rentike-bronze)] text-[#111111]'
+                          : 'bg-[#F8F3EB] dark:bg-[#181818] border-[#E4D8C8] dark:border-[#2A2A2A] text-neutral-800 dark:text-[#F5F5F5] hover:border-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C]'
+                          }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleAmenity(amenity)}
+                          className="rounded border-neutral-300 dark:border-neutral-700 accent-[var(--rentike-bronze)]"
+                        />
+                        <span>{amenity}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+
+          {isBnbMode && (
+            <>
+              {/* BnB 3: Guests */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-black dark:text-white" />
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">3. Guests</h3>
+                </div>
+                <div className={`flex flex-wrap gap-2 ${SECTION_BOX}`}>
+                  {BNB_GUEST_OPTIONS.map((option) => {
+                    const active = bnbFilters.minGuests === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setBnbFilters((prev) => ({ ...prev, minGuests: option.value }))}
+                        aria-pressed={active}
+                        className={`px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all ${active ? CHIP_ACTIVE : CHIP_IDLE}`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* BnB 4: Bedrooms */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <BedDouble className="w-4 h-4 text-black dark:text-white" />
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">4. Bedrooms</h3>
+                </div>
+                <div className={`flex flex-wrap gap-2 ${SECTION_BOX}`}>
+                  {BNB_BEDROOM_OPTIONS.map((option) => {
+                    const active = bnbFilters.minBedrooms === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setBnbFilters((prev) => ({ ...prev, minBedrooms: option.value }))}
+                        aria-pressed={active}
+                        className={`px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all ${active ? CHIP_ACTIVE : CHIP_IDLE}`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* BnB 5: Price per night */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Banknote className="w-4 h-4 text-black dark:text-white" />
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">5. Price Per Night (KSh)</h3>
+                </div>
+                <div className={`flex flex-wrap gap-2 ${SECTION_BOX}`}>
+                  {BNB_PRICE_PRESETS.map((preset) => {
+                    const active = bnbFilters.minPrice === preset.min && bnbFilters.maxPrice === preset.max;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => setBnbFilters((prev) => ({ ...prev, minPrice: preset.min, maxPrice: preset.max }))}
+                        aria-pressed={active}
+                        className={`px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all ${active ? CHIP_ACTIVE : CHIP_IDLE}`}
+                      >
+                        {preset.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* BnB 6: Dates */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-black dark:text-white" />
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">6. Dates</h3>
+                </div>
+                <div className={`space-y-3 ${SECTION_BOX}`}>
+                  <button
+                    type="button"
+                    onClick={toggleFreeTonight}
+                    aria-pressed={bnbFilters.freeTonight}
+                    className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all ${bnbFilters.freeTonight ? CHIP_ACTIVE : CHIP_IDLE}`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleAmenity(amenity)}
-                      className="rounded border-neutral-300 dark:border-neutral-700 accent-[var(--rentike-bronze)]"
-                    />
-                    <span>{amenity}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Free tonight</span>
+                  </button>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="filter-bnb-checkin" className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">
+                        Check-in
+                      </label>
+                      <input
+                        id="filter-bnb-checkin"
+                        type="date"
+                        min={todayString}
+                        value={bnbFilters.checkIn}
+                        onChange={(e) => handleCheckInChange(e.target.value)}
+                        className={DATE_INPUT}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="filter-bnb-checkout" className="block text-xs font-semibold text-neutral-600 dark:text-[#A0A0A0] mb-1">
+                        Check-out
+                      </label>
+                      <input
+                        id="filter-bnb-checkout"
+                        type="date"
+                        min={bnbFilters.checkIn ? nextDay(bnbFilters.checkIn) : todayString}
+                        disabled={!bnbFilters.checkIn}
+                        value={bnbFilters.checkOut}
+                        onChange={(e) => handleCheckOutChange(e.target.value)}
+                        className={DATE_INPUT}
+                      />
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    {bnbFilters.checkIn && !bnbFilters.checkOut
+                      ? 'Add a check-out date to check the whole stay.'
+                      : 'Shows only BnBs that are free for every night of your stay.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* BnB 7: Amenities */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-black dark:text-white" />
+                  <h3 className="text-sm font-bold text-neutral-900 dark:text-[#F5F5F5] uppercase tracking-wider">7. Amenities</h3>
+                </div>
+                <div className={`flex flex-wrap gap-2 ${SECTION_BOX}`}>
+                  {BNB_AMENITY_OPTIONS.map((amenity) => {
+                    const active = bnbFilters.amenities.includes(amenity);
+                    return (
+                      <button
+                        key={amenity}
+                        type="button"
+                        onClick={() => toggleBnbAmenity(amenity)}
+                        aria-pressed={active}
+                        className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-medium transition-all ${active ? CHIP_ACTIVE : CHIP_IDLE}`}
+                      >
+                        {active && <Check className="w-3.5 h-3.5" />}
+                        <span>{amenity}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer Actions */}
         <div className="p-5 bg-transparent flex items-center gap-3">
           <button
             type="button"
-            onClick={resetFilters}
+            onClick={isBnbMode ? handleClearBnb : resetFilters}
             className="flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl border border-[#E4D8C8] dark:border-[#2A2A2A] bg-[#F8F3EB] dark:bg-[#181818] text-neutral-700 dark:text-neutral-200 text-xs font-semibold hover:border-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C] transition-all"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -727,10 +1071,14 @@ export const FilterDrawer: React.FC<FilterDrawerProps> = ({ isOpen, onClose }) =
 
           <button
             type="button"
-            onClick={handleApply}
+            onClick={isBnbMode ? handleApplyBnb : handleApply}
             className="flex-1 px-4 py-3 rounded-xl bg-[var(--rentike-bronze)] border border-[var(--rentike-bronze)] text-[#111111] text-xs font-semibold shadow-[0_4px_12px_rgba(196,154,108,0.22)] hover:opacity-90 transition-all"
           >
-            <span>Show {matchingCount} {matchingCount === 1 ? 'Home' : 'Homes'}</span>
+            <span>
+              {isBnbMode
+                ? `Show ${filteredBnbs.length} ${filteredBnbs.length === 1 ? 'BnB' : 'BnBs'}`
+                : `Show ${matchingCount} ${matchingCount === 1 ? 'Home' : 'Homes'}`}
+            </span>
           </button>
         </div>
       </div>

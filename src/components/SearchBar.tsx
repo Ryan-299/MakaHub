@@ -7,7 +7,10 @@ import {
   ArrowRight,
   Building,
   Map as MapIcon,
-  Compass
+  Compass,
+  House,
+  BedDouble,
+  Store,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import {
@@ -18,6 +21,7 @@ import {
 
 interface SearchBarProps {
   onSearchSubmit?: () => void;
+  mode?: 'home' | 'map';
   showFiltersButton?: boolean;
   className?: string;
   size?: 'normal' | 'large' | 'slim';
@@ -26,6 +30,7 @@ interface SearchBarProps {
 
 export const SearchBar: React.FC<SearchBarProps> = ({
   onSearchSubmit,
+  mode = 'map',
   showFiltersButton = true,
   className = '',
   placeholder = 'Search by location or property name'
@@ -48,9 +53,32 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Sync external filter changes
+
   useEffect(() => {
-    setInputValue(filters.searchQuery || '');
-  }, [filters.searchQuery]);
+    if (mode === 'map') {
+      setInputValue(filters.searchQuery || '');
+      return;
+    }
+    const noLocationSelected =
+      !filters.county &&
+      !filters.subCounty &&
+      !filters.ward &&
+      !filters.estate;
+
+    if (mode === 'home' && noLocationSelected && !filters.searchQuery) {
+      setInputValue('');
+    } else if (filters.searchQuery) {
+      setInputValue(filters.searchQuery);
+    }
+  }, [
+    mode,
+    filters.searchQuery,
+    filters.county,
+    filters.subCounty,
+    filters.ward,
+    filters.estate,
+  ]);
+
 
   // Autocomplete matching across verified Properties, Estates, Wards, Sub-Counties, Counties
   const matchingSuggestions = useMemo(() => {
@@ -88,6 +116,32 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   }, []);
 
   const handleSelectSuggestion = (suggestion: AutocompleteSuggestion) => {
+
+    if (mode === 'home' && suggestion.category !== 'property') {
+      const name = suggestion.label.split(' — ')[0];
+
+      setInputValue(name);
+
+      setFilters((prev) => ({
+        ...prev,
+        searchQuery: '',
+        county: suggestion.county || (suggestion.category === 'county' ? name : ''),
+        subCounty: suggestion.category === 'county'
+          ? ''
+          : suggestion.subCounty || (suggestion.category === 'subCounty' ? name : ''),
+        ward: suggestion.category === 'county' || suggestion.category === 'subCounty'
+          ? ''
+          : suggestion.ward || (suggestion.category === 'ward' ? name : ''),
+        estate: suggestion.category === 'estate'
+          ? suggestion.estate || name
+          : '',
+      }));
+
+      setSelectedPropertyId(null);
+      setIsOpen(false);
+      return;
+    }
+
     if (suggestion.category === 'property' && suggestion.propertyId) {
       // 1. Specific Property Selected -> Move directly to property's map marker and highlight it
       setInputValue(suggestion.label);
@@ -454,9 +508,44 @@ export const SearchBar: React.FC<SearchBarProps> = ({
                         <div className="font-bold text-neutral-900 dark:text-white truncate">
                           {item.label}
                         </div>
-                        <div className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate">
-                          {item.subLabel}
+
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          {item.categoryCounts ? (
+                            <>
+                              {item.categoryCounts.rentals > 0 && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-[#F1E4D2] text-[#9A622F] px-2 py-1 text-[11px] font-semibold">
+                                  <House className="w-3 h-3" />
+                                  {item.categoryCounts.rentals} {item.categoryCounts.rentals === 1 ? 'Rental' : 'Rentals'}
+                                </span>
+                              )}
+
+                              {item.categoryCounts.bnbs > 0 && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 px-2 py-1 text-[11px] font-semibold">
+                                  <BedDouble className="w-3 h-3" />
+                                  {item.categoryCounts.bnbs} {item.categoryCounts.bnbs === 1 ? 'BnB' : 'BnBs'}
+                                </span>
+                              )}
+
+                              {item.categoryCounts.commercial > 0 && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 text-green-700 px-2 py-1 text-[11px] font-semibold">
+                                  <Store className="w-3 h-3" />
+                                  {item.categoryCounts.commercial} Commercial
+                                </span>
+                              )}
+
+                              {item.listingCount === 0 && (
+                                <span className="text-[11px] text-neutral-500">
+                                  No properties yet
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-[11px] text-neutral-500">
+                              {item.subLabel}
+                            </span>
+                          )}
                         </div>
+
                       </div>
                     </div>
                     <div className="shrink-0 pt-0.5">

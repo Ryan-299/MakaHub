@@ -44,6 +44,7 @@ export const PropertyLocationPickerMap: React.FC<PropertyLocationPickerMapProps>
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.marker.AdvancedMarkerElement | null>(null);
   const unitTypeLabelRef = useRef<HTMLDivElement | null>(null);
+  const pinElementRef = useRef<HTMLDivElement | null>(null);
   const listenersRef = useRef<google.maps.MapsEventListener[]>([]);
   const callbacksRef = useRef({ onLocationSelect, onChange });
 
@@ -63,6 +64,23 @@ export const PropertyLocationPickerMap: React.FC<PropertyLocationPickerMapProps>
   callbacksRef.current = { onLocationSelect, onChange };
   // Update the building marker label when property types change.
   useEffect(() => {
+    const pin = pinElementRef.current;
+    if (!pin) return;
+
+    const isBnB = unitTypeLabel.trim().toLowerCase() === 'bnb';
+
+    const html = isBnB
+      ? pin.dataset.bnbHtml
+      : pin.dataset.rentalHtml;
+
+    if (html) {
+      pin.innerHTML = html;
+    }
+
+    unitTypeLabelRef.current = pin.querySelector(
+      '[data-unit-type-label]'
+    ) as HTMLDivElement | null;
+
     if (unitTypeLabelRef.current) {
       unitTypeLabelRef.current.textContent = unitTypeLabel;
     }
@@ -136,7 +154,7 @@ export const PropertyLocationPickerMap: React.FC<PropertyLocationPickerMapProps>
 
         // Rentike bronze building pin.
 
-
+        const isBnB = unitTypeLabel.trim().toLowerCase() === 'bnb';
         const pinElement = document.createElement('div');
 
         // Match the seeker-side Rentike house marker.
@@ -251,7 +269,64 @@ top: 44px;
 
   </div>
 `;
+        pinElement.dataset.rentalHtml = pinElement.innerHTML;
+        {
+          pinElement.innerHTML = `
+    <div style="position:relative;width:32px;height:38px;">
+      <div style="
+      width:32px;
+        	height:32px;
+        box-sizing:border-box;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        border-radius:12px;
+        background:#152B49;
+        border:2px solid #D6B87A;
+        box-shadow:0 6px 16px rgba(0,0,0,0.25);
+      ">
+        <svg width="18" height="18" viewBox="0 0 24 24"
+          fill="none" stroke="#F0D49C" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 20V9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v11"/>
+          <path d="M3 13h18M3 18h18"/>
+          <path d="M6 13v-3h5v3M13 13v-3h5v3"/>
+        </svg>
+      </div>
+      <div style="
+        position:absolute;
+        top:35px;
+        left:16px;
+        width:8px;
+        height:8px;
+        background:#152B49;
+        border-right:1px solid #D6B87A;
+        border-bottom:1px solid #D6B87A;
+        transform:rotate(45deg);
+      "></div>
+      <div data-unit-type-label="true" style="
+        position:absolute;
+        top:46px;
+        left:50%;
+        transform:translateX(-50%);
+        background:#152B49;
+        color:#F0D49C;
+        border:1px solid #D6B87A;
+        border-radius:999px;
+        padding:3px 8px;
+        font-size:10px;
+        font-weight:700;
+        white-space:nowrap;
+      ">BnB</div>
+    </div>
+  `;
+        }
+        pinElement.dataset.bnbHtml = pinElement.innerHTML;
 
+        pinElement.innerHTML = isBnB
+          ? pinElement.dataset.bnbHtml
+          : pinElement.dataset.rentalHtml ?? '';
+        pinElementRef.current = pinElement;
         unitTypeLabelRef.current = pinElement.querySelector(
           '[data-unit-type-label]'
         ) as HTMLDivElement | null;

@@ -3,7 +3,7 @@
 import { resolveSubCountyName } from './kenyaLocations';
 import { KENYA_LOCATIONS_DATA } from '../data/kenyaLocationData';
 import { PropertyListing } from '../types';
-
+import { kenyaToday, readSchedule } from './bnbAvailability';
 export interface GeocodedLocation {
   lat: number;
   lng: number;
@@ -28,6 +28,11 @@ export interface AutocompleteSuggestion {
   propertyPrice?: number;
   propertyType?: string;
   listingCount?: number;
+  categoryCounts?: {
+    rentals: number;
+    bnbs: number;
+    commercial: number;
+  };
 }
 
 // All 47 Kenyan Counties with geographic centers
@@ -426,7 +431,7 @@ export async function geocodeKenyanHierarchy(
     const canonicalSub = resolveSubCountyName(cleanSub, cleanCounty) || cleanSub;
     const subLookupKey = `${normalizeKey(cleanCounty)}:${normalizeKey(canonicalSub)}`;
     const rawSubLookupKey = `${normalizeKey(cleanCounty)}:${normalizeKey(cleanSub)}`;
-    
+
     const matchedCoords = KENYA_SUBCOUNTY_COORDS[subLookupKey] || KENYA_SUBCOUNTY_COORDS[rawSubLookupKey];
     if (matchedCoords) {
       const result: GeocodedLocation = {
@@ -597,9 +602,9 @@ export function calculateDistanceInKm(
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Number((R * c).toFixed(1));
 }
@@ -725,7 +730,22 @@ export function searchKenyanLocationsAndProperties(
   // Filter properties according to MakaoHub seeker visibility:
   // Status === 'Approved', vacancies > 0, and respecting optional active filters
   const visibleProperties = properties.filter((p) => {
-    if (p.status !== 'Approved' || p.vacancies <= 0) return false;
+
+    if (p.status !== 'Approved') return false;
+
+    if (p.type === 'BnB') {
+      const today = kenyaToday();
+      const schedule = p.bnb ? readSchedule(p.bnb, today) : null;
+
+      return Boolean(
+        p.bnb?.accepting &&
+        schedule &&
+        schedule.end > today
+      );
+    }
+
+    if (p.vacancies <= 0) return false;
+
     if (activeFilters?.propertyType && p.type.toLowerCase() !== activeFilters.propertyType.toLowerCase()) return false;
     if (activeFilters?.minRent !== undefined && activeFilters.minRent !== '' && p.monthlyRent < Number(activeFilters.minRent)) return false;
     if (activeFilters?.maxRent !== undefined && activeFilters.maxRent !== '' && p.monthlyRent > Number(activeFilters.maxRent)) return false;
@@ -740,6 +760,17 @@ export function searchKenyanLocationsAndProperties(
   const seenIds = new Set<string>();
 
   const formatCount = (count: number) => (count === 1 ? '1 listing' : `${count} listings`);
+
+  const getCategoryCounts = (list: PropertyListing[]) => ({
+    rentals: list.filter(
+      (p) => p.type !== 'BnB' && p.type !== 'Commercial / Shop'
+    ).length,
+    bnbs: list.filter((p) => p.type === 'BnB').length,
+    commercial: list.filter(
+      (p) => p.type === 'Commercial / Shop'
+    ).length,
+  });
+
 
   // Helper counting functions:
   const getCountyCount = (countyName: string) => {
@@ -820,6 +851,12 @@ export function searchKenyanLocationsAndProperties(
           zoom: 10,
           county: county.name,
           listingCount: count,
+          categoryCounts: getCategoryCounts(
+            visibleProperties.filter(
+              (p) =>
+                p.location.county.toLowerCase().replace(/[^a-z0-9]/g, '') === cleanCounty
+            )
+          ),
           _score: isExact ? 1000 + count * 5 : 500 + count * 5
         });
 
@@ -844,6 +881,17 @@ export function searchKenyanLocationsAndProperties(
                 county: county.name,
                 subCounty: sub.name,
                 listingCount: subCount,
+
+                categoryCounts: getCategoryCounts(
+                  visibleProperties.filter((p) => {
+                    const pSub = (p.location.subCounty || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const pCounty = (p.location.county || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                    return pCounty === cleanCounty &&
+                      (pSub === subClean || pSub.includes(subClean) || subClean.includes(pSub));
+                  })
+                ),
+
                 _score: 300 + subCount * 5
               });
             }
@@ -886,6 +934,18 @@ export function searchKenyanLocationsAndProperties(
           county: county.name,
           subCounty: sub.name,
           listingCount: count,
+
+          categoryCounts: getCategoryCounts(
+            visibleProperties.filter((p) => {
+              const pSub = (p.location.subCounty || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              const pCounty = (p.location.county || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+              return pCounty === cleanCounty &&
+                pSub.length > 0 &&
+                (pSub === cleanSub || pSub.includes(cleanSub) || cleanSub.includes(pSub));
+            })
+          ),
+
           _score: isExact ? 900 + count * 5 : 400 + count * 5
         });
       }
@@ -931,6 +991,20 @@ export function searchKenyanLocationsAndProperties(
               subCounty: sub.name,
               ward: ward.name,
               listingCount: count,
+
+              categoryCounts: getCategoryCounts(
+                visibleProperties.filter((p) => {
+                  const pWard = (p.location.ward || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                  const pSub = (p.location.subCounty || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                  const pCounty = (p.location.county || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                  return pCounty === cleanCounty &&
+                    pSub === cleanSub &&
+                    pWard.length > 0 &&
+                    (pWard === cleanWard || pWard.includes(cleanWard) || cleanWard.includes(pWard));
+                })
+              ),
+
               _score: isExact ? 850 + count * 5 : 350 + count * 5
             });
           }
@@ -977,6 +1051,26 @@ export function searchKenyanLocationsAndProperties(
         ward: est.ward,
         estate: est.estate,
         listingCount: count,
+
+        categoryCounts: getCategoryCounts(
+          visibleProperties.filter((p) => {
+            const cleanEstate = est.estate.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const cleanCounty = est.county.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const pEstate = (p.location.estate || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const pAddress = (p.location.address || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const pName = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+            const pCounty = p.location.county.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            return pCounty === cleanCounty && (
+              (pEstate.length > 0 && (
+                pEstate.includes(cleanEstate) || cleanEstate.includes(pEstate)
+              )) ||
+              pAddress.includes(cleanEstate) ||
+              pName.includes(cleanEstate)
+            );
+          })
+        ),
+
         _score: isExact ? 800 + count * 5 : 300 + count * 5
       });
     }
@@ -1009,6 +1103,29 @@ export function searchKenyanLocationsAndProperties(
           ward: p.location.ward,
           estate: p.location.estate,
           listingCount: count,
+
+          categoryCounts: getCategoryCounts(
+            visibleProperties.filter((item) => {
+              const cleanEstate = (p.location.estate || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              const cleanCounty = p.location.county.toLowerCase().replace(/[^a-z0-9]/g, '');
+              const itemEstate = (item.location.estate || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              const itemAddress = (item.location.address || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+              const itemName = item.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+              const itemCounty = item.location.county.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+              return itemCounty === cleanCounty &&
+                cleanEstate.length > 0 &&
+                (
+                  (itemEstate.length > 0 &&
+                    (itemEstate === cleanEstate ||
+                      itemEstate.includes(cleanEstate) ||
+                      cleanEstate.includes(itemEstate))) ||
+                  itemAddress.includes(cleanEstate) ||
+                  itemName.includes(cleanEstate)
+                );
+            })
+          ),
+
           _score: isExact ? 800 + count * 5 : 300 + count * 5
         });
       }

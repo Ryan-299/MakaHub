@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from 'convex/react';
-import { ArrowLeft, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, BedDouble } from 'lucide-react';
 
 import { api } from '../../convex/_generated/api';
 import { useApp } from '../context/AppContext';
@@ -8,6 +8,7 @@ import { useApp } from '../context/AppContext';
 export const PublicListerProfileView: React.FC = () => {
     const {
         selectedListerId,
+        targetEnquiryId,
         selectedPropertyId,
         setSelectedPropertyId,
         setCurrentView,
@@ -18,7 +19,9 @@ export const PublicListerProfileView: React.FC = () => {
         (property) =>
             property.lister?.id === selectedListerId &&
             property.status === 'Approved' &&
-            property.vacancies > 0
+            (property.type === 'BnB'
+                ? property.bnb?.accepting === true
+                : property.vacancies > 0)
     );
 
     const openProperty = (propertyId: string) => {
@@ -37,11 +40,13 @@ export const PublicListerProfileView: React.FC = () => {
             <div className="mx-auto max-w-5xl">
                 <button
                     type="button"
-                    onClick={() => setCurrentView('property-detail')}
+                    onClick={() => {
+                        setCurrentView(targetEnquiryId ? 'seeker-enquiries' : 'property-detail');
+                    }}
                     className="mb-6 flex items-center gap-2 text-sm font-medium"
                 >
                     <ArrowLeft className="h-4 w-4" />
-                    Back to Property
+                    {targetEnquiryId ? 'Back to Chat' : 'Back to Property'}
                 </button>
 
                 {!selectedListerId || profile === null ? (
@@ -162,10 +167,17 @@ export const PublicListerProfileView: React.FC = () => {
                                         onClick={() => openProperty(listing.id)}
                                         className="w-[83%] flex-none snap-start overflow-hidden rounded-2xl border border-[#E7DED2] bg-white text-left transition-shadow hover:shadow-lg dark:border-neutral-700 dark:bg-[#242424] md:w-auto md:min-w-0"
                                     >
+
                                         <div className="aspect-[16/10] overflow-hidden bg-neutral-200 dark:bg-neutral-800">
-                                            {listing.coverPhoto || listing.images?.[0] ? (
+                                            {(listing.type === 'BnB'
+                                                ? listing.images?.[0] || listing.coverPhoto
+                                                : listing.coverPhoto || listing.images?.[0]) ? (
                                                 <img
-                                                    src={listing.coverPhoto || listing.images[0]}
+                                                    src={
+                                                        listing.type === 'BnB'
+                                                            ? listing.images?.[0] || listing.coverPhoto
+                                                            : listing.coverPhoto || listing.images?.[0]
+                                                    }
                                                     alt={listing.name}
                                                     loading="lazy"
                                                     className="h-full w-full object-cover"
@@ -182,20 +194,34 @@ export const PublicListerProfileView: React.FC = () => {
                                                 {listing.name}
                                             </h3>
 
-                                            <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                                                {listing.type} · {listing.location.estate}
+                                            <p className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                                                {listing.type === 'BnB' && (
+                                                    <BedDouble className="h-4 w-4 shrink-0 text-blue-600" />
+                                                )}
+                                                <span>{listing.type} · {listing.location.estate}</span>
                                             </p>
 
+
                                             <p className="text-base font-semibold text-neutral-900 dark:text-white">
-                                                KSh {listing.monthlyRent.toLocaleString()}
+                                                KSh {(listing.type === 'BnB'
+                                                    ? listing.bnb?.pricePerNight ?? 0
+                                                    : listing.monthlyRent).toLocaleString()}
                                                 <span className="ml-1 text-xs font-normal text-neutral-500">
-                                                    / month
+                                                    {listing.type === 'BnB' ? '/ night' : '/ month'}
                                                 </span>
                                             </p>
 
-                                            <p className="text-xs font-medium text-[#B8895E]">
-                                                {listing.vacancies} {listing.vacancies === 1 ? 'unit' : 'units'} available
-                                            </p>
+
+                                            {listing.type === 'BnB' ? (
+                                                <p className="text-xs font-medium text-emerald-500">
+                                                    ● Accepting bookings
+                                                </p>
+                                            ) : (
+                                                <p className="text-xs font-medium text-[#B8895E]">
+                                                    {listing.vacancies} {listing.vacancies === 1 ? 'unit' : 'units'} available
+                                                </p>
+                                            )}
+
                                         </div>
                                     </button>
                                 ))}

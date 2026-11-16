@@ -1,10 +1,14 @@
 import { useConvexAuth } from 'convex/react';
 import { formatRelativeTime } from '../utils/formatTime';
 import React, { useState, useEffect, useRef } from 'react';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 import {
   ArrowLeft,
   MessageSquare,
   Phone,
+  MoreVertical,
+  Flag,
   Mail,
   MailCheck,
   Clock,
@@ -30,6 +34,7 @@ export const SeekerEnquiriesView: React.FC = () => {
     listerEnquiries = [],
     switchUserMode,
     setCurrentView,
+    setSelectedListerId,
     setSelectedPropertyId,
     setTargetReviewId,
     properties = [],
@@ -47,8 +52,28 @@ export const SeekerEnquiriesView: React.FC = () => {
     setMessageTab,
     targetMessageId,
     setTargetMessageId,
+
   } = useApp();
   const isDark = resolvedTheme === 'dark';
+  const [chatMenuOpen, setChatMenuOpen] = useState(false);
+
+  const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reasonMenuOpen, setReasonMenuOpen] = useState(false);
+
+  const reportReasons = [
+    "Inappropriate or offensive messages",
+    "Fraud or scam",
+    "Spam or unsolicited messages",
+    "Harassment or threats",
+    "Other",
+  ];
+  const submitConversationReport = useMutation(
+    api.conversationReports.submit
+  );
+
   const {
     isAuthenticated: convexAuthed,
     isLoading: convexAuthLoading,
@@ -83,7 +108,7 @@ export const SeekerEnquiriesView: React.FC = () => {
   const systemNotifications = notifications.filter(
     (notification) =>
       notification.type === 'system' &&
-      !['Listing Submitted', 'Listing Resubmitted'].includes(notification.title)
+      !['Listing Submitted', 'Listing Resubmitted', 'BnB Submitted'].includes(notification.title)
   );
 
   const unreadSystemCount = systemNotifications.filter(
@@ -104,7 +129,7 @@ export const SeekerEnquiriesView: React.FC = () => {
             ['Property Saved', 'New Property Rating', 'New Property Comment'].includes(n.title)) ||
           (['approval', 'rejection', 'flag'].includes(n.type) ||
             (n.type === 'system' &&
-              ['Listing Submitted', 'Listing Resubmitted'].includes(n.title))))
+              ['Listing Submitted', 'Listing Resubmitted', 'BnB Submitted'].includes(n.title))))
     ).length;
   const [replyText, setReplyText] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -270,7 +295,7 @@ export const SeekerEnquiriesView: React.FC = () => {
           }`}
       >
         {activeEnquiry && (
-          <div className="flex items-center gap-3 pb-4 border-b border-neutral-200 dark:border-[#2A2A2A]">
+          <div className="relative flex items-center gap-3 pb-4 border-b border-neutral-200 dark:border-[#2A2A2A]">
             <button
               type="button"
               onClick={() => {
@@ -322,6 +347,48 @@ export const SeekerEnquiriesView: React.FC = () => {
             >
               <Phone className="w-4 h-4" />
             </button>
+
+            <button
+              type="button"
+              onClick={() => setChatMenuOpen(!chatMenuOpen)}
+              aria-label="More chat options"
+              aria-expanded={chatMenuOpen}
+              className="w-10 h-10 rounded-full bg-[#F5EBDD] dark:bg-[#2A2118] text-[#8A5A2B] dark:text-[#C49A6C] flex items-center justify-center shrink-0"
+            >
+              <MoreVertical className="w-5 h-5" />
+            </button>
+
+            {chatMenuOpen && (
+              <div className="absolute right-4 top-full mt-2 z-50 w-44 rounded-xl border border-[#E2D3C2] dark:border-[#38312A] bg-white dark:bg-[#1A1A1A] shadow-lg overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!relatedProperty?.lister?.id) return;
+                    setSelectedListerId(relatedProperty.lister.id);
+                    setTargetEnquiryId(activeEnquiry.id);
+                    setChatMenuOpen(false);
+                    setCurrentView('public-lister-profile');
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-neutral-800 dark:text-white hover:bg-[#F8F3EB] dark:hover:bg-[#292929]"
+                >
+                  <User className="w-4 h-4" />
+                  View Profile
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChatMenuOpen(false);
+                    setReportModalOpen(true);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-[#292929]"
+                >
+                  <Flag className="w-4 h-4" />
+                  Report
+                </button>
+              </div>
+            )}
+
           </div>
         )}
 
@@ -915,7 +982,9 @@ export const SeekerEnquiriesView: React.FC = () => {
 
                     {relatedProperty && (
                       <p className="text-sm font-semibold text-[#9A6A35] dark:text-[#C49A6C] mt-0.5">
-                        KSh {relatedProperty.monthlyRent.toLocaleString()} / month
+                        {relatedProperty.type === 'BnB' && relatedProperty.bnb
+                          ? `KSh ${relatedProperty.bnb.pricePerNight.toLocaleString()} / night`
+                          : `KSh ${relatedProperty.monthlyRent.toLocaleString()} / month`}
                       </p>
                     )}
 
@@ -934,6 +1003,12 @@ export const SeekerEnquiriesView: React.FC = () => {
                   </div>
 
                 </div>
+
+                <div className="mt-2 flex items-center justify-center gap-1.5 rounded-lg bg-[#FBF6EF] dark:bg-[#201A14] px-3 py-2 text-center text-[11px] text-[#8A5A2B] dark:text-[#C49A6C]">
+                  <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                  <span>Stay safe: Confirm the property exists before paying.</span>
+                </div>
+
               </div>
 
               {/* Conversation Stream Container */}
@@ -1076,6 +1151,176 @@ export const SeekerEnquiriesView: React.FC = () => {
         </div>
 
       </div>
+
+      {reportModalOpen && activeEnquiry && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="report-title"
+            className="w-full max-w-md rounded-2xl border border-[#D8C5AF] bg-[#F8F5EF] p-6 shadow-2xl dark:border-[#38312A] dark:bg-[#1A1A1A]"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2
+                id="report-title"
+                className="flex items-center gap-2 text-lg font-bold"
+              >
+                <Flag className="h-5 w-5 text-[#C49A6C]" />
+                Report Conversation
+              </h2>
+
+              <button
+                type="button"
+                onClick={() => setReportModalOpen(false)}
+                aria-label="Close report form"
+                className="text-xl text-neutral-500"
+              >
+                ×
+              </button>
+            </div>
+            {!reportSubmitted ? (
+              <>
+                <p className="mb-5 text-sm text-neutral-500">
+
+                  Tell us what's wrong with this conversation.
+
+                </p>
+
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (!reportReason) return;
+
+                    try {
+                      await submitConversationReport({
+                        enquiryId: activeEnquiry.id,
+                        reason: reportReason,
+                        details: reportDetails.trim() || undefined,
+                      });
+
+
+                      setReportSubmitted(true);
+                      setReportReason('');
+                      setReportDetails('');
+
+                    } catch (error) {
+                      window.alert(
+                        error instanceof Error
+                          ? error.message
+                          : 'Unable to submit report.'
+                      );
+                    }
+                  }}
+                  className="space-y-4"
+                >
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold">
+                      Reason for reporting *
+                    </label>
+
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setReasonMenuOpen(!reasonMenuOpen)}
+                        aria-expanded={reasonMenuOpen}
+                        className="flex w-full items-center justify-between rounded-xl border border-[#D8C5AF] bg-white px-4 py-3 text-left text-sm text-[#242424] dark:border-[#38312A] dark:bg-[#252525] dark:text-white"
+                      >
+                        <span>{reportReason || "Select a reason"}</span>
+                        <ChevronRight
+                          className={`h-4 w-4 shrink-0 text-[#C49A6C] transition-transform ${reasonMenuOpen ? "-rotate-90" : "rotate-90"
+                            }`}
+                        />
+                      </button>
+
+                      {reasonMenuOpen && (
+                        <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-56 overflow-y-auto rounded-xl border border-[#E2D3C2] bg-white shadow-xl dark:border-[#38312A] dark:bg-[#252525]">
+                          {reportReasons.map((reason) => (
+                            <button
+                              key={reason}
+                              type="button"
+                              onClick={() => {
+                                setReportReason(reason);
+                                setReasonMenuOpen(false);
+                              }}
+                              className={`w-full px-4 py-3 text-left text-sm transition-colors hover:bg-[#F8F3EB] dark:hover:bg-[#38312A] ${reportReason === reason
+                                ? "bg-[#F8F3EB] font-semibold text-[#8A5A2B] dark:bg-[#38312A] dark:text-[#C49A6C]"
+                                : "text-[#242424] dark:text-white"
+                                }`}
+                            >
+                              {reason}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold">
+                      Additional details (optional)
+                    </label>
+                    <textarea
+                      value={reportDetails}
+                      onChange={(e) => setReportDetails(e.target.value)}
+                      maxLength={500}
+                      rows={4}
+                      placeholder="Explain what happened..."
+                      className="w-full resize-none rounded-xl border border-[#D8C5AF] bg-transparent p-3 text-sm dark:border-[#38312A]"
+                    />
+                    <p className="text-right text-xs text-neutral-500">
+                      {reportDetails.length}/500
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setReportModalOpen(false)}
+                      className="rounded-xl border border-[#D8C5AF] px-5 py-2.5 text-sm"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!reportReason}
+                      className="rounded-xl bg-[#C49A6C] px-5 py-2.5 text-sm font-semibold text-black disabled:opacity-50"
+                    >
+                      Submit Report
+                    </button>
+                  </div>
+                </form>
+
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-4 py-6 text-center">
+                <CheckCircle2 className="h-14 w-14 text-green-600" />
+
+                <h3 className="text-xl font-bold">
+                  Report Submitted
+                </h3>
+
+                <p className="text-sm text-neutral-500">
+                  Your report has been submitted successfully.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReportModalOpen(false);
+                    setReportSubmitted(false);
+                  }}
+                  className="mt-3 w-full rounded-xl bg-[#C49A6C] px-5 py-3 font-semibold text-black"
+                >
+                  OK
+                </button>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
     </div >
   );
 };

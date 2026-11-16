@@ -3,6 +3,103 @@ import { v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { bnbDetailsValidator } from "./validators";
+
+// ---------------------------------------------------------------
+// BnB schedule checks: hosting period, stay rules and blocked nights.
+// Dates are "YYYY-MM-DD". A "day number" is whole days since 1970.
+// ---------------------------------------------------------------
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Returns the day number, or null if the text isn't a real calendar
+// date (e.g. "2026-02-30" or "18/11/26").
+function toDayNumber(date: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+
+  const time = Date.parse(`${date}T00:00:00Z`);
+
+  if (Number.isNaN(time)) return null;
+  if (new Date(time).toISOString().slice(0, 10) !== date) return null;
+
+  return Math.round(time / DAY_MS);
+}
+
+// Today's date in Kenya (UTC+3), as a day number.
+function kenyaToday(): number {
+  return Math.floor((Date.now() + 3 * 60 * 60 * 1000) / DAY_MS);
+}
+
+type BnbSchedule = {
+  minNights?: number;
+  maxNights?: number;
+  availableFrom?: string;
+  hostingDurationNights?: number;
+  blockedDates?: string[];
+};
+
+// Throws a clear error if the BnB schedule doesn't make sense.
+// For a NEW listing it also checks that the start date is within the
+// next year, and that not every night is blocked. Updates skip those
+// two checks: an older BnB's start date is naturally in the past, and
+// a fully booked host may block every remaining night.
+function validateBnbSchedule(bnb: BnbSchedule, isNewListing: boolean) {
+  const minNights = bnb.minNights ?? 1;
+  const duration = bnb.hostingDurationNights;
+  const startDay = bnb.availableFrom ? toDayNumber(bnb.availableFrom) : null;
+
+  if (startDay === null || duration === undefined) {
+    throw new Error("Set the date your BnB is available from and how many nights.");
+  }
+
+  if (isNewListing) {
+    const today = kenyaToday();
+
+    if (startDay < today || startDay > today + 365) {
+      throw new Error("The available-from date must be within the next year.");
+    }
+  }
+
+  if (!Number.isSafeInteger(duration) || duration < 1 || duration > 365) {
+    throw new Error("Hosting duration must be between 1 and 365 nights.");
+  }
+
+  if (
+    bnb.maxNights !== undefined &&
+    (!Number.isSafeInteger(bnb.maxNights) ||
+      bnb.maxNights < minNights ||
+      bnb.maxNights > 365)
+  ) {
+    throw new Error("Maximum nights must be at least the minimum nights.");
+  }
+
+  if (minNights > duration) {
+    throw new Error("The minimum stay is longer than your hosting period.");
+  }
+
+  const blocked = bnb.blockedDates ?? [];
+  const blockedDays = new Set<number>();
+
+  for (const date of blocked) {
+    const day = toDayNumber(date);
+
+    if (day === null) {
+      throw new Error("Invalid blocked date.");
+    }
+
+    if (day < startDay || day >= startDay + duration) {
+      throw new Error("Blocked dates must be inside your hosting period.");
+    }
+
+    blockedDays.add(day);
+  }
+
+  if (blockedDays.size !== blocked.length) {
+    throw new Error("A blocked date was added twice.");
+  }
+
+  if (isNewListing && blockedDays.size >= duration) {
+    throw new Error("Every night in your hosting period is blocked.");
+  }
+}
 // Generate an upload URL for uploading files (images, videos) to Convex File Storage
 export const generateUploadUrl = mutation({
   args: {},
@@ -478,6 +575,17 @@ export const addWithUnits = mutation({
       ) {
         throw new Error("Invalid BnB price or details.");
       }
+
+      // Hosting period, stay rules and blocked nights.
+      validateBnbSchedule(bnb, true);
+
+      if (
+        (bnb.checkInTime?.length ?? 0) > 20 ||
+        (bnb.checkOutTime?.length ?? 0) > 20
+      ) {
+        throw new Error("Invalid check-in or check-out time.");
+      }
+
     } else if (
       args.bnb !== undefined ||
       args.unitTypes.some((unit) => unit.type === "BnB")
@@ -776,14 +884,19 @@ export const updateStatus = mutation({
           (args.status === "Approved" || args.status === "Rejected")
         ) {
           const approved = args.status === "Approved";
+          const isBnb = doc.type === "BnB";
+          const kind = isBnb ? "BnB" : "Listing";
+          const kindLower = isBnb ? "BnB" : "listing";
 
           const title = approved
-            ? "Listing Approved"
-            : "Listing Rejected";
+            ? `${kind} Approved`
+            : `${kind} Rejected`;
 
           const message = approved
-            ? `Your listing "${doc.name}" has been approved and is now live on Rentike.`
-            : `Your listing "${doc.name}" was not approved. Open Rentike to review its status.`;
+            ? isBnb
+              ? `Your BnB "${doc.name}" has been approved and is now live on Rentike. Guests can find it and request a stay.`
+              : `Your listing "${doc.name}" has been approved and is now live on Rentike.`
+            : `Your ${kindLower} "${doc.name}" was not approved. Open Rentike to review its status.`;
 
           // Save the notification in Rentike.
           await ctx.db.insert("notifications", {
@@ -1157,5 +1270,290 @@ export const getViewsBreakdownThisMonth = query({
         views,
       })
     );
+  },
+});
+
+export const updateBnbAvailability = mutation({
+  args: {
+    id: v.id("properties"),
+    blockedDates: v.optional(v.array(v.string())),
+    accepting: v.optional(v.boolean()),
+  },
+
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in.");
+    }
+
+    const property = await ctx.db.get(args.id);
+
+    if (!property || property.type !== "BnB" || !property.bnb) {
+      throw new Error("BnB listing not found.");
+    }
+
+    if (property.lister.id !== identity.subject) {
+      throw new Error("You can only update your own BnB.");
+    }
+
+    if (
+      args.blockedDates === undefined &&
+      args.accepting === undefined
+    ) {
+      throw new Error("No availability changes provided.");
+    }
+
+    let blockedDates = args.blockedDates;
+
+    if (blockedDates !== undefined) {
+      // Nights that have already passed no longer matter: drop them
+      // instead of rejecting the whole update.
+      const today = kenyaToday();
+
+      blockedDates = blockedDates.filter((date) => {
+        const day = toDayNumber(date);
+        return day === null || day >= today;
+      });
+
+      // Same checks as new listings: real dates, inside the hosting
+      // period, no duplicates.
+      validateBnbSchedule({ ...property.bnb, blockedDates }, false);
+    }
+
+    await ctx.db.patch(args.id, {
+      bnb: {
+        ...property.bnb,
+        ...(blockedDates !== undefined
+          ? { blockedDates }
+          : {}),
+        ...(args.accepting !== undefined
+          ? { accepting: args.accepting }
+          : {}),
+      },
+    });
+
+    return { success: true };
+  },
+});
+// ---------------------------------------------------------------
+// Edit a BnB the host owns. Edits go live straight away (only the
+// first post needs approval). A rejected BnB is resubmitted for review.
+// Rental editing (updateProperty) is unchanged.
+// ---------------------------------------------------------------
+export const updateBnb = mutation({
+  args: {
+    id: v.id("properties"),
+    name: v.string(),
+    description: v.string(),
+    contactPhone: v.string(),
+    location: v.object({
+      county: v.string(),
+      subCounty: v.string(),
+      ward: v.string(),
+      estate: v.string(),
+      address: v.optional(v.string()),
+      lat: v.number(),
+      lng: v.number(),
+      distanceMock: v.optional(v.number()),
+    }),
+    amenities: v.array(v.string()),
+    bnb: bnbDetailsValidator,
+    // Cover photo first, then the other photos.
+    imageStorageIds: v.array(v.id("_storage")),
+    videoStorageId: v.optional(v.id("_storage")),
+    videoName: v.optional(v.string()),
+    videoSize: v.optional(v.number()),
+    removeVideo: v.optional(v.boolean()),
+  },
+
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("You must be signed in.");
+    }
+
+    const doc = await ctx.db.get(args.id);
+
+    if (!doc || doc.type !== "BnB" || !doc.bnb) {
+      throw new Error("BnB listing not found.");
+    }
+
+    if (doc.lister.id !== identity.subject) {
+      throw new Error("You can only edit your own BnB.");
+    }
+
+    const name = args.name.trim();
+
+    if (!name || name.length > 120) {
+      throw new Error("Enter a BnB name (up to 120 characters).");
+    }
+
+    if (args.description.length > 5000) {
+      throw new Error("The description is too long.");
+    }
+
+    const phone = args.contactPhone.trim().replace(/[\s()-]/g, "");
+
+    if (!/^(?:0[17]\d{8}|\+254[17]\d{8})$/.test(phone)) {
+      throw new Error("Enter a valid Kenyan contact phone number.");
+    }
+
+    const normalizedPhone = phone.startsWith("0") ? `+254${phone.slice(1)}` : phone;
+
+    if (args.imageStorageIds.length < 2 || args.imageStorageIds.length > 11) {
+      throw new Error("Keep a cover photo and at least one more photo (up to 11).");
+    }
+
+    if (new Set(args.imageStorageIds).size !== args.imageStorageIds.length) {
+      throw new Error("A photo was added twice.");
+    }
+
+    if (
+      args.videoSize !== undefined &&
+      (args.videoSize < 0 || !Number.isSafeInteger(args.videoSize))
+    ) {
+      throw new Error("Invalid house tour video.");
+    }
+
+    // Same price and details checks as a new BnB (addWithUnits).
+    const bnb = args.bnb;
+    const wholeNumbers = [
+      bnb.maxGuests,
+      bnb.bedrooms,
+      bnb.beds,
+      bnb.bathrooms,
+      bnb.minNights ?? 1,
+    ];
+
+    if (
+      !Number.isFinite(bnb.pricePerNight) ||
+      bnb.pricePerNight <= 0 ||
+      !Number.isFinite(bnb.cleaningFee ?? 0) ||
+      (bnb.cleaningFee ?? 0) < 0 ||
+      wholeNumbers.some((value) => !Number.isSafeInteger(value) || value < 0) ||
+      bnb.maxGuests < 1 ||
+      (bnb.minNights ?? 1) < 1 ||
+      (bnb.houseRules?.length ?? 0) > 2000
+    ) {
+      throw new Error("Invalid BnB price or details.");
+    }
+
+    if (
+      (bnb.checkInTime?.length ?? 0) > 20 ||
+      (bnb.checkOutTime?.length ?? 0) > 20
+    ) {
+      throw new Error("Invalid check-in or check-out time.");
+    }
+
+    // Nights that have already passed no longer matter.
+    const today = kenyaToday();
+    const blockedDates = (bnb.blockedDates ?? []).filter((date) => {
+      const day = toDayNumber(date);
+      return day === null || day >= today;
+    });
+
+    // A new start date must be within the next year (same rule as new
+    // listings). An unchanged start date may already be in the past.
+    const startChanged = bnb.availableFrom !== doc.bnb.availableFrom;
+    validateBnbSchedule({ ...bnb, blockedDates }, startChanged);
+
+    // Media no longer used by this BnB, to clean up after saving.
+    const keptIds = new Set<string>(args.imageStorageIds);
+    const newVideoId = args.videoStorageId;
+    const dropVideo = Boolean(newVideoId) || args.removeVideo === true;
+
+    if (newVideoId) keptIds.add(newVideoId);
+    if (!dropVideo && doc.videoStorageId) keptIds.add(doc.videoStorageId);
+
+    const oldIds = new Set<string>(doc.imageStorageIds ?? []);
+    if (doc.coverPhotoStorageId) oldIds.add(doc.coverPhotoStorageId);
+    if (doc.videoStorageId) oldIds.add(doc.videoStorageId);
+
+    const unusedIds = [...oldIds].filter((id) => !keptIds.has(id));
+
+    const isResubmission = doc.status === "Rejected";
+
+    await ctx.db.patch(doc._id, {
+      name,
+      description: args.description,
+      location: args.location,
+      amenities: args.amenities,
+      bnb: { ...bnb, blockedDates },
+      images: [],
+      imageStorageIds: args.imageStorageIds,
+      coverPhotoStorageId: args.imageStorageIds[0],
+      lister: { ...doc.lister, phone: normalizedPhone },
+      ...(newVideoId
+        ? {
+          videoStorageId: newVideoId,
+          video: undefined,
+          videoName: args.videoName,
+          videoSize: args.videoSize,
+        }
+        : args.removeVideo
+          ? {
+            videoStorageId: undefined,
+            video: undefined,
+            videoName: undefined,
+            videoSize: undefined,
+          }
+          : {}),
+      ...(isResubmission ? { status: "Pending", rejectionReason: undefined } : {}),
+    });
+
+    // Delete replaced photos/video, but only files no other listing uses.
+    if (unusedIds.length > 0) {
+      const usedElsewhere = new Set<string>();
+
+      for (const other of await ctx.db.query("properties").collect()) {
+        if (other._id === doc._id) continue;
+        for (const id of other.imageStorageIds ?? []) usedElsewhere.add(id);
+        if (other.coverPhotoStorageId) usedElsewhere.add(other.coverPhotoStorageId);
+        if (other.videoStorageId) usedElsewhere.add(other.videoStorageId);
+      }
+
+      for (const unit of await ctx.db.query("propertyUnitTypes").collect()) {
+        for (const id of unit.imageStorageIds ?? []) usedElsewhere.add(id);
+        if (unit.coverPhotoStorageId) usedElsewhere.add(unit.coverPhotoStorageId);
+        if (unit.videoStorageId) usedElsewhere.add(unit.videoStorageId);
+      }
+
+      for (const id of unusedIds) {
+        if (usedElsewhere.has(id)) continue;
+        try {
+          await ctx.storage.delete(id as any);
+        } catch (error) {
+          console.warn("Unable to delete replaced BnB media:", id, error);
+        }
+      }
+    }
+
+    if (isResubmission) {
+      const admins = (await ctx.db.query("users").collect()).filter(
+        (user) => user.role === "admin"
+      );
+
+      for (const admin of admins) {
+        await ctx.db.insert("notifications", {
+          recipientUserId: admin.userId,
+          userId: identity.subject,
+          title: "BnB Resubmitted for Approval",
+          message: `"${name}" was updated after rejection and is waiting for your review.`,
+          time: new Date().toISOString(),
+          type: "approval",
+          targetPropertyId: doc._id.toString(),
+          read: false,
+        });
+        await ctx.scheduler.runAfter(0, internal.pushSender.sendToRecipient, {
+          recipientUserId: admin.userId,
+          title: "🔁 BnB Resubmitted",
+          message: `"${name}" was updated after rejection and is waiting for your review.`,
+        });
+      }
+    }
+
+    return doc._id;
   },
 });

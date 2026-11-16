@@ -7,6 +7,9 @@ import {
   Car,
   Footprints,
   Navigation,
+  Users,
+  BedDouble,
+  Bath,
 } from 'lucide-react';
 import { PropertyListing } from '../types';
 import { useApp } from '../context/AppContext';
@@ -23,9 +26,9 @@ interface PropertyPreviewCardProps {
     drivingMinutes: number | null;
     walkingMinutes: number | null;
     distanceKm: number | null;
+    distanceIsStraightLine?: boolean;
     walkingWarning: string | null;
   } | null;
-
   travelInfoLoading?: boolean;
 }
 
@@ -113,17 +116,24 @@ export const PropertyPreviewCard: React.FC<PropertyPreviewCardProps> = ({
         )}
 
         {/* Type Badge */}
-        <div className="absolute top-2.5 left-2.5 bg-black dark:bg-[#202020] text-white text-[10px] font-bold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-xs">
+        <div className={`absolute top-2.5 left-2.5 text-white text-[10px] font-bold px-2.5 py-1 rounded-md tracking-wider uppercase shadow-xs ${property.type === 'BnB' ? 'bg-blue-600' : 'bg-black dark:bg-[#202020]'
+          }`}>
           {property.type}
         </div>
 
         {/* Vacancies Pill */}
-        <div className="absolute bottom-2.5 left-2.5 bg-white/95 dark:bg-[#151515]/95 text-neutral-900 dark:text-[#F5F5F5] text-[11px] font-bold px-2.5 py-0.5 rounded-md shadow-xs backdrop-blur-xs flex items-center gap-1 border border-neutral-200/60 dark:border-[#303030]">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-          <span>
-            {property.vacancies} {property.vacancies === 1 ? 'vacancy' : 'vacancies'}
-          </span>
-        </div>
+        {property.type === 'BnB' ? (
+          <div className="absolute bottom-2.5 left-2.5 bg-white/95 dark:bg-[#151515] text-neutral-900 dark:text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-xs">
+            {property.bnb?.accepting ? '🟢 Accepting requests' : '🔴 Bookings paused'}
+          </div>
+        ) : (
+          <div className="absolute bottom-2.5 left-2.5 bg-white/95 dark:bg-[#151515]/95 text-neutral-900 dark:text-white text-[11px] font-bold px-2.5 py-0.5 rounded-md shadow-xs flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+            <span>
+              {property.vacancies} {property.vacancies === 1 ? 'vacancy' : 'vacancies'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Property Details Content */}
@@ -154,22 +164,23 @@ export const PropertyPreviewCard: React.FC<PropertyPreviewCardProps> = ({
               <div className="flex items-center flex-wrap gap-1.5">
                 {travelInfo?.drivingMinutes != null && (
                   <span className="inline-flex items-center gap-1 rounded-lg bg-neutral-100 dark:bg-[#181818] px-2 py-1 text-[10px] font-semibold text-neutral-700 dark:text-[#D5D5D5]">
-                    <Car className="w-3 h-3 text-[var(--rentike-bronze)]" />
+                    <Car className={`w-3 h-3 ${property.type === 'BnB' ? 'text-blue-600' : 'text-[var(--rentike-bronze)]'}`} />
                     {travelInfo.drivingMinutes} min
                   </span>
                 )}
 
                 {travelInfo?.walkingMinutes != null && (
                   <span className="inline-flex items-center gap-1 rounded-lg bg-neutral-100 dark:bg-[#181818] px-2 py-1 text-[10px] font-semibold text-neutral-700 dark:text-[#D5D5D5]">
-                    <Footprints className="w-3 h-3 text-[var(--rentike-bronze)]" />
+                    <Footprints className={`w-3 h-3 ${property.type === 'BnB' ? 'text-blue-600' : 'text-[var(--rentike-bronze)]'}`} />
                     {travelInfo.walkingMinutes} min
                   </span>
                 )}
 
                 {travelInfo?.distanceKm != null && (
                   <span className="inline-flex items-center gap-1 rounded-lg bg-neutral-100 dark:bg-[#181818] px-2 py-1 text-[10px] font-semibold text-neutral-700 dark:text-[#D5D5D5]">
-                    <Navigation className="w-3 h-3 text-[var(--rentike-bronze)]" />
+                    <Navigation className={`w-3 h-3 ${property.type === 'BnB' ? 'text-blue-600' : 'text-[var(--rentike-bronze)]'}`} />
                     {travelInfo.distanceKm} km
+                    {travelInfo.distanceIsStraightLine && ' (straight-line)'}
                   </span>
                 )}
               </div>
@@ -179,7 +190,37 @@ export const PropertyPreviewCard: React.FC<PropertyPreviewCardProps> = ({
 
 
         {/* Price & Unit Breakdown */}
-        {property.type === 'Mixed Units' ? (
+        {property.type === 'BnB' ? (
+          <div className="pt-2 border-t border-neutral-100 dark:border-[#262626] space-y-2.5">
+            <div>
+              <span className="text-[11px] font-semibold text-neutral-400 block">
+                Price per night
+              </span>
+              <span className="text-base font-black text-neutral-950 dark:text-white">
+                {property.bnb?.pricePerNight != null
+                  ? `KSh ${property.bnb.pricePerNight.toLocaleString()}/night`
+                  : 'Price unavailable'}
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-neutral-600 dark:text-neutral-300">
+              <span className="inline-flex items-center gap-1">
+                <Users className="w-3.5 h-3.5 text-blue-600" />
+                {property.bnb?.maxGuests ?? 0} guests
+              </span>
+
+              <span className="inline-flex items-center gap-1">
+                <BedDouble className="w-3.5 h-3.5 text-blue-600" />
+                {property.bnb?.bedrooms ?? 0} {(property.bnb?.bedrooms ?? 0) === 1 ? 'bedroom' : 'bedrooms'}
+              </span>
+
+              <span className="inline-flex items-center gap-1">
+                <Bath className="w-3.5 h-3.5 text-blue-600" />
+                {property.bnb?.bathrooms ?? 0} {(property.bnb?.bathrooms ?? 0) === 1 ? 'bathroom' : 'bathrooms'}
+              </span>
+            </div>
+          </div>
+        ) : property.type === 'Mixed Units' ? (
           <div className="pt-2 border-t border-neutral-100 dark:border-[#262626] space-y-2">
             {previewUnitTypes.length > 0 ? (
               <>
@@ -234,9 +275,12 @@ export const PropertyPreviewCard: React.FC<PropertyPreviewCardProps> = ({
             type="button"
             id={`view-property-btn-${property.id}`}
             onClick={handleView}
-            className="w-full mt-1 bg-black dark:bg-[#F5F5F5] hover:bg-neutral-800 dark:hover:bg-white text-white dark:text-[#111111] py-2.5 px-4 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.99]"
+            className={`w-full mt-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.99] ${property.type === 'BnB'
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'bg-black dark:bg-[#F5F5F5] hover:bg-neutral-800 dark:hover:bg-white text-white dark:text-[#111111]'
+              }`}
           >
-            <span>View Property</span>
+            <span>{property.type === 'BnB' ? 'View BnB' : 'View Property'}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         )}

@@ -948,7 +948,9 @@ export const ListerEnquiriesView: React.FC = () => {
                             {relatedProperty.name}
                           </span>
                           <span className="text-[11px] text-neutral-500 dark:text-[#A3A3A3] block truncate">
-                            {relatedProperty.type} • KSh {relatedProperty.monthlyRent.toLocaleString()} / mo • {relatedProperty.vacancies} vacancies
+                            {relatedProperty.type === 'BnB' && relatedProperty.bnb
+                              ? `BnB • KSh ${relatedProperty.bnb.pricePerNight.toLocaleString()} / night • ${relatedProperty.bnb.accepting ? 'Accepting bookings' : 'Paused'}`
+                              : `${relatedProperty.type} • KSh ${relatedProperty.monthlyRent.toLocaleString()} / mo • ${relatedProperty.vacancies} vacancies`}
                           </span>
                         </div>
                       </div>

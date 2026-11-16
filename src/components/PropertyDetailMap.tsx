@@ -129,17 +129,20 @@ export const PropertyDetailMap: React.FC<PropertyDetailMapProps> = ({
           transform: translateY(-12px);
         `;
 
+        const isBnb = property.type === 'BnB';
         const nameLabel = document.createElement('div');
-        nameLabel.textContent = property.type;
+        nameLabel.textContent = property.type === 'BnB'
+          ? property.name
+          : property.type;
 
 
         nameLabel.style.cssText = `
   max-width: 150px;
   padding: 4px 8px;
   border-radius: 999px;
-  background: #F8F5EF;
-  color: #8B6B43;
-  border: 1px solid rgba(139,107,67,0.18);
+  background: ${isBnb ? '#2563EB' : '#F8F5EF'};
+color: ${isBnb ? '#FFFFFF' : '#8B6B43'};
+border: 1px solid ${isBnb ? '#1D4ED8' : 'rgba(139,107,67,0.18)'};
   box-shadow: 0 3px 8px rgba(0,0,0,0.13);
   font-size: 10px;
   line-height: 1;
@@ -161,9 +164,9 @@ border-radius: 16px;
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #F8F5EF;
-          color: #8B6B43;
-          border: 1px solid rgba(139,107,67,0.25);
+          background: ${isBnb ? '#2563EB' : '#F8F5EF'};
+color: ${isBnb ? '#FFFFFF' : '#8B6B43'};
+border: 1px solid ${isBnb ? '#1D4ED8' : 'rgba(139,107,67,0.25)'};
           box-shadow:
             inset 2px 2px 4px rgba(255,255,255,0.9),
             inset -3px -3px 6px rgba(139,107,67,0.10),
@@ -179,7 +182,7 @@ border-radius: 16px;
         icon.setAttribute('height', '22');
         icon.setAttribute('viewBox', '0 0 24 24');
         icon.setAttribute('fill', 'none');
-        icon.setAttribute('stroke', '#8B6B43');
+        icon.setAttribute('stroke', isBnb ? '#FFFFFF' : '#8B6B43');
         icon.setAttribute('stroke-width', '2.2');
         icon.setAttribute('stroke-linecap', 'round');
         icon.setAttribute('stroke-linejoin', 'round');
@@ -202,7 +205,23 @@ border-radius: 16px;
         );
         door.setAttribute('d', 'M9.5 20V14H14.5V20');
 
-        icon.append(roof, walls, door);
+
+        if (isBnb) {
+          const bed = document.createElementNS(
+            'http://www.w3.org/2000/svg',
+            'path'
+          );
+
+          bed.setAttribute(
+            'd',
+            'M2 4v16 M2 8h18a2 2 0 0 1 2 2v10 M2 17h20 M6 8v9'
+          );
+
+          icon.appendChild(bed);
+        } else {
+          icon.append(roof, walls, door);
+        }
+
         pin.appendChild(icon);
         markerContent.append(pin, nameLabel);
 
@@ -225,21 +244,26 @@ border-radius: 16px;
         // The information window uses DOM text nodes,
         // so listing content is displayed safely.
         const infoContent = document.createElement('div');
+        infoContent.className = 'rentike-map-popup';
+
         infoContent.style.cssText = `
-          min-width: 190px;
-          max-width: 250px;
-          padding: 8px;
-          font-family: sans-serif;
-          color: #171717;
-        `;
+  box-sizing: border-box;
+  width: 220px;
+  max-width: 100%;
+  padding: 16px;
+  font-family: Arial, sans-serif;
+  color: ${isDark ? '#F5F5F5' : '#171717'};
+`;
+
 
         const title = document.createElement('div');
         title.textContent = property.name;
         title.style.cssText = `
-          font-size: 13px;
-          font-weight: 800;
-          margin-bottom: 5px;
-        `;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 8px;
+`;
 
         const address = document.createElement('div');
         address.textContent = [
@@ -247,34 +271,71 @@ border-radius: 16px;
           locationText
         ].filter(Boolean).join(' · ');
         address.style.cssText = `
-          font-size: 11px;
-          color: #666666;
-          line-height: 1.5;
-          margin-bottom: 8px;
-        `;
+  font-size: 12px;
+  color: ${isDark ? '#A3A3A3' : '#666666'};
+  line-height: 1.45;
+  margin-bottom: 12px;
+`;
 
         const rent = document.createElement('div');
-        rent.textContent = formattedRent;
+        rent.textContent =
+          property.type === 'BnB'
+            ? property.bnb?.pricePerNight != null
+              ? `KSh ${property.bnb.pricePerNight.toLocaleString()}/night`
+              : 'Price unavailable'
+            : formattedRent;
         rent.style.cssText = `
-          font-size: 13px;
-          font-weight: 800;
-          color: #8B6B43;
-          margin-bottom: 5px;
-        `;
-
+  font-size: 16px;
+  font-weight: 600;
+  color: ${property.type === 'BnB' ? '#2563EB' : '#B8895E'};
+  margin-bottom: 6px;
+`;
         const vacancies = document.createElement('div');
         vacancies.textContent =
-          property.vacancies > 0
-            ? `${property.vacancies} vacant`
-            : 'No current vacancies';
+          property.type === 'BnB'
+            ? property.bnb?.accepting
+              ? 'Accepting booking requests'
+              : 'Not accepting booking requests'
+            : property.vacancies > 0
+              ? `${property.vacancies} vacant`
+              : 'No current vacancies';
 
         vacancies.style.cssText = `
-          font-size: 11px;
-          font-weight: 700;
-          color: #047857;
-        `;
+  font-size: 12px;
+  font-weight: 700;
+  color: ${property.type === 'BnB'
+            ? property.bnb?.accepting ? '#10B981' : '#EF4444'
+            : property.vacancies > 0 ? '#10B981' : '#EF4444'
+          };
+`;
 
         infoContent.append(title, address, rent, vacancies);
+
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.textContent = '×';
+        closeButton.setAttribute('aria-label', 'Close property information');
+
+        closeButton.style.cssText = `
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: ${isDark ? '#292929' : '#F1EBE3'};
+  color: ${isDark ? '#FFFFFF' : '#333333'};
+  font-size: 20px;
+  line-height: 28px;
+  text-align: center;
+  cursor: pointer;
+`;
+
+        infoContent.style.position = 'relative';
+        infoContent.style.paddingRight = '35px';
+        infoContent.appendChild(closeButton);
+
 
         const infoWindow = new InfoWindow({
           content: infoContent,
@@ -283,6 +344,9 @@ border-radius: 16px;
 
         createdInfoWindow = infoWindow;
         infoWindowRef.current = infoWindow;
+        closeButton.addEventListener('click', () => {
+          infoWindow.close();
+        });
 
         marker.addListener('click', () => {
           infoWindow.open({
@@ -390,7 +454,7 @@ border-radius: 16px;
       {/* Property location map */}
       <div
         className={`
-          relative rounded-2xl overflow-hidden
+      rentike-property-detail-map relative rounded-2xl overflow-hidden
           border border-neutral-200
           dark:border-[#292929]
           shadow-sm

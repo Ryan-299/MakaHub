@@ -112,6 +112,37 @@ export default defineSchema({
 
 
 
+  // BnB booking requests and confirmed reservations
+  bnbBookings: defineTable({
+    propertyId: v.id("properties"),
+    seekerId: v.string(),
+    listerId: v.string(),
+
+    checkIn: v.string(),
+    checkOut: v.string(),
+    nights: v.number(),
+    guests: v.number(),
+
+    pricePerNight: v.number(),
+    cleaningFee: v.number(),
+    estimatedTotal: v.number(),
+
+    status: v.union(
+      v.literal("Pending"),
+      v.literal("Confirmed"),
+      v.literal("Declined"),
+      v.literal("Cancelled")
+    ),
+
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_property", ["propertyId"])
+    .index("by_seeker", ["seekerId"])
+    .index("by_lister", ["listerId"])
+    .index("by_property_status", ["propertyId", "status"]),
+
+
   users: defineTable({
     userId: v.string(),
     name: v.string(),
@@ -226,6 +257,8 @@ export default defineSchema({
     status: v.string(),
     createdAt: v.string(),
     reporterUserId: v.optional(v.string()),
+    reportedUserId: v.optional(v.string()),
+    details: v.optional(v.string()),
     propertyId: v.optional(v.string()),
   })
 

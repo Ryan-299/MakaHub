@@ -10,6 +10,7 @@
 
 import type * as contactEmailActions from "../contactEmailActions.js";
 import type * as contactEmailVerification from "../contactEmailVerification.js";
+import type * as conversationReports from "../conversationReports.js";
 import type * as emails from "../emails.js";
 import type * as enquiries from "../enquiries.js";
 import type * as notifications from "../notifications.js";
@@ -30,6 +31,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   contactEmailActions: typeof contactEmailActions;
   contactEmailVerification: typeof contactEmailVerification;
+  conversationReports: typeof conversationReports;
   emails: typeof emails;
   enquiries: typeof enquiries;
   notifications: typeof notifications;

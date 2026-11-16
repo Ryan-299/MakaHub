@@ -29,6 +29,22 @@ import {
   BedDouble,
   WalletCards,
   FileText,
+  Users,
+  Bath,
+  Clock,
+  ScrollText,
+  CalendarDays,
+  Navigation,
+  ShowerHead,
+  CookingPot,
+  Wind,
+  Tv,
+  Waves,
+  WashingMachine,
+  Laptop,
+  KeyRound,
+  Umbrella,
+  BugOff,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useMutation, useQuery } from 'convex/react';
@@ -39,6 +55,19 @@ import { ReviewList } from '../components/ReviewList';
 import { ContactListerModal } from '../components/ContactListerModal';
 import { PropertyDetailMap } from '../components/PropertyDetailMap';
 import { VacancyManagerModal } from '../components/VacancyManagerModal';
+import { BnbAvailabilityModal } from '../components/BnbAvailabilityModal';
+import { BnbBookingCard, formatTime, type BnbBookingRequest } from '../components/BnbBookingCard';
+import { openSignInPrompt } from '../components/SignInPrompt';
+
+// Short names for the long BnB amenity options in the host form.
+const BNB_AMENITY_LABELS: Record<string, string> = {
+  'Backup Power (Generator / Solar)': 'Backup Power',
+  'Fully Equipped Kitchen': 'Kitchen',
+  'Smart TV / Netflix': 'Smart TV',
+  'Towels & Bed Linen': 'Towels & Linen',
+  'Workspace / Desk': 'Workspace',
+  'Balcony / View': 'Balcony / View',
+};
 
 export const PropertyDetailView: React.FC = () => {
   const {
@@ -54,6 +83,7 @@ export const PropertyDetailView: React.FC = () => {
     isSeekerMode,
     seekerEnquiries,
     sendEnquiry,
+    sendEnquiryReply,
     setTargetEnquiryId,
     isPropertySaved,
     toggleSaveProperty,
@@ -304,6 +334,48 @@ export const PropertyDetailView: React.FC = () => {
   const isSaved = isPropertySaved(property.id);
   const isAvailable = property.vacancies > 0;
 
+  // BnB listings keep their details in `property.bnb` (no unit types, rent is 0).
+  const bnb = property.type === 'BnB' ? property.bnb : undefined;
+
+  const scrollToBnbBooking = () => {
+    document
+      .getElementById('bnb-booking-section')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  // "Ask host to book": sends the dates as a message in the enquiry chat.
+  // If this seeker already chats with the host about this BnB, the request
+  // goes into that same conversation instead of starting a new one.
+  const handleBnbBookingRequest = async (request: BnbBookingRequest) => {
+    if (!currentUser) {
+      openSignInPrompt('Sign in to ask the host to book');
+      return;
+    }
+
+    const existingEnquiry = seekerEnquiries.find(
+      (enquiry) => enquiry.propertyId === property.id
+    );
+
+    if (existingEnquiry) {
+      await sendEnquiryReply(existingEnquiry.id, request.message);
+      setTargetEnquiryId(existingEnquiry.id);
+      setCurrentView('seeker-enquiries');
+      return;
+    }
+
+    // sendEnquiry returns the new conversation's id (its type in AppContext says void).
+    const newEnquiryId = (await sendEnquiry(
+      property.id,
+      currentUser.name || 'Seeker',
+      currentUser.phone || '',
+      currentUser.email || '',
+      request.message
+    )) as unknown as string;
+
+    setTargetEnquiryId(newEnquiryId);
+    setCurrentView('seeker-enquiries');
+  };
+
   const handleShare = () => {
     navigator.clipboard?.writeText?.(window.location.href);
     setCopiedLink(true);
@@ -314,13 +386,66 @@ export const PropertyDetailView: React.FC = () => {
   const getAmenityIcon = (amenity: string) => {
     const name = amenity.toLowerCase();
 
+    if (bnb) {
+      if (name.includes('wi-fi'))
+        return <Wifi className="w-4 h-4 text-violet-500" />;
+
+      if (name.includes('hot shower'))
+        return <ShowerHead className="w-4 h-4 text-sky-500" />;
+
+      if (name.includes('backup power'))
+        return <Zap className="w-4 h-4 text-amber-500" />;
+
+      if (name.includes('kitchen'))
+        return <CookingPot className="w-4 h-4 text-orange-500" />;
+
+      if (name.includes('air conditioning'))
+        return <Wind className="w-4 h-4 text-cyan-500" />;
+
+      if (name.includes('smart tv'))
+        return <Tv className="w-4 h-4 text-red-500" />;
+
+      if (name.includes('swimming pool'))
+        return <Waves className="w-4 h-4 text-blue-500" />;
+
+      if (name.includes('parking'))
+        return <Car className="w-4 h-4 text-blue-600" />;
+
+      if (name.includes('gated'))
+        return <ShieldCheck className="w-4 h-4 text-emerald-500" />;
+
+      if (name.includes('towels'))
+        return <BedDouble className="w-4 h-4 text-pink-500" />;
+
+      if (name.includes('washing machine'))
+        return <WashingMachine className="w-4 h-4 text-indigo-500" />;
+
+      if (name.includes('workspace'))
+        return <Laptop className="w-4 h-4 text-blue-500" />;
+
+      if (name.includes('balcony'))
+        return <Building className="w-4 h-4 text-teal-500" />;
+
+      if (name.includes('beach'))
+        return <Umbrella className="w-4 h-4 text-cyan-600" />;
+
+      if (name.includes('self check-in'))
+        return <KeyRound className="w-4 h-4 text-amber-600" />;
+
+      if (name.includes('mosquito'))
+        return <BugOff className="w-4 h-4 text-lime-500" />;
+
+      return <CheckCircle2 className="w-4 h-4 text-blue-600" />;
+    }
+
+
     if (name.includes('water') || name.includes('borehole'))
       return <Droplets className="w-4 h-4 text-sky-500 dark:text-sky-400" />;
 
-    if (name.includes('electricity') || name.includes('token'))
+    if (name.includes('electricity') || name.includes('token') || name.includes('backup power'))
       return <Zap className="w-4 h-4 text-amber-500 dark:text-amber-400" />;
 
-    if (name.includes('fibre') || name.includes('wifi') || name.includes('internet'))
+    if (name.includes('fibre') || name.includes('wifi') || name.includes('wi-fi') || name.includes('internet'))
       return <Wifi className="w-4 h-4 text-violet-500 dark:text-violet-400" />;
 
     if (name.includes('security') || name.includes('cctv') || name.includes('guard'))
@@ -341,6 +466,8 @@ export const PropertyDetailView: React.FC = () => {
     return <CheckCircle2 className="w-4 h-4 text-[var(--rentike-bronze)]" />;
   };
   const getAmenityLabel = (amenity: string) => {
+    if (bnb) return BNB_AMENITY_LABELS[amenity] ?? amenity;
+
     const name = amenity.toLowerCase();
 
     if (name.includes('water') || name.includes('borehole')) return 'Water';
@@ -400,6 +527,508 @@ export const PropertyDetailView: React.FC = () => {
     return `${property.vacancies} ${property.vacancies === 1 ? 'unit available' : 'units available'}`;
   };
 
+  // ---- Page sections. Rentals and BnBs show them in different orders (see the left column). ----
+  const videoSection = (
+    <>
+      {/* PROPERTY VIDEO TOUR */}
+      {hasValidVideo && propertyVideo && (
+        <section
+          id="property-video-tour-section"
+          className="bg-[#F7F3EC] dark:bg-[#151515] p-5 sm:p-6 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)]"
+        >
+          <div className="mb-5">
+
+
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-[var(--rentike-bronze)]/12 flex items-center justify-center">
+                <Video className="w-4 h-4 text-[var(--rentike-bronze)]" />
+              </div>
+
+              <h3 className="text-2xl sm:text-[28px] font-editorial font-semibold tracking-tight">
+                <span className="text-neutral-950 dark:text-[#F5F5F5]">
+                  House{' '}
+                </span>
+                <span className="text-[var(--rentike-bronze)]">
+                  Tour
+                </span>
+              </h3>
+            </div>
+
+            <p className="mt-2 text-sm text-neutral-500 dark:text-[#8A8A8A] font-sans">
+              Take a quick look inside
+            </p>
+          </div>
+
+          <div className="relative rounded-2xl overflow-hidden bg-black aspect-16/9 sm:aspect-21/9 border border-black/10 dark:border-white/10 shadow-[0_10px_24px_rgba(28,22,16,0.14)]">
+            <video
+              key={propertyVideo}
+              src={propertyVideo}
+              controls
+              autoPlay={false}
+              playsInline
+              preload="metadata"
+              className="w-full h-full object-cover bg-black"
+              onError={() => setVideoLoadError(true)}
+            >
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        </section>
+      )}
+    </>
+  );
+
+  const aboutSection = (
+    <>
+      {/* PROPERTY DESCRIPTION */}
+      <section className="bg-[#F7F3EC] dark:bg-[#151515] p-5 sm:p-6 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)] space-y-4">
+        {/* Overview Header */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 shrink-0 rounded-2xl bg-[#F7F3EC] dark:bg-[#1A1714] flex items-center justify-center text-[var(--rentike-bronze)]">
+            <FileText className="w-5 h-5" />
+          </div>
+
+          <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rentike-bronze)]">
+            {bnb ? 'About This BnB' : 'About This Home'}
+          </span>
+        </div>
+
+        {/* Title */}
+        <h3 className="text-2xl sm:text-[26px] font-editorial font-semibold tracking-tight mb-4">
+          <span className="text-neutral-950 dark:text-[#F5F5F5]">
+            Property{' '}
+          </span>
+          <span className="text-[var(--rentike-bronze)]">
+            Overview
+          </span>
+        </h3>
+
+        {/* Description */}
+        <div className="flex gap-4">
+          <div className="w-[3px] self-stretch shrink-0 rounded-full bg-[var(--rentike-bronze)]/80" />
+
+          <div className="min-w-0">
+            <p className="text-neutral-600 dark:text-[#A3A3A3] font-sans leading-7 text-sm sm:text-base font-normal">
+              {overviewExpanded || (property.description?.length ?? 0) <= 180
+                ? property.description
+                : `${property.description?.slice(0, 180).trim()}…`}
+            </p>
+
+            {(property.description?.length ?? 0) > 180 && (
+              <button
+                type="button"
+                onClick={() => setOverviewExpanded((prev) => !prev)}
+                className="mt-4 text-sm font-semibold text-[var(--rentike-bronze)] hover:opacity-75 transition-opacity"
+              >
+                {overviewExpanded ? 'Show less ↑' : 'Read more →'}
+              </button>
+            )}
+          </div>
+        </div>
+
+
+        {/* Unit configurations for Mixed Units */}
+        {property.type === 'Mixed Units' ? (
+          <div className="pt-4 border-t border-[#E7DED2] dark:border-neutral-800">
+            <h4 className="text-sm font-semibold text-neutral-900 dark:text-[#F5F5F5] mb-4">
+              Available Unit Types
+            </h4>
+
+            {mixedUnitRecords === undefined ? (
+              <p className="text-sm text-neutral-500">
+                Loading unit types...
+              </p>
+            ) : mixedUnitRecords.length === 0 ? (
+              <p className="text-sm text-neutral-500">
+                No unit types found for this building.
+              </p>
+            ) : (
+              <div className="space-y-4">
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                  {mixedUnitRecords.map((unit) => (
+                    <div key={unit._id} className="min-w-0 sm:col-span-2 space-y-3">
+                      <button
+
+
+                        type="button"
+                        onClick={() =>
+                          setSelectedUnitId((previous) =>
+                            previous === unit._id ? null : unit._id
+                          )
+                        }
+                        aria-expanded={selectedUnitId === unit._id}
+
+                        className={`w-full text-left rounded-2xl border p-4 space-y-3 cursor-pointer transition-colors ${selectedUnitId === unit._id
+                          ? 'border-[#C49A6C] bg-[#EFE4D5] dark:bg-[#24201C]'
+                          : 'border-[#E7DED2] dark:border-neutral-800 bg-[#F8F5EF] dark:bg-[#151515]'
+                          }`}
+
+                      >
+                        <h5 className="font-semibold text-neutral-900 dark:text-[#F5F5F5]">
+                          {unit.type}
+                        </h5>
+
+                        <p className="text-xl font-semibold text-[var(--rentike-bronze)]">
+                          KSh {unit.monthlyRent.toLocaleString()}
+                          <span className="text-xs text-neutral-500 font-normal">
+                            {' '}/month
+                          </span>
+                        </p>
+
+                        <div className="flex flex-wrap gap-3 text-xs text-neutral-600 dark:text-neutral-300">
+                          <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-semibold ${unit.vacancies > 0
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                            : 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400'
+                            }`}>
+                            <span className={`h-2 w-2 rounded-full ${unit.vacancies > 0 ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                            {unit.vacancies > 0
+                              ? `${unit.vacancies} ${unit.vacancies === 1 ? 'unit' : 'units'} available`
+                              : 'Fully Occupied'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-[#E7DED2] dark:border-neutral-700">
+                          <span className="text-sm font-semibold text-[var(--rentike-bronze)]">
+                            {selectedUnitId === unit._id ? 'Hide Details' : 'View Details'}
+                          </span>
+                          <span className="text-[var(--rentike-bronze)]">
+                            {selectedUnitId === unit._id ? '−' : '→'}
+                          </span>
+                        </div>
+
+                      </button>
+
+                      {selectedUnitId === unit._id && (
+                        <div
+                          className="rounded-2xl border border-[#E7DED2] dark:border-neutral-800 bg-[#F7F3EC] dark:bg-[#151515] p-4 sm:p-5 space-y-5"
+                        >
+
+
+                          <div>
+                            <h4 className="text-xl font-semibold text-neutral-900 dark:text-[#F5F5F5]">
+                              {unit.type} Details
+                            </h4>
+                            <p className="text-sm text-neutral-500">
+                              {unit.vacancies} {unit.vacancies === 1 ? 'unit' : 'units'} available
+                            </p>
+                          </div>
+
+                          {/* Individual unit photos */}
+                          <div className="space-y-3">
+                            <h5 className="font-semibold text-neutral-900 dark:text-[#F5F5F5]">
+                              Photos
+                            </h5>
+
+                            {unit.resolvedImages.length > 0 ? (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {unit.resolvedImages.map((url, index) => (
+                                  <img
+                                    key={`${unit._id}-${index}`}
+                                    src={url}
+                                    alt={`${unit.type} photo ${index + 1}`}
+                                    loading="lazy"
+                                    className="w-full aspect-video object-cover rounded-xl"
+                                  />
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-neutral-500">
+                                No photos available for this unit.
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Individual House Tour */}
+                          {unit.resolvedVideo && (
+                            <div className="space-y-3">
+                              <h5 className="font-semibold text-neutral-900 dark:text-[#F5F5F5]">
+                                House Tour
+                              </h5>
+                              <video
+                                key={unit._id}
+                                src={unit.resolvedVideo}
+                                controls
+                                playsInline
+                                preload="metadata"
+                                className="w-full aspect-video rounded-xl bg-black"
+                              />
+                            </div>
+                          )}
+
+                          {/* Individual unit pricing */}
+                          <div className="space-y-3">
+                            <h5 className="font-semibold text-neutral-900 dark:text-[#F5F5F5]">
+                              Pricing & Charges
+                            </h5>
+
+                            <div className="divide-y divide-[#E7DED2] dark:divide-neutral-800 text-sm">
+                              {[
+                                ['Monthly Rent', unit.monthlyRent],
+                                ['Security Deposit', unit.deposit],
+                                ['Service Charge', unit.serviceCharge],
+                                ['Water Deposit', unit.waterDeposit],
+                                ['Electricity Deposit', unit.electricityDeposit],
+                                ['Agent Fee', unit.agentFee],
+                                ['Viewing Fee', unit.viewingFee],
+                              ]
+                                .filter(([, amount]) => typeof amount === 'number' && amount > 0)
+                                .map(([label, amount]) => (
+                                  <div
+                                    key={label}
+                                    className="flex items-center justify-between gap-4 py-3"
+                                  >
+                                    <span className="text-neutral-600 dark:text-neutral-300">
+                                      {label}
+                                    </span>
+                                    <span className="font-semibold text-neutral-900 dark:text-[#F5F5F5]">
+                                      KSh {Number(amount).toLocaleString()}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+
+                          {/* Automatic Estimated Move-In Total */}
+                          <div className="rounded-2xl border border-[#E7DED2] dark:border-neutral-700 bg-[#F2E7D8] dark:bg-[#24201C] p-4 sm:p-5">
+                            <p className="text-xs font-bold uppercase tracking-wider text-[var(--rentike-bronze)]">
+                              Estimated Total Move-In Cost
+                            </p>
+
+                            <p className="mt-2 text-2xl sm:text-3xl font-semibold text-neutral-950 dark:text-[#F5F5F5]">
+                              KSh {(
+                                unit.monthlyRent +
+                                unit.deposit +
+                                (unit.serviceCharge ?? 0) +
+                                (unit.waterDeposit ?? 0) +
+                                (unit.electricityDeposit ?? 0) +
+                                (unit.agentFee ?? 0) +
+                                (unit.viewingFee ?? 0)
+                              ).toLocaleString()}
+                            </p>
+
+                            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                              Estimated upfront cost based on the listed charges.
+                            </p>
+                          </div>
+
+
+
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+
+
+          property.unitGroups && property.unitGroups.length > 0 && (
+            <div className="pt-4 border-t border-neutral-100 dark:border-[#262626]">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-[#8A8A8A] mb-3">
+                Available Unit Configurations in this Building:
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {property.unitGroups.map((g, idx) => (
+                  <div key={idx} className="p-3 bg-neutral-50 dark:bg-[#151515] rounded-xl border border-neutral-200 dark:border-[#292929] text-xs">
+                    <div className="font-bold text-neutral-900 dark:text-[#F5F5F5]">{g.type}</div>
+                    <div className="text-neutral-600 dark:text-[#A3A3A3] font-semibold mt-0.5">
+                      KSh {g.rent.toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-neutral-500 dark:text-[#7D7D7D] mt-1">
+                      {g.vacant > 0 ? `${g.vacant} Vacant` : 'Fully Occupied'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        )}
+
+      </section>
+    </>
+  );
+
+  const bnbStayFactsSection = (
+    <>
+      {/* BNB STAY DETAILS: guests, bedrooms, beds, bathrooms */}
+      {bnb && (
+        <section className="bg-[#F7F3EC] dark:bg-[#151515] p-5 sm:p-6 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)] space-y-5">
+          <h3 className="text-2xl sm:text-[26px] font-editorial font-semibold tracking-tight">
+            <span className="text-neutral-950 dark:text-[#F5F5F5]">Stay </span>
+            <span className="text-[var(--rentike-bronze)]">Details</span>
+          </h3>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { Icon: Users, value: bnb.maxGuests, one: 'guest', many: 'guests' },
+              { Icon: Building, value: bnb.bedrooms, one: 'bedroom', many: 'bedrooms' },
+              { Icon: BedDouble, value: bnb.beds, one: 'bed', many: 'beds' },
+              { Icon: Bath, value: bnb.bathrooms, one: 'bathroom', many: 'bathrooms' },
+            ].map(({ Icon, value, one, many }) => (
+              <div
+                key={one}
+                className="min-h-[80px] flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl bg-[#F7F3EC] dark:bg-[#151515] border border-[#E7DED2] dark:border-neutral-800 shadow-[4px_4px_10px_rgba(28,22,16,0.08),-4px_-4px_10px_rgba(255,255,255,0.85)] dark:shadow-[4px_4px_10px_rgba(0,0,0,0.35),-3px_-3px_8px_rgba(255,255,255,0.03)]"
+              >
+                <Icon className="w-5 h-5 text-[var(--rentike-bronze)]" />
+                <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">
+                  {value} {value === 1 ? one : many}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </>
+  );
+
+  const bnbHouseRulesSection = (
+    <>
+      {/* BNB HOUSE RULES & CHECK-IN */}
+      {bnb && (bnb.checkInTime || bnb.checkOutTime || bnb.houseRules?.trim()) && (
+        <section className="bg-[#F7F3EC] dark:bg-[#151515] p-5 sm:p-6 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)] space-y-5">
+          <h3 className="text-2xl sm:text-[26px] font-editorial font-semibold tracking-tight">
+            <span className="text-neutral-950 dark:text-[#F5F5F5]">House Rules </span>
+            <span className="text-[var(--rentike-bronze)]">& Check-in</span>
+          </h3>
+
+          {(bnb.checkInTime || bnb.checkOutTime) && (
+            <div className="flex flex-wrap gap-3">
+              {bnb.checkInTime && (
+                <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[#FBF8F2] dark:bg-[#1B1B1B] border border-[#E7DED2] dark:border-neutral-800 text-xs text-neutral-700 dark:text-neutral-300">
+                  <Clock className="w-4 h-4 text-[var(--rentike-bronze)]" />
+                  Check-in from <strong className="font-semibold">{formatTime(bnb.checkInTime)}</strong>
+                </span>
+              )}
+              {bnb.checkOutTime && (
+                <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[#FBF8F2] dark:bg-[#1B1B1B] border border-[#E7DED2] dark:border-neutral-800 text-xs text-neutral-700 dark:text-neutral-300">
+                  <Clock className="w-4 h-4 text-[var(--rentike-bronze)]" />
+                  Check-out by <strong className="font-semibold">{formatTime(bnb.checkOutTime)}</strong>
+                </span>
+              )}
+            </div>
+          )}
+
+          {bnb.houseRules?.trim() && (
+            <div className={bnb.checkInTime || bnb.checkOutTime ? 'pt-4 border-t border-[#E7DED2] dark:border-neutral-800' : ''}>
+              <div className="flex items-center gap-2 mb-2">
+                <ScrollText className="w-4 h-4 text-[var(--rentike-bronze)]" />
+                <h4 className="text-sm font-semibold text-neutral-900 dark:text-[#F5F5F5]">House Rules</h4>
+              </div>
+              <p className="text-sm leading-6 text-neutral-600 dark:text-[#A3A3A3] whitespace-pre-line">
+                {bnb.houseRules.trim()}
+              </p>
+            </div>
+          )}
+        </section>
+      )}
+    </>
+  );
+
+  const bnbBookingSection = (
+    <>
+      {/* BNB CHECK DATES & BOOKING REQUEST */}
+      {bnb && (
+        <BnbBookingCard
+          key={property.id}
+          bnb={bnb}
+          propertyName={property.name}
+          hostName={property.lister?.name || 'there'}
+          isOwner={isOwner}
+          onAskHost={handleBnbBookingRequest}
+        />
+      )}
+    </>
+  );
+
+  const amenitiesSection = (
+    <>
+      {/* PROPERTY AMENITIES */}
+      <section className="bg-[#F7F3EC] dark:bg-[#151515] p-5 sm:p-6 rounded-2xl border border-[#E7DED2] dark:border-[#2A2A2A] shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)]">
+        <h3 className="text-2xl sm:text-[26px] font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] tracking-tight">Included Amenities</h3>
+        <div className="grid grid-cols-3 gap-3">
+          {property.amenities.map((amenity, idx) => (
+            <div
+              key={idx}
+              className="min-h-[88px] flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-[#F7F3EC] dark:bg-[#151515] border border-[#E7DED2] dark:border-neutral-800 shadow-[4px_4px_10px_rgba(28,22,16,0.08),-4px_-4px_10px_rgba(255,255,255,0.85)] dark:shadow-[4px_4px_10px_rgba(0,0,0,0.35),-3px_-3px_8px_rgba(255,255,255,0.03)]"
+            >
+              <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#1F1F1F] border border-neutral-200 dark:border-[#303030] flex items-center justify-center shrink-0 shadow-2xs">
+                {getAmenityIcon(amenity)}
+              </div>
+              <span className="text-[11px] font-medium text-center leading-tight text-neutral-700 dark:text-neutral-300">
+                {getAmenityLabel(amenity)}
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+
+  const moveInSection = (
+    <>
+      {/* ESTIMATED MOVE-IN COST CALCULATOR */}
+      <section className="w-full min-w-0">
+        {property.type !== 'Mixed Units' && !bnb && (
+          <EstimatedMoveInCost property={property} />
+        )}
+      </section>
+    </>
+  );
+
+  const locationSection = (
+    <>
+      {/* PROPERTY LOCATION MAP */}
+      <section className="bg-[#F7F3EC] dark:bg-[#151515] p-5 sm:p-6 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)]">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-2xl sm:text-[26px] font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] tracking-tight">Property Location</h3>
+            <p className="text-xs text-neutral-500 dark:text-[#8A8A8A] font-sans">
+              Situated in {locationHierarchy}
+            </p>
+          </div>
+          <div className="text-xs font-semibold font-sans text-neutral-600 dark:text-[#D5D5D5] bg-neutral-100 dark:bg-[#181818] px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-[#292929]">
+            <MapPin className="w-3.5 h-3.5 inline mr-1 text-black dark:text-[#F5F5F5]" />
+            <span>{property.location.estate || property.location.ward || property.location.subCounty || property.location.county}</span>
+          </div>
+        </div>
+
+        {/* Seeker Read-Only Property Location Map */}
+        <PropertyDetailMap
+          property={property}
+          className="h-80 w-full"
+        />
+
+        {/* BnBs: open Google Maps at the pin, so guests see the real route (ferries and boats included where Google knows them). */}
+        {bnb &&
+          Number.isFinite(property.location.lat) &&
+          Number.isFinite(property.location.lng) && (
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${property.location.lat},${property.location.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex items-center gap-2 rounded-xl border border-[#E7DED2] dark:border-neutral-700 px-4 py-2.5 text-sm font-semibold text-[var(--rentike-bronze)] hover:bg-[#F2E7D8] dark:hover:bg-[#24201C] transition-colors"
+            >
+              <Navigation className="w-4 h-4" />
+              Get directions
+            </a>
+          )}
+      </section>
+    </>
+  );
+
+  const reviewsSection = (
+    <>
+      {/* PROPERTY REVIEWS SECTION */}
+      <section id="tenant-reviews-section" className="w-full min-w-0">
+        <ReviewList property={property} />
+      </section>
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-[var(--rentike-bg)] pb-24 text-neutral-900 dark:text-[#F5F5F5] w-full max-w-full overflow-x-hidden sm:overflow-x-clip transition-colors duration-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-5 lg:pt-6 space-y-5 sm:space-y-6 w-full min-w-0">
@@ -452,25 +1081,32 @@ export const PropertyDetailView: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={handleEditListing}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white dark:bg-[#F5F5F5] hover:bg-neutral-100 text-neutral-950 font-bold font-sans rounded-lg text-xs transition-all shadow-xs cursor-pointer"
-              >
-                <Edit className="w-3.5 h-3.5 text-neutral-900" />
-                <span>
-                  {property.status === 'Rejected' ? 'Edit & Resubmit' : 'Edit Listing'}
-                </span>
-              </button>
+              {/* Edit Listing: rentals use updateProperty, BnBs use updateBnb (in AddPropertyView). */}
+              {(
+                <button
+                  type="button"
+                  onClick={handleEditListing}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white dark:bg-[#F5F5F5] hover:bg-neutral-100 text-neutral-950 font-bold font-sans rounded-lg text-xs transition-all shadow-xs cursor-pointer"
+                >
+                  <Edit className="w-3.5 h-3.5 text-neutral-900" />
+                  <span>
+                    {property.status === 'Rejected' ? 'Edit & Resubmit' : 'Edit Listing'}
+                  </span>
+                </button>
+              )}
 
-              <button
-                type="button"
-                onClick={handleUpdateAvailability}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-neutral-800 dark:bg-[#1E1E1E] hover:bg-neutral-700 dark:hover:bg-[#2A2A2A] text-white font-bold font-sans rounded-lg text-xs transition-all border border-neutral-700 dark:border-[#333333] cursor-pointer"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>Update Availability</span>
-              </button>
+              {/* Update Availability: BnBs open BnbAvailabilityModal (accepting + blocked nights);
+                  rentals keep the vacancy modal. */}
+              {(
+                <button
+                  type="button"
+                  onClick={handleUpdateAvailability}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-neutral-800 dark:bg-[#1E1E1E] hover:bg-neutral-700 dark:hover:bg-[#2A2A2A] text-white font-bold font-sans rounded-lg text-xs transition-all border border-neutral-700 dark:border-[#333333] cursor-pointer"
+                >
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span>Update Availability</span>
+                </button>
+              )}
 
               <button
                 type="button"
@@ -528,7 +1164,12 @@ export const PropertyDetailView: React.FC = () => {
     dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)]
   "
               >
-                <BedDouble className="w-4 h-4 text-[var(--rentike-bronze)]" />
+                <BedDouble
+                  className={`w-4 h-4 ${property.type === 'BnB'
+                    ? 'text-blue-600'
+                    : 'text-[var(--rentike-bronze)]'
+                    }`}
+                />
                 <span>{property.type}</span>
               </span>
 
@@ -577,9 +1218,72 @@ export const PropertyDetailView: React.FC = () => {
             </div>
           </div>
 
+          {/* BnB Price Callout */}
+          {bnb && (
+            <div
+              className="
+    bg-[#F7F3EC] dark:bg-[#151515]
+    p-5 sm:p-6
+   rounded-3xl md:h-[242px]
+border border-[#E7DED2] dark:border-neutral-800
+    shadow-[8px_8px_18px_rgba(28,22,16,0.10),-8px_-8px_18px_rgba(255,255,255,0.92)]
+    dark:shadow-[8px_8px_18px_rgba(0,0,0,0.45),-4px_-4px_10px_rgba(255,255,255,0.03)]
+  "
+            >
+              <div className="flex items-center gap-2 text-[var(--rentike-bronze)]">
+                <WalletCards className="w-5 h-5" />
+
+                <span className="text-xs font-bold uppercase tracking-[0.14em]">
+                  Price Per Night
+                </span>
+              </div>
+
+              <div className="mt-3 flex items-end gap-2 flex-wrap">
+                <span className="text-3xl sm:text-4xl font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] leading-none">
+                  KSh {bnb.pricePerNight.toLocaleString()}
+                </span>
+
+                <span className="text-xs sm:text-sm text-neutral-500 dark:text-[#8A8A8A] mb-1">
+                  / night
+                </span>
+              </div>
+
+              {(bnb.cleaningFee ?? 0) > 0 && (
+                <p className="mt-2 text-xs text-neutral-500 dark:text-[#8A8A8A]">
+                  + KSh {(bnb.cleaningFee ?? 0).toLocaleString()} cleaning fee per stay
+                </p>
+              )}
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {bnb.accepting ? (
+                  <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-xs font-semibold border border-emerald-200 dark:border-emerald-900/50">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    Accepting bookings
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-xs font-semibold border border-red-200 dark:border-red-900/50">
+                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                    Not taking bookings
+                  </span>
+                )}
+
+                {!isOwner && bnb.accepting && (
+                  <button
+                    type="button"
+                    onClick={scrollToBnbBooking}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[var(--rentike-bronze)] border border-[#E7DED2] dark:border-neutral-700 hover:bg-[#F2E7D8] dark:hover:bg-[#24201C] cursor-pointer"
+                  >
+                    <CalendarDays className="w-3.5 h-3.5" />
+                    Check dates
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Pricing & Vacancies Callout */}
           {/* Pricing & Vacancies Callout */}
-          {property.type !== 'Mixed Units' && (
+          {property.type !== 'Mixed Units' && !bnb && (
             <div
               className="
     bg-[#F7F3EC] dark:bg-[#151515]
@@ -632,7 +1336,7 @@ border border-[#E7DED2] dark:border-neutral-800
             <div className="flex items-center gap-2 text-[var(--rentike-bronze)]">
               <Building className="h-4 w-4" />
               <span className="text-xs font-semibold tracking-wide">
-                Listed by
+                {bnb ? 'Hosted by' : 'Listed by'}
               </span>
             </div>
 
@@ -768,379 +1472,35 @@ border border-[#E7DED2] dark:border-neutral-800
 
         </section>
 
-        {/* PROPERTY VIDEO TOUR */}
-        {hasValidVideo && propertyVideo && (
-          <section
-            id="property-video-tour-section"
-            className="bg-[#F7F3EC] dark:bg-[#151515] p-5 sm:p-6 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)]"
-          >
-            <div className="mb-5">
-
-
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[var(--rentike-bronze)]/12 flex items-center justify-center">
-                  <Video className="w-4 h-4 text-[var(--rentike-bronze)]" />
-                </div>
-
-                <h3 className="text-2xl sm:text-[28px] font-editorial font-semibold tracking-tight">
-                  <span className="text-neutral-950 dark:text-[#F5F5F5]">
-                    House{' '}
-                  </span>
-                  <span className="text-[var(--rentike-bronze)]">
-                    Tour
-                  </span>
-                </h3>
-              </div>
-
-              <p className="mt-2 text-sm text-neutral-500 dark:text-[#8A8A8A] font-sans">
-                Take a quick look inside
-              </p>
-            </div>
-
-            <div className="relative rounded-2xl overflow-hidden bg-black aspect-16/9 sm:aspect-21/9 border border-black/10 dark:border-white/10 shadow-[0_10px_24px_rgba(28,22,16,0.14)]">
-              <video
-                key={propertyVideo}
-                src={propertyVideo}
-                controls
-                autoPlay={false}
-                playsInline
-                preload="metadata"
-                className="w-full h-full object-cover bg-black"
-                onError={() => setVideoLoadError(true)}
-              >
-                Your browser does not support the video tag.
-              </video>
-            </div>
-          </section>
-        )}
+        {/* PROPERTY VIDEO TOUR (rentals here; BnBs show it after Stay Details) */}
+        {!bnb && videoSection}
 
         {/* Main Details Grid: Left Content & Right Sticky Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 w-full min-w-0">
           {/* Left Column (8 cols) */}
           <div className="lg:col-span-8 space-y-8 sm:space-y-10 min-w-0 w-full">
-            {/* PROPERTY DESCRIPTION */}
-            <section className="bg-[#F7F3EC] dark:bg-[#151515] p-5 sm:p-6 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)] space-y-4">
-              {/* Overview Header */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 shrink-0 rounded-2xl bg-[#F7F3EC] dark:bg-[#1A1714] flex items-center justify-center text-[var(--rentike-bronze)]">
-                  <FileText className="w-5 h-5" />
-                </div>
-
-                <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rentike-bronze)]">
-                  About This Home
-                </span>
-              </div>
-
-              {/* Title */}
-              <h3 className="text-2xl sm:text-[26px] font-editorial font-semibold tracking-tight mb-4">
-                <span className="text-neutral-950 dark:text-[#F5F5F5]">
-                  Property{' '}
-                </span>
-                <span className="text-[var(--rentike-bronze)]">
-                  Overview
-                </span>
-              </h3>
-
-              {/* Description */}
-              <div className="flex gap-4">
-                <div className="w-[3px] self-stretch shrink-0 rounded-full bg-[var(--rentike-bronze)]/80" />
-
-                <div className="min-w-0">
-                  <p className="text-neutral-600 dark:text-[#A3A3A3] font-sans leading-7 text-sm sm:text-base font-normal">
-                    {overviewExpanded || (property.description?.length ?? 0) <= 180
-                      ? property.description
-                      : `${property.description?.slice(0, 180).trim()}…`}
-                  </p>
-
-                  {(property.description?.length ?? 0) > 180 && (
-                    <button
-                      type="button"
-                      onClick={() => setOverviewExpanded((prev) => !prev)}
-                      className="mt-4 text-sm font-semibold text-[var(--rentike-bronze)] hover:opacity-75 transition-opacity"
-                    >
-                      {overviewExpanded ? 'Show less ↑' : 'Read more →'}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-
-              {/* Unit configurations for Mixed Units */}
-              {property.type === 'Mixed Units' ? (
-                <div className="pt-4 border-t border-[#E7DED2] dark:border-neutral-800">
-                  <h4 className="text-sm font-semibold text-neutral-900 dark:text-[#F5F5F5] mb-4">
-                    Available Unit Types
-                  </h4>
-
-                  {mixedUnitRecords === undefined ? (
-                    <p className="text-sm text-neutral-500">
-                      Loading unit types...
-                    </p>
-                  ) : mixedUnitRecords.length === 0 ? (
-                    <p className="text-sm text-neutral-500">
-                      No unit types found for this building.
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-
-                        {mixedUnitRecords.map((unit) => (
-                          <div key={unit._id} className="min-w-0 sm:col-span-2 space-y-3">
-                            <button
-
-
-                              type="button"
-                              onClick={() =>
-                                setSelectedUnitId((previous) =>
-                                  previous === unit._id ? null : unit._id
-                                )
-                              }
-                              aria-expanded={selectedUnitId === unit._id}
-
-                              className={`w-full text-left rounded-2xl border p-4 space-y-3 cursor-pointer transition-colors ${selectedUnitId === unit._id
-                                ? 'border-[#C49A6C] bg-[#EFE4D5] dark:bg-[#24201C]'
-                                : 'border-[#E7DED2] dark:border-neutral-800 bg-[#F8F5EF] dark:bg-[#151515]'
-                                }`}
-
-                            >
-                              <h5 className="font-semibold text-neutral-900 dark:text-[#F5F5F5]">
-                                {unit.type}
-                              </h5>
-
-                              <p className="text-xl font-semibold text-[var(--rentike-bronze)]">
-                                KSh {unit.monthlyRent.toLocaleString()}
-                                <span className="text-xs text-neutral-500 font-normal">
-                                  {' '}/month
-                                </span>
-                              </p>
-
-                              <div className="flex flex-wrap gap-3 text-xs text-neutral-600 dark:text-neutral-300">
-                                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 font-semibold ${unit.vacancies > 0
-                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
-                                  : 'bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400'
-                                  }`}>
-                                  <span className={`h-2 w-2 rounded-full ${unit.vacancies > 0 ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                                  {unit.vacancies > 0
-                                    ? `${unit.vacancies} ${unit.vacancies === 1 ? 'unit' : 'units'} available`
-                                    : 'Fully Occupied'}
-                                </span>
-                              </div>
-
-                              <div className="flex items-center justify-between pt-2 border-t border-[#E7DED2] dark:border-neutral-700">
-                                <span className="text-sm font-semibold text-[var(--rentike-bronze)]">
-                                  {selectedUnitId === unit._id ? 'Hide Details' : 'View Details'}
-                                </span>
-                                <span className="text-[var(--rentike-bronze)]">
-                                  {selectedUnitId === unit._id ? '−' : '→'}
-                                </span>
-                              </div>
-
-                            </button>
-
-                            {selectedUnitId === unit._id && (
-                              <div
-                                className="rounded-2xl border border-[#E7DED2] dark:border-neutral-800 bg-[#F7F3EC] dark:bg-[#151515] p-4 sm:p-5 space-y-5"
-                              >
-
-
-                                <div>
-                                  <h4 className="text-xl font-semibold text-neutral-900 dark:text-[#F5F5F5]">
-                                    {unit.type} Details
-                                  </h4>
-                                  <p className="text-sm text-neutral-500">
-                                    {unit.vacancies} {unit.vacancies === 1 ? 'unit' : 'units'} available
-                                  </p>
-                                </div>
-
-                                {/* Individual unit photos */}
-                                <div className="space-y-3">
-                                  <h5 className="font-semibold text-neutral-900 dark:text-[#F5F5F5]">
-                                    Photos
-                                  </h5>
-
-                                  {unit.resolvedImages.length > 0 ? (
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                      {unit.resolvedImages.map((url, index) => (
-                                        <img
-                                          key={`${unit._id}-${index}`}
-                                          src={url}
-                                          alt={`${unit.type} photo ${index + 1}`}
-                                          loading="lazy"
-                                          className="w-full aspect-video object-cover rounded-xl"
-                                        />
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <p className="text-sm text-neutral-500">
-                                      No photos available for this unit.
-                                    </p>
-                                  )}
-                                </div>
-
-                                {/* Individual House Tour */}
-                                {unit.resolvedVideo && (
-                                  <div className="space-y-3">
-                                    <h5 className="font-semibold text-neutral-900 dark:text-[#F5F5F5]">
-                                      House Tour
-                                    </h5>
-                                    <video
-                                      key={unit._id}
-                                      src={unit.resolvedVideo}
-                                      controls
-                                      playsInline
-                                      preload="metadata"
-                                      className="w-full aspect-video rounded-xl bg-black"
-                                    />
-                                  </div>
-                                )}
-
-                                {/* Individual unit pricing */}
-                                <div className="space-y-3">
-                                  <h5 className="font-semibold text-neutral-900 dark:text-[#F5F5F5]">
-                                    Pricing & Charges
-                                  </h5>
-
-                                  <div className="divide-y divide-[#E7DED2] dark:divide-neutral-800 text-sm">
-                                    {[
-                                      ['Monthly Rent', unit.monthlyRent],
-                                      ['Security Deposit', unit.deposit],
-                                      ['Service Charge', unit.serviceCharge],
-                                      ['Water Deposit', unit.waterDeposit],
-                                      ['Electricity Deposit', unit.electricityDeposit],
-                                      ['Agent Fee', unit.agentFee],
-                                      ['Viewing Fee', unit.viewingFee],
-                                    ]
-                                      .filter(([, amount]) => typeof amount === 'number' && amount > 0)
-                                      .map(([label, amount]) => (
-                                        <div
-                                          key={label}
-                                          className="flex items-center justify-between gap-4 py-3"
-                                        >
-                                          <span className="text-neutral-600 dark:text-neutral-300">
-                                            {label}
-                                          </span>
-                                          <span className="font-semibold text-neutral-900 dark:text-[#F5F5F5]">
-                                            KSh {Number(amount).toLocaleString()}
-                                          </span>
-                                        </div>
-                                      ))}
-                                  </div>
-                                </div>
-
-                                {/* Automatic Estimated Move-In Total */}
-                                <div className="rounded-2xl border border-[#E7DED2] dark:border-neutral-700 bg-[#F2E7D8] dark:bg-[#24201C] p-4 sm:p-5">
-                                  <p className="text-xs font-bold uppercase tracking-wider text-[var(--rentike-bronze)]">
-                                    Estimated Total Move-In Cost
-                                  </p>
-
-                                  <p className="mt-2 text-2xl sm:text-3xl font-semibold text-neutral-950 dark:text-[#F5F5F5]">
-                                    KSh {(
-                                      unit.monthlyRent +
-                                      unit.deposit +
-                                      (unit.serviceCharge ?? 0) +
-                                      (unit.waterDeposit ?? 0) +
-                                      (unit.electricityDeposit ?? 0) +
-                                      (unit.agentFee ?? 0) +
-                                      (unit.viewingFee ?? 0)
-                                    ).toLocaleString()}
-                                  </p>
-
-                                  <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                                    Estimated upfront cost based on the listed charges.
-                                  </p>
-                                </div>
-
-
-
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
-
-
-                property.unitGroups && property.unitGroups.length > 0 && (
-                  <div className="pt-4 border-t border-neutral-100 dark:border-[#262626]">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500 dark:text-[#8A8A8A] mb-3">
-                      Available Unit Configurations in this Building:
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {property.unitGroups.map((g, idx) => (
-                        <div key={idx} className="p-3 bg-neutral-50 dark:bg-[#151515] rounded-xl border border-neutral-200 dark:border-[#292929] text-xs">
-                          <div className="font-bold text-neutral-900 dark:text-[#F5F5F5]">{g.type}</div>
-                          <div className="text-neutral-600 dark:text-[#A3A3A3] font-semibold mt-0.5">
-                            KSh {g.rent.toLocaleString()}
-                          </div>
-                          <div className="text-[11px] text-neutral-500 dark:text-[#7D7D7D] mt-1">
-                            {g.vacant > 0 ? `${g.vacant} Vacant` : 'Fully Occupied'}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              )}
-
-            </section>
-
-            {/* PROPERTY AMENITIES */}
-            <section className="bg-[#F7F3EC] dark:bg-[#151515] p-5 sm:p-6 rounded-2xl border border-[#E7DED2] dark:border-[#2A2A2A] shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)]">
-              <h3 className="text-2xl sm:text-[26px] font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] tracking-tight">Included Amenities</h3>
-              <div className="grid grid-cols-3 gap-3">
-                {property.amenities.map((amenity, idx) => (
-                  <div
-                    key={idx}
-                    className="min-h-[88px] flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-[#F7F3EC] dark:bg-[#151515] border border-[#E7DED2] dark:border-neutral-800 shadow-[4px_4px_10px_rgba(28,22,16,0.08),-4px_-4px_10px_rgba(255,255,255,0.85)] dark:shadow-[4px_4px_10px_rgba(0,0,0,0.35),-3px_-3px_8px_rgba(255,255,255,0.03)]"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-white dark:bg-[#1F1F1F] border border-neutral-200 dark:border-[#303030] flex items-center justify-center shrink-0 shadow-2xs">
-                      {getAmenityIcon(amenity)}
-                    </div>
-                    <span className="text-[11px] font-medium text-center leading-tight text-neutral-700 dark:text-neutral-300">
-                      {getAmenityLabel(amenity)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            {/* ESTIMATED MOVE-IN COST CALCULATOR */}
-            <section className="w-full min-w-0">
-              {property.type !== 'Mixed Units' && (
-                <EstimatedMoveInCost property={property} />
-              )}
-            </section>
-
-            {/* PROPERTY LOCATION MAP */}
-            <section className="bg-[#F7F3EC] dark:bg-[#151515] p-5 sm:p-6 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-2xl sm:text-[26px] font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] tracking-tight">Property Location</h3>
-                  <p className="text-xs text-neutral-500 dark:text-[#8A8A8A] font-sans">
-                    Situated in {locationHierarchy}
-                  </p>
-                </div>
-                <div className="text-xs font-semibold font-sans text-neutral-600 dark:text-[#D5D5D5] bg-neutral-100 dark:bg-[#181818] px-3 py-1.5 rounded-lg border border-neutral-200 dark:border-[#292929]">
-                  <MapPin className="w-3.5 h-3.5 inline mr-1 text-black dark:text-[#F5F5F5]" />
-                  <span>{property.location.estate || property.location.ward || property.location.subCounty || property.location.county}</span>
-                </div>
-              </div>
-
-              {/* Seeker Read-Only Property Location Map */}
-              <PropertyDetailMap
-                property={property}
-                className="h-80 w-full"
-              />
-            </section>
-
-            {/* PROPERTY REVIEWS SECTION */}
-            <section id="tenant-reviews-section" className="w-full min-w-0">
-              <ReviewList property={property} />
-            </section>
+            {bnb ? (
+              <>
+                {/* BnB order: 1 photos (above), 2 stay details, 3 house tour, 4 about, 5 amenities,
+                    6 house rules & check-in, 7 location, 8 reviews, 9 check dates & request stay */}
+                {bnbStayFactsSection}
+                {videoSection}
+                {aboutSection}
+                {amenitiesSection}
+                {bnbHouseRulesSection}
+                {locationSection}
+                {reviewsSection}
+                {bnbBookingSection}
+              </>
+            ) : (
+              <>
+                {aboutSection}
+                {amenitiesSection}
+                {moveInSection}
+                {locationSection}
+                {reviewsSection}
+              </>
+            )}
           </div>
 
           {/* Right Column / Sticky Sidebar (4 cols) */}
@@ -1154,7 +1514,7 @@ border border-[#E7DED2] dark:border-neutral-800
 
                 <div className="min-w-0">
                   <span className="text-sm font-semibold tracking-[0.06em] text-[var(--rentike-bronze)] font-sans">
-                    Listed by
+                    {bnb ? 'Hosted by' : 'Listed by'}
                   </span>
 
 
@@ -1230,11 +1590,11 @@ border border-[#E7DED2] dark:border-neutral-800
 
           <button
             type="button"
-            onClick={handleDirectEnquiry}
+            onClick={bnb ? scrollToBnbBooking : handleDirectEnquiry}
             className="flex h-12 items-center justify-center gap-2 rounded-full bg-[#B8895E] px-5 text-xs font-semibold text-white shadow-[4px_5px_12px_rgba(82,49,24,0.28)] transition-all duration-200 hover:bg-[#A67950] active:scale-95"
           >
-            <MessageSquare className="h-4 w-4" />
-            <span>Send Enquiry</span>
+            {bnb ? <CalendarDays className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
+            <span>{bnb ? 'Check dates' : 'Send Enquiry'}</span>
           </button>
         </div>
       )}
@@ -1262,13 +1622,13 @@ border border-[#E7DED2] dark:border-neutral-800
 
             <button
               type="button"
-              onClick={handleDirectEnquiry}
+              onClick={bnb ? scrollToBnbBooking : handleDirectEnquiry}
 
-              className="flex-1 h-10 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-[#8B6B43] dark:text-[#C49A6C] bg-[#F7F3EC] dark:bg-[#1C1C1C] border border-[#E7DED2] dark:border-neutral-700 shadow-[3px_3px_7px_rgba(28,22,16,0.12),-3px_-3px_7px_rgba(255,255,255,0.95)] dark:shadow-[3px_3px_7px_rgba(0,0,0,0.45),-2px_-2px_5px_rgba(255,255,255,0.03)] active:shadow-inner active:scale-[0.98] transition-all"
+              className={`${bnb ? 'flex-[2]' : 'flex-1'} h-10 rounded-xl flex items-center justify-center gap-2 text-xs font-semibold text-[#8B6B43] dark:text-[#C49A6C] bg-[#F7F3EC] dark:bg-[#1C1C1C] border border-[#E7DED2] dark:border-neutral-700 shadow-[3px_3px_7px_rgba(28,22,16,0.12),-3px_-3px_7px_rgba(255,255,255,0.95)] dark:shadow-[3px_3px_7px_rgba(0,0,0,0.45),-2px_-2px_5px_rgba(255,255,255,0.03)] active:shadow-inner active:scale-[0.98] transition-all`}
 
             >
-              <MessageSquare className="w-5 h-5" />
-              <span>Send Enquiry</span>
+              {bnb ? <CalendarDays className="w-5 h-5" /> : <MessageSquare className="w-5 h-5" />}
+              <span>{bnb ? 'Check dates' : 'Send Enquiry'}</span>
             </button>
 
           </div>
@@ -1284,10 +1644,17 @@ border border-[#E7DED2] dark:border-neutral-800
 
       {/* Vacancy Manager Modal (Owner Availability Editor) */}
       {vacancyModalOpen && (
-        <VacancyManagerModal
-          property={property}
-          onClose={() => setVacancyModalOpen(false)}
-        />
+        bnb ? (
+          <BnbAvailabilityModal
+            property={property}
+            onClose={() => setVacancyModalOpen(false)}
+          />
+        ) : (
+          <VacancyManagerModal
+            property={property}
+            onClose={() => setVacancyModalOpen(false)}
+          />
+        )
       )}
 
       {/* Delete Listing Confirmation Modal */}

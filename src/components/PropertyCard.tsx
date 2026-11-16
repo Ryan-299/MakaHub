@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Heart, MapPin, Star, Clock, AlertCircle, Video, Droplet, Zap, Wifi, ShieldCheck } from 'lucide-react';
+import { Heart, MapPin, Star, Clock, AlertCircle, Video, Droplet, Zap, Wifi, ShieldCheck, House } from 'lucide-react';
 import { PropertyListing } from '../types';
 import { useApp } from '../context/AppContext';
 import { resolvePropertyCoordinates, calculateDistanceInKm } from '../utils/kenyaGeocoding';
@@ -112,7 +112,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
         {/* Top Badges */}
         <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-wrap items-center gap-1 sm:gap-1.5 z-10">
-          <span className="bg-black text-white text-[10px] sm:text-[11px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full uppercase tracking-wider shadow-xs font-sans">
+          <span className="inline-flex items-center gap-1 bg-[#242424] text-white text-[10px] sm:text-[11px] font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full uppercase tracking-wider shadow-xs font-sans">
+            <House className="h-3 w-3 shrink-0" />
             {property.type}
           </span>
           {property.featured && (
