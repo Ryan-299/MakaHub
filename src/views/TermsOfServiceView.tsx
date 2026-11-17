@@ -62,8 +62,8 @@ const TermsOfServiceView: React.FC = () => {
                     </h1>
 
                     <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-500 dark:text-neutral-400">
-                        <span>Effective date: 4 November 2026</span>
-                        <span>Version 1.0</span>
+                        <span>Effective date: 17 November 2026</span>
+                        <span>Version 1.1</span>
                     </div>
                 </div>
 
@@ -105,19 +105,20 @@ const TermsOfServiceView: React.FC = () => {
                             1. What Is Rentike?
                         </h2>
                         <p>
-                            Rentike is a Kenyan rental-property discovery platform
-                            designed to help people find available rental homes
-                            and help property owners and their authorised
-                            representatives showcase vacancies.
+                            Rentike is a Kenyan property discovery platform
+                            that helps people find rental homes and BnB or
+                            short-stay accommodation, and helps authorised
+                            listers advertise properties and vacancies.
                         </p>
                         <p>
-                            Rentike connects property seekers with landlords,
-                            caretakers, property managers, real estate agents,
-                            property agencies and other property listers.
+                            Rentike connects property seekers and short-stay
+                            guests with landlords, caretakers, property managers,
+                            real estate agents, property agencies and BnB hosts.
                         </p>
                         <p>The platform provides features such as:</p>
                         <ul className="list-disc space-y-2 pl-6">
                             <li>Rental property listings and vacancy information.</li>
+                            <li>BnB listings, availability and stay requests.</li>
                             <li>Property photographs, videos and descriptions.</li>
                             <li>Property search and filtering.</li>
                             <li>Maps and location discovery.</li>
@@ -127,14 +128,14 @@ const TermsOfServiceView: React.FC = () => {
                             <li>Public lister profiles.</li>
                         </ul>
                         <p className="font-semibold text-black dark:text-white">
-                            Rentike is a technology platform for rental discovery
-                            and communication.
+                            Rentike is a technology platform for property discovery,
+                            stay enquiries and communication.
                         </p>
                         <p>
                             Rentike does not itself own the properties advertised
                             by independent listers, guarantee the availability
-                            of a rental property, or automatically become a party
-                            to a rental agreement between users.
+                            of a rental property or BnB, or automatically become
+                            a party to agreements made between users.
                         </p>
                     </section>
 
@@ -180,8 +181,8 @@ const TermsOfServiceView: React.FC = () => {
                             3. Guest Browsing and Registered Users
                         </h2>
                         <p>
-                            Rentike allows visitors to explore available rental
-                            properties without creating an account.
+                            Rentike allows visitors to explore rental properties
+                            and BnB listings without creating an account.
                         </p>
                         <p>
                             Guests may browse listings, view property details,
@@ -194,7 +195,7 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                         <ul className="list-disc space-y-2 pl-6">
                             <li>Saving or favouriting properties.</li>
-                            <li>Sending property enquiries.</li>
+                            <li>Sending property enquiries or BnB stay requests.</li>
                             <li>Accessing private messages.</li>
                             <li>Submitting ratings and reviews.</li>
                             <li>Publishing or managing property listings.</li>
@@ -255,8 +256,8 @@ const TermsOfServiceView: React.FC = () => {
                         </h2>
                         <p>
                             Landlords, caretakers, property managers, agents,
-                            agencies, property companies and other listers
-                            must have the necessary authority to advertise
+                            agencies, property companies, BnB hosts and other
+                            listers must have the necessary authority to advertise
                             the properties they publish.
                         </p>
                         <p>
@@ -267,6 +268,7 @@ const TermsOfServiceView: React.FC = () => {
                         <ul className="list-disc space-y-2 pl-6">
                             <li>Property name and location.</li>
                             <li>Rental price and applicable move-in costs.</li>
+                            <li>BnB nightly rates, applicable fees, guest limits and house rules.</li>
                             <li>Available units and vacancy status.</li>
                             <li>Property descriptions and amenities.</li>
                             <li>Authentic property photographs and videos.</li>
@@ -327,8 +329,15 @@ const TermsOfServiceView: React.FC = () => {
                             property published on the platform.
                         </p>
                         <p>
-                            Users should conduct appropriate checks
-                            before making rental decisions.
+                            Before making any payment, users should confirm that
+                            the property exists and that the person advertising it
+                            is authorised to rent or host it. Where possible,
+                            inspect the property or arrange a live video viewing,
+                            and verify payment details independently.
+                        </p>
+                        <p className="font-semibold text-black dark:text-white">
+                            Never send money solely because a listing appears
+                            on Rentike or has been approved for publication.
                         </p>
                         <p>
                             Rentike may remove or restrict listings where there
@@ -340,20 +349,20 @@ const TermsOfServiceView: React.FC = () => {
                     {/* Section 7 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            7. Rental Agreements and Payments Between Users
+                            7. Rental and BnB Payments Between Users
                         </h2>
                         <p>
-                            Rental negotiations, agreements and arrangements
-                            are made directly between the relevant property
-                            seekers and property listers.
+                            Rental agreements and BnB stay arrangements are made
+                            directly between the relevant seekers or guests
+                            and property listers or hosts.
                         </p>
                         <p>
                             Rentike is not automatically a party to these arrangements.
                         </p>
                         <p>
                             Rentike does not currently provide an in-app payment
-                            system for rent, rental deposits or property-related
-                            transactions between seekers and listers.
+                            system for rent, rental deposits, BnB stay payments
+                            or other property-related transactions between users.
                         </p>
                         <p>
                             Any payment arrangement made directly between users
@@ -361,9 +370,8 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                         <p>
                             Users should exercise caution before transferring
-                            money, particularly when a property has not been
-                            inspected or the recipient's authority
-                            has not been established.
+                            money and verify the property, payment recipient and
+                            agreed terms before paying any deposit or stay fee.
                         </p>
                         <p>
                             Nothing in this section excludes responsibilities
@@ -375,7 +383,42 @@ const TermsOfServiceView: React.FC = () => {
                     {/* Section 8 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            8. Private Enquiries and Communication
+                            8. BnB and Short-Stay Accommodation
+                        </h2>
+                        <p>
+                            BnB hosts must have permission to offer their
+                            accommodation and must provide truthful descriptions,
+                            photos, locations, availability, nightly rates,
+                            additional fees, guest capacity and house rules.
+                        </p>
+                        <p>
+                            A stay request sent through Rentike is an enquiry,
+                            not an automatic booking confirmation. Guests and
+                            hosts must agree directly on the dates, price and
+                            check-in arrangements before treating a stay as confirmed.
+                        </p>
+                        <p>
+                            Hosts are responsible for keeping blocked dates and
+                            availability up to date. An available date displayed
+                            on Rentike does not guarantee that a stay is confirmed.
+                        </p>
+                        <p>
+                            Guests and hosts should agree on payment deadlines,
+                            cancellation terms and any refund arrangements before
+                            money changes hands. Each party must honour applicable
+                            legal obligations and consumer rights.
+                        </p>
+                        <p>
+                            Hosts must comply with laws, permits and licensing
+                            requirements that apply to their accommodation.
+                            Guests must respect agreed house rules and occupancy limits.
+                        </p>
+                    </section>
+
+                    {/* Section 9 */}
+                    <section className="space-y-4">
+                        <h2 className="text-xl font-bold text-black dark:text-white">
+                            9. Private Enquiries and Communication
                         </h2>
                         <p>
                             Rentike provides communication features to help
@@ -406,10 +449,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 9 */}
+                    {/* Section 10 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            9. Reviews, Ratings and User Content
+                            10. Reviews, Ratings and User Content
                         </h2>
                         <p>
                             Rentike may allow registered users to publish ratings,
@@ -439,10 +482,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 10 */}
+                    {/* Section 11 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            10. Prohibited Conduct
+                            11. Prohibited Conduct
                         </h2>
                         <p>Users must not:</p>
                         <ul className="list-disc space-y-2 pl-6">
@@ -480,10 +523,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 11 */}
+                    {/* Section 12 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            11. Public Profiles and Contact Information
+                            12. Public Profiles and Contact Information
                         </h2>
                         <p>
                             Property listers may choose to provide profile
@@ -507,10 +550,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 12 */}
+                    {/* Section 13 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            12. Intellectual Property
+                            13. Intellectual Property
                         </h2>
                         <p>
                             The Rentike name, branding, original interface,
@@ -539,10 +582,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 13 */}
+                    {/* Section 14 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            13. Reports, Moderation and Account Restrictions
+                            14. Reports, Moderation and Account Restrictions
                         </h2>
                         <p>
                             Users may report suspicious listings, misleading
@@ -571,10 +614,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 14 */}
+                    {/* Section 15 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            14. Account Suspension and Deletion
+                            15. Account Suspension and Deletion
                         </h2>
                         <p>
                             Users may request account deletion through available
@@ -596,10 +639,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 15 */}
+                    {/* Section 16 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            15. Third-Party Services
+                            16. Third-Party Services
                         </h2>
                         <p>
                             Rentike may use or link to external services, including
@@ -619,10 +662,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 16 */}
+                    {/* Section 17 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            16. Privacy and Personal Information
+                            17. Privacy and Personal Information
                         </h2>
                         <p>
                             The collection, processing, storage and protection
@@ -644,10 +687,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 17 */}
+                    {/* Section 18 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            17. Availability and Changes to Rentike
+                            18. Availability and Changes to Rentike
                         </h2>
                         <p>
                             Rentike aims to provide a reliable and accessible service.
@@ -672,10 +715,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 18 */}
+                    {/* Section 19 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            18. Limitation of Responsibility
+                            19. Limitation of Responsibility
                         </h2>
                         <p>
                             Rentike provides a platform through which independent
@@ -703,10 +746,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 19 */}
+                    {/* Section 20 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            19. Changes to These Terms
+                            20. Changes to These Terms
                         </h2>
                         <p>
                             Rentike may revise these Terms of Service when
@@ -727,10 +770,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 20 */}
+                    {/* Section 21 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            20. Governing Law
+                            21. Governing Law
                         </h2>
                         <p>
                             These Terms of Service are governed by the laws
@@ -746,10 +789,10 @@ const TermsOfServiceView: React.FC = () => {
                         </p>
                     </section>
 
-                    {/* Section 21 */}
+                    {/* Section 22 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            21. Contact Information
+                            22. Contact Information
                         </h2>
                         <p>
                             For questions, concerns, complaints or enquiries

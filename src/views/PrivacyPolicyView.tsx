@@ -60,8 +60,8 @@ const PrivacyPolicyView: React.FC = () => {
                     </h1>
 
                     <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-neutral-500 dark:text-neutral-400">
-                        <span>Effective date: 4 November 2026</span>
-                        <span>Version 1.0</span>
+                        <span>Effective date: 17 November 2026</span>
+                        <span>Version 1.1</span>
                     </div>
                 </div>
 
@@ -79,9 +79,10 @@ const PrivacyPolicyView: React.FC = () => {
                             web application or installed Progressive Web App (PWA).
                         </p>
                         <p>
-                            Rentike is a Kenyan rental-property discovery platform developed
-                            and operated by Shen Studios, based in Nakuru, Kenya.
-                            This policy applies to visitors, property seekers and property listers.
+                            Rentike is a Kenyan rental and short-stay accommodation discovery
+                            platform developed and operated by Shen Studios, based in
+                            Nakuru, Kenya. This policy applies to visitors, property seekers,
+                            BnB guests, property listers and hosts.
                         </p>
                     </section>
 
@@ -137,13 +138,13 @@ const PrivacyPolicyView: React.FC = () => {
                             2. Guest Browsing
                         </h2>
                         <p>
-                            Rentike allows visitors to explore certain rental property information
-                            without creating an account. Guests may browse listings, view photographs
+                            Rentike allows visitors to explore rental and BnB listing information
+                            without creating an account. Visitors may browse listings, view photographs
                             and videos, explore maps, and use available search and filtering tools.
                         </p>
                         <p>An account is required for activities such as:</p>
                         <ul className="list-disc space-y-2 pl-6">
-                            <li>Sending property enquiries or accessing private messages.</li>
+                            <li>Sending property enquiries, requesting BnB stays or accessing private messages.</li>
                             <li>Saving or favouriting properties.</li>
                             <li>Publishing or managing property listings.</li>
                             <li>Submitting ratings or reviews.</li>
@@ -167,16 +168,21 @@ const PrivacyPolicyView: React.FC = () => {
                         <ul className="list-disc space-y-2 pl-6">
                             <li>Property name, description and type.</li>
                             <li>Address, location or geographic coordinates.</li>
-                            <li>Monthly rent and move-in costs.</li>
+                            <li>Monthly rent and move-in costs for rental properties.</li>
                             <li>Available units and vacancy information.</li>
+                            <li>BnB nightly rates, cleaning fees and stay conditions.</li>
+                            <li>BnB guest capacity, rooms, check-in and check-out information, and house rules.</li>
+                            <li>BnB hosting dates, availability and blocked nights.</li>
                             <li>Amenities and facilities.</li>
                             <li>Property photographs and videos.</li>
                             <li>Contact information associated with a listing, where applicable.</li>
                         </ul>
                         <p>
-                            This information helps property seekers discover homes and compare
-                            available options. Approved listings and associated details may be
-                            publicly visible, including to visitors without accounts.
+                            This information helps property seekers and BnB guests discover
+                            accommodation and compare available options. Approved listings,
+                            availability information and associated details may be publicly
+                            visible, including to visitors without accounts. Dates shown as
+                            unavailable do not identify any guest or explain why they are blocked.
                         </p>
                         <p>
                             Listers should avoid including unnecessary private or sensitive
@@ -208,11 +214,12 @@ const PrivacyPolicyView: React.FC = () => {
                     {/* Section 5 */}
                     <section className="space-y-4">
                         <h2 className="text-xl font-bold text-black dark:text-white">
-                            5. Enquiries and Private Messages
+                            5. Enquiries, BnB Stay Requests and Private Messages
                         </h2>
                         <p>
-                            Rentike allows property seekers and listers to communicate
-                            through enquiries and messaging features. We may process:
+                            Rentike allows property seekers, BnB guests, listers and hosts
+                            to communicate through enquiries and messaging features.
+                            We may process:
                         </p>
                         <ul className="list-disc space-y-2 pl-6">
                             <li>Users participating in a conversation.</li>
@@ -220,16 +227,23 @@ const PrivacyPolicyView: React.FC = () => {
                             <li>Messages exchanged between users.</li>
                             <li>Message timestamps and status.</li>
                             <li>Contact information submitted during an enquiry.</li>
+                            <li>For BnB stay requests, requested check-in and check-out dates,
+                                number of guests, length of stay, estimated price and any message
+                                included with the request.</li>
                         </ul>
                         <p>
-                            Private enquiries and conversations are not intended for public display.
+                            Private enquiries and conversations, including BnB stay requests,
+                            are not intended for public display. A stay request is shared with
+                            the relevant host and may remain in the conversation history.
+                            Submitting a request does not itself confirm a reservation.
                             Authorised Rentike personnel may access relevant information where
                             reasonably necessary for support, complaints, fraud prevention,
                             security, enforcement of platform rules or legal compliance.
                         </p>
                         <p>
-                            Do not share passwords, verification codes or unnecessary
-                            sensitive information through messages.
+                            Rentike does not currently provide an in-app checkout for rental
+                            or BnB payments. Do not share passwords, verification codes,
+                            payment credentials or unnecessary sensitive information through messages.
                         </p>
                     </section>
 
@@ -303,8 +317,9 @@ const PrivacyPolicyView: React.FC = () => {
                         </h2>
                         <p>
                             Rentike may send account and security messages, email verification
-                            codes, account-change notices, enquiry and property-activity
-                            notifications, listing updates and important service announcements.
+                            codes, account-change notices, enquiry, BnB stay-request and
+                            property-activity notifications, listing updates and important
+                            service announcements.
                         </p>
                         <p>
                             Communications may be delivered within Rentike, by email or through
@@ -327,7 +342,8 @@ const PrivacyPolicyView: React.FC = () => {
                         <p>Rentike processes personal information to:</p>
                         <ul className="list-disc space-y-2 pl-6">
                             <li>Create, authenticate and maintain user accounts.</li>
-                            <li>Publish and display property listings.</li>
+                            <li>Publish and display rental and BnB property listings.</li>
+                            <li>Support BnB stay requests and host availability management.</li>
                             <li>Provide search, discovery, maps and location tools.</li>
                             <li>Connect property seekers with listers through enquiries and messages.</li>
                             <li>Manage saved properties, preferences and public profiles.</li>
@@ -373,9 +389,11 @@ const PrivacyPolicyView: React.FC = () => {
                             12.1 Sharing Between Users
                         </h3>
                         <p>
-                            Information submitted in an enquiry may be shared with the relevant
-                            property lister. Information placed in public profiles or property
-                            listings may be available to seekers and other visitors.
+                            Information submitted in an enquiry or BnB stay request may be
+                            shared with the relevant property lister or host. This can include
+                            requested dates, guest count and messages. Information placed in
+                            public profiles or property listings may be available to seekers,
+                            guests and other visitors.
                         </p>
                         <h3 className="pt-2 text-lg font-semibold text-black dark:text-white">
                             12.2 Technology Service Providers
