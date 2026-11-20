@@ -31,7 +31,7 @@ export const EstimatedMoveInCost: React.FC<EstimatedMoveInCostProps> = ({ proper
 
   if (typeof deposit === 'number' && deposit > 0) {
     applicableFees.push({
-      label: 'Security Deposit (Refundable)',
+      label: 'Security Deposit',
       amount: deposit
     });
   }
