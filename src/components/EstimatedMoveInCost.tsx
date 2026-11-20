@@ -11,8 +11,11 @@ export const EstimatedMoveInCost: React.FC<EstimatedMoveInCostProps> = ({ proper
     monthlyRent = 0,
     deposit,
     serviceCharge,
+    garbageFee,
     waterDeposit,
+    electricityDeposit,
     agentFee,
+    viewingFee,
     otherFees
   } = property;
 
@@ -40,6 +43,13 @@ export const EstimatedMoveInCost: React.FC<EstimatedMoveInCostProps> = ({ proper
     });
   }
 
+  if (typeof garbageFee === 'number' && garbageFee > 0) {
+    applicableFees.push({
+      label: 'Garbage Fee',
+      amount: garbageFee
+    });
+  }
+
   if (typeof waterDeposit === 'number' && waterDeposit > 0) {
     applicableFees.push({
       label: 'Water Meter Deposit',
@@ -47,10 +57,24 @@ export const EstimatedMoveInCost: React.FC<EstimatedMoveInCostProps> = ({ proper
     });
   }
 
+  if (typeof electricityDeposit === 'number' && electricityDeposit > 0) {
+    applicableFees.push({
+      label: 'Electricity Deposit',
+      amount: electricityDeposit
+    });
+  }
+
   if (typeof agentFee === 'number' && agentFee > 0) {
     applicableFees.push({
       label: 'Agent Facilitation Fee',
       amount: agentFee
+    });
+  }
+
+  if (typeof viewingFee === 'number' && viewingFee > 0) {
+    applicableFees.push({
+      label: 'Viewing Fee',
+      amount: viewingFee
     });
   }
 
@@ -154,4 +178,3 @@ export const EstimatedMoveInCost: React.FC<EstimatedMoveInCostProps> = ({ proper
     </div>
   );
 };
-
