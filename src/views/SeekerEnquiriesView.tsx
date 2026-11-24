@@ -24,6 +24,7 @@ import {
   Info,
   Sun,
   Moon,
+  Megaphone,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ListerEnquiry } from '../types';
@@ -107,7 +108,7 @@ export const SeekerEnquiriesView: React.FC = () => {
   ).length;
   const systemNotifications = notifications.filter(
     (notification) =>
-      notification.type === 'system' &&
+      ['system', 'announcement'].includes(notification.type) &&
       !['Listing Submitted', 'Listing Resubmitted', 'BnB Submitted'].includes(notification.title)
   );
 
@@ -708,7 +709,9 @@ export const SeekerEnquiriesView: React.FC = () => {
                             }`}
                         >
 
-                          {notification.title?.trim().toLowerCase() === 'phone number updated' ? (
+                          {notification.type === 'announcement' ? (
+                            <Megaphone className="h-5 w-5 text-[#A77745] dark:text-[#CCA177]" />
+                          ) : notification.title?.trim().toLowerCase() === 'phone number updated' ? (
                             <Phone className="h-5 w-5 text-[#438D80]" />
                           ) : notification.title?.trim().toLowerCase() === 'contact email updated' ? (
                             <MailCheck className="h-5 w-5 text-[#B8792B]" />

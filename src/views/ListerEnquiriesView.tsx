@@ -23,6 +23,8 @@ import {
   Heart,
   Star,
   MessageCircle,
+  Megaphone,
+
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ListerEnquiry } from '../types';
@@ -69,7 +71,7 @@ export const ListerEnquiriesView: React.FC = () => {
     .filter(
       (notification) =>
         (notification.recipientUserId || notification.userId) === currentUser?.id &&
-        ['system', 'approval', 'rejection', 'flag'].includes(notification.type)
+        ['system', 'announcement', 'approval', 'rejection', 'flag'].includes(notification.type)
     )
 
     .sort((a, b) => {
@@ -595,21 +597,23 @@ export const ListerEnquiriesView: React.FC = () => {
                 !!notification.targetPropertyId &&
                 (isApproved || isRejected || isFlagged);
 
-              const iconStyles = isApproved
-                ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400'
-                : isRejected
-                  ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400'
-                  : isFlagged
-                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
-                    : title === 'password changed'
-                      ? 'bg-[#F2E7D8] text-[#B8792B] dark:bg-[#30251D] dark:text-[#CCA177]'
-                      : isSecurity
-                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400'
-                        : isPayment
-                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400'
-                          : title === 'phone number updated'
-                            ? 'bg-[#E5F2EF] text-[#438D80] dark:bg-[#173A36] dark:text-[#76B8AD]'
-                            : 'bg-[#F2E7D8] text-[#A77745] dark:bg-[#30251D] dark:text-[#CCA177]';
+              const iconStyles = notification.type === 'announcement'
+                ? 'bg-[#F2E7D8] text-[#A77745] dark:bg-[#30251D] dark:text-[#CCA177]'
+                : isApproved
+                  ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400'
+                  : isRejected
+                    ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400'
+                    : isFlagged
+                      ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
+                      : title === 'password changed'
+                        ? 'bg-[#F2E7D8] text-[#B8792B] dark:bg-[#30251D] dark:text-[#CCA177]'
+                        : isSecurity
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400'
+                          : isPayment
+                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400'
+                            : title === 'phone number updated'
+                              ? 'bg-[#E5F2EF] text-[#438D80] dark:bg-[#173A36] dark:text-[#76B8AD]'
+                              : 'bg-[#F2E7D8] text-[#A77745] dark:bg-[#30251D] dark:text-[#CCA177]';
 
               return (
                 <button
@@ -631,7 +635,9 @@ export const ListerEnquiriesView: React.FC = () => {
                     <div
                       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconStyles}`}
                     >
-                      {isApproved ? (
+                      {notification.type === 'announcement' ? (
+                        <Megaphone className="h-5 w-5" />
+                      ) : isApproved ? (
                         <CheckCircle2 className="h-5 w-5" />
                       ) : isRejected ? (
                         <AlertCircle className="h-5 w-5" />

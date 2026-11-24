@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as broadcasts from "../broadcasts.js";
 import type * as contactEmailActions from "../contactEmailActions.js";
 import type * as contactEmailVerification from "../contactEmailVerification.js";
 import type * as conversationReports from "../conversationReports.js";
@@ -29,6 +30,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  broadcasts: typeof broadcasts;
   contactEmailActions: typeof contactEmailActions;
   contactEmailVerification: typeof contactEmailVerification;
   conversationReports: typeof conversationReports;
