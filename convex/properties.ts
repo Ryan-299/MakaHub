@@ -1,5 +1,5 @@
 import { query, mutation } from "./_generated/server";
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { bnbDetailsValidator } from "./validators";
@@ -99,6 +99,119 @@ function validateBnbSchedule(bnb: BnbSchedule, isNewListing: boolean) {
   if (isNewListing && blockedDays.size >= duration) {
     throw new Error("Every night in your hosting period is blocked.");
   }
+}
+
+// ---------------------------------------------------------------
+// BnB unit types: one building, several bookable types (e.g. Standard
+// Room, Deluxe, 2-Bedroom Apartment), each with its own price and
+// calendar. A BnB without unit types works exactly as before.
+// ---------------------------------------------------------------
+type BnbDetails = Infer<typeof bnbDetailsValidator>;
+
+const MAX_BNB_UNIT_TYPES = 30;
+
+// Checks every unit type and keeps the building-level fields in step,
+// so cards, map pins and filters keep working:
+// - pricePerNight / cleaningFee = the cheapest unit type ("from" price)
+// - guests, bedrooms, beds, bathrooms = the largest unit type
+// - blockedDates = nights when every open unit type is unavailable
+function prepareBnbUnitTypes(bnb: BnbDetails): BnbDetails {
+  const types = bnb.unitTypes;
+
+  if (!types || types.length === 0) {
+    const { unitTypes: _unused, ...single } = bnb;
+    return single;
+  }
+
+  if (types.length > MAX_BNB_UNIT_TYPES) {
+    throw new Error(`A BnB can have up to ${MAX_BNB_UNIT_TYPES} unit types.`);
+  }
+
+  const today = kenyaToday();
+  const ids = new Set<string>();
+  const names = new Set<string>();
+
+  const cleaned = types.map((type) => {
+    const id = type.id.trim();
+    const name = type.name.trim();
+
+    if (!id || id.length > 64 || ids.has(id)) {
+      throw new Error("Each unit type needs its own ID.");
+    }
+    ids.add(id);
+
+    if (!name || name.length > 80) {
+      throw new Error("Give each unit type a name (up to 80 characters).");
+    }
+
+    const nameKey = name.toLowerCase();
+    if (names.has(nameKey)) {
+      throw new Error(`Two unit types are called "${name}".`);
+    }
+    names.add(nameKey);
+
+    const unitCount = type.unitCount ?? 1;
+    const wholeNumbers = [type.maxGuests, type.bedrooms, type.beds, type.bathrooms, unitCount];
+
+    if (
+      !Number.isFinite(type.pricePerNight) ||
+      type.pricePerNight <= 0 ||
+      !Number.isFinite(type.cleaningFee ?? 0) ||
+      (type.cleaningFee ?? 0) < 0 ||
+      wholeNumbers.some((value) => !Number.isSafeInteger(value) || value < 0) ||
+      type.maxGuests < 1 ||
+      unitCount < 1 ||
+      unitCount > 500
+    ) {
+      throw new Error(`Invalid price or details for "${name}".`);
+    }
+
+    const images = type.imageStorageIds ?? [];
+    if (images.length > 10 || new Set(images).size !== images.length) {
+      throw new Error(`Check the photos for "${name}" (up to 10, no duplicates).`);
+    }
+
+    // Nights that have already passed no longer matter.
+    const blockedDates = (type.blockedDates ?? []).filter((date) => {
+      const day = toDayNumber(date);
+      return day === null || day >= today;
+    });
+
+    // Same calendar rules as the building: real dates, inside the
+    // hosting period, no duplicates.
+    validateBnbSchedule({ ...bnb, blockedDates }, false);
+
+    return { ...type, id, name, unitCount, blockedDates };
+  });
+
+  const cheapest = cleaned.reduce((low, type) =>
+    type.pricePerNight < low.pricePerNight ? type : low
+  );
+
+  const open = cleaned.filter((type) => type.accepting !== false);
+  const calendars = (open.length > 0 ? open : cleaned).map(
+    (type) => new Set(type.blockedDates)
+  );
+  const blockedEverywhere = [...calendars[0]]
+    .filter((date) => calendars.every((set) => set.has(date)))
+    .sort();
+
+  return {
+    ...bnb,
+    pricePerNight: cheapest.pricePerNight,
+    cleaningFee: cheapest.cleaningFee,
+    maxGuests: Math.max(...cleaned.map((type) => type.maxGuests)),
+    bedrooms: Math.max(...cleaned.map((type) => type.bedrooms)),
+    beds: Math.max(...cleaned.map((type) => type.beds)),
+    bathrooms: Math.max(...cleaned.map((type) => type.bathrooms)),
+    blockedDates: blockedEverywhere,
+    unitTypes: cleaned,
+  };
+}
+
+// Every photo used by a BnB's unit types.
+function unitTypeMediaIds(bnb: BnbDetails | undefined): string[] {
+  return (bnb?.unitTypes ?? []).flatMap((type) => type.imageStorageIds ?? []);
 }
 // Generate an upload URL for uploading files (images, videos) to Convex File Storage
 export const generateUploadUrl = mutation({
@@ -544,12 +657,17 @@ export const addWithUnits = mutation({
       throw new Error("A building cover photo is required.");
     }
 
-    if (isBnbListing) {
-      const bnb = args.bnb;
+    let bnbToSave = args.bnb;
 
-      if (!bnb) {
+    if (isBnbListing) {
+      if (!args.bnb) {
         throw new Error("BnB details are required.");
       }
+
+      // Unit types (if any) are checked here and the building-level
+      // price/size fields are filled in from them.
+      const bnb = prepareBnbUnitTypes(args.bnb);
+      bnbToSave = bnb;
 
       if (args.unitTypes.length !== 0) {
         throw new Error("A BnB can't be combined with rental unit types.");
@@ -627,6 +745,7 @@ export const addWithUnits = mutation({
 
     const propertyId = await ctx.db.insert("properties", {
       ...building,
+      ...(bnbToSave ? { bnb: bnbToSave } : {}),
       status: "Pending",
     });
 
@@ -1051,6 +1170,10 @@ export const remove = mutation({
       storageIds.add(doc.videoStorageId);
     }
 
+    for (const id of unitTypeMediaIds(doc.bnb)) {
+      storageIds.add(id as any);
+    }
+
     for (const unit of unitTypes) {
       for (const id of unit.imageStorageIds ?? []) {
         storageIds.add(id);
@@ -1278,6 +1401,8 @@ export const updateBnbAvailability = mutation({
     id: v.id("properties"),
     blockedDates: v.optional(v.array(v.string())),
     accepting: v.optional(v.boolean()),
+    // For BnBs with unit types: which unit type's calendar to change.
+    unitTypeId: v.optional(v.string()),
   },
 
   handler: async (ctx, args) => {
@@ -1319,6 +1444,35 @@ export const updateBnbAvailability = mutation({
       // Same checks as new listings: real dates, inside the hosting
       // period, no duplicates.
       validateBnbSchedule({ ...property.bnb, blockedDates }, false);
+    }
+
+    const unitTypes = property.bnb.unitTypes ?? [];
+
+    if (args.unitTypeId !== undefined) {
+      if (!unitTypes.some((type) => type.id === args.unitTypeId)) {
+        throw new Error("Unit type not found.");
+      }
+
+      const updatedTypes = unitTypes.map((type) =>
+        type.id !== args.unitTypeId
+          ? type
+          : {
+            ...type,
+            ...(blockedDates !== undefined ? { blockedDates } : {}),
+            ...(args.accepting !== undefined ? { accepting: args.accepting } : {}),
+          }
+      );
+
+      await ctx.db.patch(args.id, {
+        bnb: prepareBnbUnitTypes({ ...property.bnb, unitTypes: updatedTypes }),
+      });
+
+      return { success: true };
+    }
+
+    // With unit types, each type has its own calendar.
+    if (unitTypes.length > 0 && blockedDates !== undefined) {
+      throw new Error("Choose which unit type's calendar to update.");
     }
 
     await ctx.db.patch(args.id, {
@@ -1417,8 +1571,15 @@ export const updateBnb = mutation({
       throw new Error("Invalid house tour video.");
     }
 
-    // Same price and details checks as a new BnB (addWithUnits).
-    const bnb = args.bnb;
+    // Unit types (if any) are checked and the building-level fields
+    // filled in from them. Then the same checks as a new BnB.
+    // If the form didn't send unitTypes at all (e.g. an older edit form),
+    // keep the building's existing unit types. An explicit empty list
+    // still removes them on purpose.
+    const bnb = prepareBnbUnitTypes({
+      ...args.bnb,
+      unitTypes: args.bnb.unitTypes ?? doc.bnb.unitTypes,
+    });
     const wholeNumbers = [
       bnb.maxGuests,
       bnb.bedrooms,
@@ -1466,8 +1627,10 @@ export const updateBnb = mutation({
 
     if (newVideoId) keptIds.add(newVideoId);
     if (!dropVideo && doc.videoStorageId) keptIds.add(doc.videoStorageId);
+    for (const id of unitTypeMediaIds(bnb)) keptIds.add(id);
 
     const oldIds = new Set<string>(doc.imageStorageIds ?? []);
+    for (const id of unitTypeMediaIds(doc.bnb)) oldIds.add(id);
     if (doc.coverPhotoStorageId) oldIds.add(doc.coverPhotoStorageId);
     if (doc.videoStorageId) oldIds.add(doc.videoStorageId);
 
@@ -1512,6 +1675,7 @@ export const updateBnb = mutation({
         for (const id of other.imageStorageIds ?? []) usedElsewhere.add(id);
         if (other.coverPhotoStorageId) usedElsewhere.add(other.coverPhotoStorageId);
         if (other.videoStorageId) usedElsewhere.add(other.videoStorageId);
+        for (const id of unitTypeMediaIds(other.bnb)) usedElsewhere.add(id);
       }
 
       for (const unit of await ctx.db.query("propertyUnitTypes").collect()) {
