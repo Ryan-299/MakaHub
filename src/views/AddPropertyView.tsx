@@ -37,10 +37,12 @@ import { isConvexConfigured, convexClient } from '../lib/convex';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import {
+  BlockNightsCalendar,
   BnbUnitTypesEditor,
   NoEndDateSwitch,
   buildUnitTypesPayload,
   combinedPeriod,
+  combinedStay,
   daysBetween,
   draftFromSaved,
   kenyaTodayIso,
@@ -306,6 +308,10 @@ export const AddPropertyView: React.FC = () => {
   const [lat, setLat] = useState<number | null>(() => editingProperty?.location?.lat ?? null);
   const [lng, setLng] = useState<number | null>(() => editingProperty?.location?.lng ?? null);
 
+  // True after a submit without a map pin: the map is outlined in red
+  // with a short note under it until the host taps the map.
+  const [locationMissing, setLocationMissing] = useState(false);
+
   // 3. Pricing & Fees (All string-based to prevent leading zeros like "08000" and allow clean blanks)
   const [monthlyRent, setMonthlyRent] = useState<string>(() =>
     editingProperty?.monthlyRent ? String(editingProperty.monthlyRent) : ''
@@ -384,6 +390,13 @@ export const AddPropertyView: React.FC = () => {
         setHostingDurationNights(period.hostingDurationNights);
         setOpenEnded(period.openEnded);
       }
+
+      // Likewise one minimum / maximum stay covering every room type.
+      const stay = combinedStay(bnbUnitTypes);
+      if (stay) {
+        setMinimumNights(stay.minNights);
+        setMaxNights(stay.maxNights);
+      }
     }
 
     setBnbUnitTypes(next);
@@ -404,40 +417,9 @@ export const AddPropertyView: React.FC = () => {
     );
   };
 
-  const availabilityPreview = useMemo(() => {
-    if (!availableFrom || !hostingEndDate) return [];
-
-    // "No end date" shows the next 12 months (an older start date may
-    // have passed). A fixed period shows the whole period, as before.
-    const previewStart = openEnded && availableFrom < todayKenya ? todayKenya : availableFrom;
-    const nights = daysBetween(previewStart, hostingEndDate);
-
-    // The whole hosting period (1–365 nights), not just the first two weeks.
-    return Array.from(
-      { length: Math.min(Math.max(nights, 0), 365) },
-      (_, index) => {
-        const date = new Date(`${previewStart}T12:00:00Z`);
-        date.setUTCDate(date.getUTCDate() + index);
-
-        const dateString = date.toISOString().slice(0, 10);
-
-        return {
-          date: dateString,
-          day: date.getUTCDate(),
-          month: date.toLocaleDateString('en-GB', {
-            month: 'short',
-            timeZone: 'UTC'
-          }),
-          // Label shown before the first night of each month in the preview.
-          monthHeading:
-            index === 0 || date.getUTCDate() === 1
-              ? date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
-              : null,
-          blocked: blockedDates.includes(dateString)
-        };
-      }
-    );
-  }, [availableFrom, hostingEndDate, openEnded, todayKenya, blockedDates]);
+  // The calendar shows the nights guests can still book: from today (or
+  // the start date, if later) to the end of the hosting period.
+  const bookableFrom = availableFrom && availableFrom < todayKenya ? todayKenya : availableFrom;
 
   const [deposit, setDeposit] = useState<string>(() =>
     editingProperty?.deposit ? String(editingProperty.deposit) : ''
@@ -796,6 +778,8 @@ export const AddPropertyView: React.FC = () => {
               availableFrom: bnbDetails.availableFrom,
               hostingDurationNights: bnbDetails.hostingDurationNights,
               openEnded: savedOpenEnded,
+              minNights: bnbDetails.minNights,
+              maxNights: bnbDetails.maxNights,
             })
           )
         );
@@ -1328,7 +1312,8 @@ export const AddPropertyView: React.FC = () => {
       return;
     }
 
-    if (isBnB) {
+    // With room types, each room type checks its own minimum / maximum nights.
+    if (isBnB && !usingUnitTypes) {
       const min = Number(minimumNights);
       const max = maxNights.trim() === '' ? null : Number(maxNights);
       // "No end date" has no fixed length; room types check their own.
@@ -1357,9 +1342,8 @@ export const AddPropertyView: React.FC = () => {
       typeof lng !== 'number' ||
       !Number.isFinite(lng)
     ) {
-      window.alert(
-        'Please set the exact building location on the map before submitting your property.'
-      );
+      // No pop-up: take the host straight to the map and mark it.
+      setLocationMissing(true);
 
       document.getElementById('property-location-map')?.scrollIntoView({
         behavior: 'smooth',
@@ -1402,10 +1386,7 @@ export const AddPropertyView: React.FC = () => {
       let unitTypesPayload: SavedBnbUnitType[] | undefined;
 
       if (usingUnitTypes) {
-        const built = buildUnitTypesPayload(bnbUnitTypes, {
-          today: kenyaTodayIso(),
-          minNights: toNumber(minimumNights),
-        });
+        const built = buildUnitTypesPayload(bnbUnitTypes, { today: kenyaTodayIso() });
 
         if ('error' in built) {
           setPhotoError(built.error);
@@ -1421,8 +1402,12 @@ export const AddPropertyView: React.FC = () => {
       const cleaning = summary
         ? summary.cleaningFee
         : cleaningFee.trim() === '' ? undefined : Number(cleaningFee);
-      const min = toNumber(minimumNights);
-      const max = maxNights.trim() === '' ? undefined : Number(maxNights);
+      // With room types: the smallest minimum and largest maximum (the
+      // server works these out the same way).
+      const min = summary ? summary.minNights : toNumber(minimumNights);
+      const max = summary
+        ? summary.maxNights
+        : maxNights.trim() === '' ? undefined : Number(maxNights);
       const guests = summary ? summary.maxGuests : toNumber(maxGuests);
       const bedroomCount = summary ? summary.bedrooms : toNumber(bedrooms);
       const bedCount = summary ? summary.beds : toNumber(beds);
@@ -2910,7 +2895,12 @@ export const AddPropertyView: React.FC = () => {
                 {/* Pin-Drop Location Map */}
                 <div id="property-location-map">
 
-                  <div className="rounded-2xl border border-neutral-200 dark:border-[#292929] overflow-hidden">
+                  <div
+                    className={`rounded-2xl border overflow-hidden ${locationMissing
+                      ? 'border-2 border-red-500'
+                      : 'border-neutral-200 dark:border-[#292929]'
+                      }`}
+                  >
                     <PropertyLocationPickerMap
                       unitTypeLabel={
                         selectedUnitTypes.length > 1
@@ -2935,9 +2925,16 @@ export const AddPropertyView: React.FC = () => {
                       onChange={(newLat, newLng) => {
                         setLat(newLat);
                         setLng(newLng);
+                        setLocationMissing(false);
                       }}
                     />
                   </div>
+
+                  {locationMissing && (
+                    <p className="mt-2 text-sm font-semibold text-red-500">
+                      Tap the map to set your building's exact location.
+                    </p>
+                  )}
                 </div>
               </div>
             </div> {/* End of Property Location wrapper */}
@@ -2989,6 +2986,7 @@ export const AddPropertyView: React.FC = () => {
                   onChange={handleUnitTypesChange}
                   buildingPeriod={{ availableFrom, hostingDurationNights, openEnded }}
                   buildingBlocked={blockedDates}
+                  buildingStay={{ minNights: minimumNights, maxNights }}
                   today={todayKenya}
                 />
 
@@ -3022,48 +3020,48 @@ export const AddPropertyView: React.FC = () => {
                         className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020]"
                       />
                     </div>
+
+                    <div>
+                      <label className="block text-xs font-bold mb-2">
+                        Minimum Nights Per Guest *
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={minimumNights}
+                        onChange={handleNumericChange(setMinimumNights)}
+                        placeholder="1"
+                        required
+                        className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-2">
+                        Maximum Nights per Guest
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={maxNights}
+
+
+
+                        onChange={handleNumericChange(setMaxNights)}
+                        placeholder="No limit"
+
+                        className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020]"
+                      />
+                      {!usingUnitTypes &&
+                        !openEnded &&
+                        maxNights.trim() !== '' &&
+                        hostingDurationNights.trim() !== '' &&
+                        Number(maxNights) > Number(hostingDurationNights) && (
+                          <p className="mt-1 text-xs text-red-600">
+                            Maximum nights cannot exceed hosting duration.
+                          </p>
+                        )}
+                    </div>
                   </>)}
-
-                  <div>
-                    <label className="block text-xs font-bold mb-2">
-                      Minimum Nights Per Guest *
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={minimumNights}
-                      onChange={handleNumericChange(setMinimumNights)}
-                      placeholder="1"
-                      required
-                      className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold mb-2">
-                      Maximum Nights per Guest
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={maxNights}
-
-
-
-                      onChange={handleNumericChange(setMaxNights)}
-                      placeholder="No limit"
-
-                      className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020]"
-                    />
-                    {!usingUnitTypes &&
-                      !openEnded &&
-                      maxNights.trim() !== '' &&
-                      hostingDurationNights.trim() !== '' &&
-                      Number(maxNights) > Number(hostingDurationNights) && (
-                        <p className="mt-1 text-xs text-red-600">
-                          Maximum nights cannot exceed hosting duration.
-                        </p>
-                      )}
-                  </div>
                 </div>
               </div>
             )}
@@ -3479,7 +3477,7 @@ export const AddPropertyView: React.FC = () => {
                             value={openEnded ? '' : hostingDurationNights}
                             disabled={openEnded}
                             onChange={handleNumericChange(setHostingDurationNights)}
-                            placeholder={openEnded ? 'No end date' : 'e.g. 18'}
+                            placeholder={openEnded ? 'Always open' : 'e.g. 18'}
                             className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020] disabled:opacity-60"
                           />
                         </div>
@@ -3493,7 +3491,7 @@ export const AddPropertyView: React.FC = () => {
                             Hosting period ends
                           </span>
                           <span className="text-sm font-bold text-green-600">
-                            {openEnded ? 'No end date' : formatKenyanDate(hostingEndDate)}
+                            {openEnded ? 'Always open' : formatKenyanDate(hostingEndDate)}
                           </span>
                         </div>
                       )}
@@ -3505,54 +3503,14 @@ export const AddPropertyView: React.FC = () => {
                       </p>
                     )}
 
-                    {!usingUnitTypes && availabilityPreview.length > 0 && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <h4 className="text-sm font-semibold">
-                            Availability Preview
-                          </h4>
-                          <span className="text-xs text-green-600">
-                            {availabilityPreview.filter(night => !night.blocked).length} of{' '}
-                            {availabilityPreview.length} nights available
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2 max-h-80 overflow-y-auto pb-2 pr-1">
-                          {availabilityPreview.map((night) => (
-                            <React.Fragment key={night.date}>
-                              {night.monthHeading && (
-                                <p className="basis-full pt-1 text-xs font-semibold text-[#77716C] dark:text-[#A3A3A3]">
-                                  {night.monthHeading}
-                                </p>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => toggleBlockedDate(new Date(`${night.date}T12:00:00`))}
-                                aria-pressed={night.blocked}
-                                className={`flex min-w-[42px] h-[48px] shrink-0 flex-col items-center justify-center rounded-lg text-white ${night.blocked
-                                  ? 'bg-gray-500'
-                                  : 'bg-emerald-700'
-                                  }`}
-                              >
-                                <span className="text-sm font-bold">
-                                  {night.day}
-                                </span>
-                                <span className="text-[10px]">
-                                  {night.month}
-                                </span>
-                              </button>
-                            </React.Fragment>
-                          ))}
-                        </div>
-
-                        <div className="flex items-center gap-4 text-xs text-[#A3A3A3]">
-                          <span>{'\u{1F7E2}'} Available</span>
-                          <span>{'\u26AA'} Blocked</span>
-                        </div>
-                        <p className="text-xs text-[#77716C] dark:text-[#A3A3A3]">
-                          Tap a date to block or unblock that night.
-                        </p>
-                      </div>
+                    {!usingUnitTypes && bookableFrom && hostingEndDate && (
+                      <BlockNightsCalendar
+                        from={bookableFrom}
+                        end={hostingEndDate}
+                        blocked={blockedDates}
+                        onToggle={(date) => toggleBlockedDate(new Date(`${date}T12:00:00`))}
+                        hint="Tap a date to block or unblock that night."
+                      />
                     )}
 
                     {!usingUnitTypes && (

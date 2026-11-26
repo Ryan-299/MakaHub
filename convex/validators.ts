@@ -33,6 +33,11 @@ export const bnbUnitTypeValidator = v.object({
     availableFrom: v.optional(v.string()),
     hostingDurationNights: v.optional(v.number()),
     openEnded: v.optional(v.boolean()),
+
+    // Optional: this unit type's own stay rules. When minNights is
+    // missing, the unit type uses the building's minimum/maximum nights.
+    minNights: v.optional(v.number()),
+    maxNights: v.optional(v.number()),
 });
 
 // Details that only BnB listings have. Rental listings never use this.

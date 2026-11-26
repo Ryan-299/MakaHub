@@ -152,6 +152,9 @@ const MAX_BNB_UNIT_TYPES = 30;
 //
 // A unit type may have its own availability (availableFrom, duration or
 // "No end date"); without it, it uses the building's hosting period.
+// Likewise its own minimum/maximum nights, or the building's.
+// - minNights = the smallest unit type minimum; maxNights = the largest
+//   unit type maximum (none if any unit type has no maximum)
 // checkStartFor(type) says whether that unit type's start date must be
 // within the next year (new listings, or a start date the host changed).
 function prepareBnbUnitTypes(
@@ -231,6 +234,18 @@ function prepareBnbUnitTypes(
       openEnded: ownPeriod ? type.openEnded : bnb.openEnded,
     });
 
+    // This unit type's own stay rules, or (for unit types saved before
+    // they had their own) the building's.
+    const ownStay = type.minNights !== undefined;
+    const stay = {
+      minNights: ownStay ? type.minNights : bnb.minNights ?? 1,
+      maxNights: ownStay ? type.maxNights : bnb.maxNights,
+    };
+
+    if (!Number.isSafeInteger(stay.minNights) || (stay.minNights as number) < 1) {
+      throw new Error(`Minimum nights for "${name}" must be at least 1.`);
+    }
+
     if (checkStartFor(type)) {
       const startDay = period.availableFrom ? toDayNumber(period.availableFrom) : null;
 
@@ -242,7 +257,7 @@ function prepareBnbUnitTypes(
     // Same calendar rules as the building: real dates, inside the
     // hosting period, no duplicates.
     try {
-      validateBnbSchedule({ ...bnb, ...period, blockedDates }, false);
+      validateBnbSchedule({ ...bnb, ...period, ...stay, blockedDates }, false);
     } catch (error) {
       const reason = error instanceof Error ? error.message : "Invalid availability.";
       throw new Error(`${name}: ${reason}`);
@@ -260,6 +275,8 @@ function prepareBnbUnitTypes(
       availableFrom: period.availableFrom,
       hostingDurationNights: period.hostingDurationNights,
       openEnded: period.openEnded === true ? true : undefined,
+      minNights: stay.minNights,
+      maxNights: stay.maxNights,
     };
   });
 
@@ -310,6 +327,10 @@ function prepareBnbUnitTypes(
     accepting: buildingAccepting && cleaned.some((type) => type.accepting !== false),
     pricePerNight: cheapest.pricePerNight,
     cleaningFee: cheapest.cleaningFee,
+    minNights: Math.min(...cleaned.map((type) => type.minNights as number)),
+    maxNights: cleaned.some((type) => type.maxNights === undefined)
+      ? undefined
+      : Math.max(...cleaned.map((type) => type.maxNights as number)),
     maxGuests: Math.max(...cleaned.map((type) => type.maxGuests)),
     bedrooms: Math.max(...cleaned.map((type) => type.bedrooms)),
     beds: Math.max(...cleaned.map((type) => type.beds)),
