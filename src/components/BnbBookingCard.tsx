@@ -68,7 +68,10 @@ const ksh = (amount: number) => `KSh ${amount.toLocaleString()}`;
 const shortDay = (day: number) =>
     dayDate(day).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
-/** "Available 10 Dec – 19 Dec · 15 Dec booked" (blocked nights still ahead of the guest). */
+/**
+ * "Available 10 Dec – 19 Dec · 15 Dec booked" (blocked nights still ahead of
+ * the guest), or "Available from 27 Nov onwards" for an Always open BnB.
+ */
 export const availabilitySummary = (schedule: BnbSchedule): string => {
     const from = schedule.firstBookable;
     const lastCheckOut = schedule.lastNight + 1;
@@ -76,7 +79,9 @@ export const availabilitySummary = (schedule: BnbSchedule): string => {
         .filter((day) => day >= from && day <= schedule.lastNight)
         .sort((a, b) => a - b);
 
-    let text = `Available ${shortDay(from)} – ${shortDay(lastCheckOut)}`;
+    let text = schedule.openEnded
+        ? `Available from ${shortDay(from)} onwards`
+        : `Available ${shortDay(from)} – ${shortDay(lastCheckOut)}`;
     if (booked.length === 1) text += ` · ${shortDay(booked[0])} booked`;
     else if (booked.length === 2 || booked.length === 3) text += ` · ${booked.map(shortDay).join(', ')} booked`;
     else if (booked.length > 3) text += ` · ${booked.length} nights booked`;
@@ -90,6 +95,7 @@ export type BnbSchedule = {
     minNights: number;
     maxNights: number;
     blocked: Set<number>;
+    openEnded: boolean; // "Always open": bookable up to 12 months ahead
 };
 
 /** Reads the host's schedule. Returns null if the dates are missing or broken. */
@@ -98,9 +104,14 @@ export const readSchedule = (bnb: BnbDetails, today: number): BnbSchedule | null
     const duration = bnb.hostingDurationNights;
     if (firstNight === null || !duration || duration < 1) return null;
 
-    const lastNight = firstNight + duration - 1;
+    // "Always open": the last night is 12 months from today (the server
+    // works out the same window and rolls it forward every day).
+    const openEnded = (bnb as { openEnded?: boolean }).openEnded === true;
+    const lastNight = openEnded
+        ? Math.max(firstNight, today + 364)
+        : firstNight + duration - 1;
     const minNights = Math.max(1, bnb.minNights ?? 1);
-    const maxNights = Math.max(minNights, bnb.maxNights ?? duration);
+    const maxNights = Math.max(minNights, bnb.maxNights ?? lastNight - firstNight + 1);
 
     const blocked = new Set<number>();
     for (const date of bnb.blockedDates ?? []) {
@@ -115,6 +126,7 @@ export const readSchedule = (bnb: BnbDetails, today: number): BnbSchedule | null
         minNights,
         maxNights,
         blocked,
+        openEnded,
     };
 };
 
@@ -185,7 +197,7 @@ export const BnbBookingCard: React.FC<BnbBookingCardProps> = ({
     const schedule = useMemo(
         () => readSchedule(bnb, today),
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [bnb.availableFrom, bnb.hostingDurationNights, bnb.minNights, bnb.maxNights, bnb.blockedDates, today]
+        [bnb.availableFrom, bnb.hostingDurationNights, bnb.minNights, bnb.maxNights, bnb.blockedDates, (bnb as { openEnded?: boolean }).openEnded, today]
     );
 
     const [checkIn, setCheckIn] = useState<number | null>(null);

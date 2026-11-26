@@ -1,4 +1,3 @@
-
 import type { BnbDetails } from '../types';
 
 const DAY_MS = 86400000;
@@ -52,6 +51,10 @@ export const readSchedule = (
         return null;
     }
 
+    // "Always open": guests can book up to 12 months ahead of today
+    // (the server works out the same window and rolls it every day).
+    const openEnded = (bnb as { openEnded?: boolean }).openEnded === true;
+
     const blocked = new Set(
         (bnb.blockedDates ?? [])
             .map(toDayNumber)
@@ -60,7 +63,7 @@ export const readSchedule = (
 
     return {
         start,
-        end: start + duration,
+        end: openEnded ? Math.max(today + 365, start + 1) : start + duration,
         today,
         blocked,
         minNights: bnb.minNights || 1,

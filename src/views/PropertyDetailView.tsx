@@ -57,6 +57,7 @@ import { PropertyDetailMap } from '../components/PropertyDetailMap';
 import { VacancyManagerModal } from '../components/VacancyManagerModal';
 import { BnbAvailabilityModal } from '../components/BnbAvailabilityModal';
 import { BnbBookingCard, formatTime, type BnbBookingRequest } from '../components/BnbBookingCard';
+import { BnbRoomChooser, bnbRoomTypes } from '../components/BnbRoomChooser';
 import { openSignInPrompt } from '../components/SignInPrompt';
 
 // Short names for the long BnB amenity options in the host form.
@@ -336,6 +337,10 @@ export const PropertyDetailView: React.FC = () => {
 
   // BnB listings keep their details in `property.bnb` (no unit types, rent is 0).
   const bnb = property.type === 'BnB' ? property.bnb : undefined;
+
+  // BnBs with several room types (e.g. Standard and Deluxe): guests choose a room.
+  const bnbRooms = bnbRoomTypes(bnb);
+  const hasRooms = bnbRooms.length > 0;
 
   const scrollToBnbBooking = () => {
     document
@@ -854,8 +859,9 @@ export const PropertyDetailView: React.FC = () => {
 
   const bnbStayFactsSection = (
     <>
-      {/* BNB STAY DETAILS: guests, bedrooms, beds, bathrooms */}
-      {bnb && (
+      {/* BNB STAY DETAILS: guests, bedrooms, beds, bathrooms
+          (with room types, each room shows its own in Choose Your Room) */}
+      {bnb && !hasRooms && (
         <section className="bg-[#F7F3EC] dark:bg-[#151515] p-5 sm:p-6 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 shadow-[5px_5px_12px_rgba(28,22,16,0.10),-5px_-5px_12px_rgba(255,255,255,0.92)] dark:shadow-[5px_5px_12px_rgba(0,0,0,0.45),-3px_-3px_8px_rgba(255,255,255,0.03)] space-y-5">
           <h3 className="text-2xl sm:text-[26px] font-editorial font-semibold tracking-tight">
             <span className="text-neutral-950 dark:text-[#F5F5F5]">Stay </span>
@@ -931,7 +937,17 @@ export const PropertyDetailView: React.FC = () => {
   const bnbBookingSection = (
     <>
       {/* BNB CHECK DATES & BOOKING REQUEST */}
-      {bnb && (
+      {bnb && hasRooms && (
+        <BnbRoomChooser
+          key={property.id}
+          bnb={bnb}
+          propertyName={property.name}
+          hostName={property.lister?.name || 'there'}
+          isOwner={isOwner}
+          onAskHost={handleBnbBookingRequest}
+        />
+      )}
+      {bnb && !hasRooms && (
         <BnbBookingCard
           key={property.id}
           bnb={bnb}
@@ -1239,6 +1255,11 @@ border border-[#E7DED2] dark:border-neutral-800
               </div>
 
               <div className="mt-3 flex items-end gap-2 flex-wrap">
+                {hasRooms && (
+                  <span className="text-xs sm:text-sm text-neutral-500 dark:text-[#8A8A8A] mb-1">
+                    From
+                  </span>
+                )}
                 <span className="text-3xl sm:text-4xl font-editorial font-semibold text-neutral-950 dark:text-[#F5F5F5] leading-none">
                   KSh {bnb.pricePerNight.toLocaleString()}
                 </span>
@@ -1248,7 +1269,11 @@ border border-[#E7DED2] dark:border-neutral-800
                 </span>
               </div>
 
-              {(bnb.cleaningFee ?? 0) > 0 && (
+              {hasRooms ? (
+                <p className="mt-2 text-xs text-neutral-500 dark:text-[#8A8A8A]">
+                  {bnbRooms.length} room types · prices differ by room
+                </p>
+              ) : (bnb.cleaningFee ?? 0) > 0 && (
                 <p className="mt-2 text-xs text-neutral-500 dark:text-[#8A8A8A]">
                   + KSh {(bnb.cleaningFee ?? 0).toLocaleString()} cleaning fee per stay
                 </p>

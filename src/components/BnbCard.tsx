@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
     BedDouble,
@@ -47,6 +46,10 @@ export const BnbCard: React.FC<BnbCardProps> = ({
     }, [seekerLocation, property.location]);
     const bnb = property.bnb;
     const coverImage = property.coverPhoto || property.images?.[0];
+
+    // BnBs with several room types: the price shown is the cheapest room.
+    const roomTypeCount =
+        (bnb as { unitTypes?: unknown[] } | undefined)?.unitTypes?.length ?? 0;
 
     const hasPrice =
         typeof bnb?.pricePerNight === 'number' &&
@@ -133,6 +136,9 @@ export const BnbCard: React.FC<BnbCardProps> = ({
                 <div className="flex items-baseline gap-1">
                     {hasPrice ? (
                         <>
+                            {roomTypeCount > 0 && (
+                                <span className="text-xs text-neutral-500">From</span>
+                            )}
                             <span className="text-xl font-bold text-neutral-900 dark:text-white">
                                 KSh {bnb!.pricePerNight.toLocaleString()}
                             </span>
@@ -165,6 +171,13 @@ export const BnbCard: React.FC<BnbCardProps> = ({
                                 <Bath className="h-4 w-4" />
                                 {bnb.bathrooms} bathrooms
                             </span>
+
+                            {roomTypeCount > 0 && (
+                                <span className="inline-flex items-center gap-1 font-semibold text-[#2563EB]">
+                                    <BedDouble className="h-4 w-4" />
+                                    {roomTypeCount} room types
+                                </span>
+                            )}
                         </>
                     )}
                 </div>
