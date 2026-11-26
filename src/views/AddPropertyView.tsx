@@ -38,8 +38,13 @@ import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import {
   BnbUnitTypesEditor,
+  NoEndDateSwitch,
   buildUnitTypesPayload,
+  combinedPeriod,
+  daysBetween,
   draftFromSaved,
+  kenyaTodayIso,
+  periodEndDate,
   prepareBlockedNights,
   summarizeUnitTypes,
   type BnbUnitTypeDraft,
@@ -314,18 +319,14 @@ export const AddPropertyView: React.FC = () => {
   const [availableFrom, setAvailableFrom] = useState<string>('');
   const [hostingDurationNights, setHostingDurationNights] = useState<string>('');
 
-  const hostingEndDate = (() => {
-    const nights = Number(hostingDurationNights);
+  // "No end date": guests can always book up to 12 months ahead.
+  const [openEnded, setOpenEnded] = useState<boolean>(false);
 
-    if (!availableFrom || !Number.isInteger(nights) || nights < 1 || nights > 365) {
-      return '';
-    }
+  // Today in Kenya, the same "today" the server uses.
+  const todayKenya = useMemo(() => kenyaTodayIso(), []);
 
-    const date = new Date(`${availableFrom}T00:00:00Z`);
-    date.setUTCDate(date.getUTCDate() + nights);
-
-    return date.toISOString().slice(0, 10);
-  })();
+  // First night AFTER the hosting period ("" until it is complete).
+  const hostingEndDate = periodEndDate(availableFrom, hostingDurationNights, openEnded, todayKenya);
 
   const formatKenyanDate = (date: string) => {
     if (!date) return 'â€”';
@@ -375,6 +376,14 @@ export const AddPropertyView: React.FC = () => {
     if (next.length === 0 && bnbUnitTypes.length > 0) {
       const blockedInTypes = bnbUnitTypes.flatMap((type) => type.blockedDates ?? []);
       setBlockedDates((previous) => [...new Set([...previous, ...blockedInTypes])].sort());
+
+      // The BnB's hosting period becomes one that covers every room type.
+      const period = combinedPeriod(bnbUnitTypes, todayKenya);
+      if (period) {
+        setAvailableFrom(period.availableFrom);
+        setHostingDurationNights(period.hostingDurationNights);
+        setOpenEnded(period.openEnded);
+      }
     }
 
     setBnbUnitTypes(next);
@@ -398,13 +407,16 @@ export const AddPropertyView: React.FC = () => {
   const availabilityPreview = useMemo(() => {
     if (!availableFrom || !hostingEndDate) return [];
 
-    const nights = Number(hostingDurationNights);
+    // "No end date" shows the next 12 months (an older start date may
+    // have passed). A fixed period shows the whole period, as before.
+    const previewStart = openEnded && availableFrom < todayKenya ? todayKenya : availableFrom;
+    const nights = daysBetween(previewStart, hostingEndDate);
 
     // The whole hosting period (1–365 nights), not just the first two weeks.
     return Array.from(
       { length: Math.min(Math.max(nights, 0), 365) },
       (_, index) => {
-        const date = new Date(`${availableFrom}T12:00:00Z`);
+        const date = new Date(`${previewStart}T12:00:00Z`);
         date.setUTCDate(date.getUTCDate() + index);
 
         const dateString = date.toISOString().slice(0, 10);
@@ -425,7 +437,7 @@ export const AddPropertyView: React.FC = () => {
         };
       }
     );
-  }, [availableFrom, hostingEndDate, hostingDurationNights, blockedDates]);
+  }, [availableFrom, hostingEndDate, openEnded, todayKenya, blockedDates]);
 
   const [deposit, setDeposit] = useState<string>(() =>
     editingProperty?.deposit ? String(editingProperty.deposit) : ''
@@ -752,9 +764,21 @@ export const AddPropertyView: React.FC = () => {
         setCleaningFee(bnbDetails.cleaningFee !== undefined ? String(bnbDetails.cleaningFee) : '');
         setMinimumNights(String(bnbDetails.minNights ?? 1));
         setMaxNights(bnbDetails.maxNights !== undefined ? String(bnbDetails.maxNights) : '');
+        // Fields the shared BnbDetails type doesn't list yet.
+        const savedBnb = bnbDetails as {
+          openEnded?: boolean;
+          buildingAccepting?: boolean;
+          unitTypes?: SavedBnbUnitType[];
+        };
+        const savedOpenEnded = savedBnb.openEnded === true;
+
         setAvailableFrom(bnbDetails.availableFrom || '');
+        setOpenEnded(savedOpenEnded);
+        // With "No end date" the stored number is only the rolling window.
         setHostingDurationNights(
-          bnbDetails.hostingDurationNights !== undefined ? String(bnbDetails.hostingDurationNights) : ''
+          !savedOpenEnded && bnbDetails.hostingDurationNights !== undefined
+            ? String(bnbDetails.hostingDurationNights)
+            : ''
         );
         setMaxGuests(String(bnbDetails.maxGuests));
         setBedrooms(String(bnbDetails.bedrooms));
@@ -764,9 +788,16 @@ export const AddPropertyView: React.FC = () => {
         setCheckOutTime(bnbDetails.checkOutTime || '');
         setHouseRules(bnbDetails.houseRules || '');
         setBlockedDates([...(bnbDetails.blockedDates ?? [])].sort());
-        setAccepting(bnbDetails.accepting);
+        // With room types, the switch in section 6 is the whole-BnB switch.
+        setAccepting(savedBnb.buildingAccepting ?? bnbDetails.accepting);
         setBnbUnitTypes(
-          ((bnbDetails as { unitTypes?: SavedBnbUnitType[] }).unitTypes ?? []).map(draftFromSaved)
+          (savedBnb.unitTypes ?? []).map((type) =>
+            draftFromSaved(type, {
+              availableFrom: bnbDetails.availableFrom,
+              hostingDurationNights: bnbDetails.hostingDurationNights,
+              openEnded: savedOpenEnded,
+            })
+          )
         );
       }
     }
@@ -1278,8 +1309,12 @@ export const AddPropertyView: React.FC = () => {
 
     if (isSubmitting) return;
 
+    // Room types have their own dates (checked when the room types are
+    // checked below). These checks are for a single-price BnB.
     if (
       isBnB &&
+      !usingUnitTypes &&
+      !openEnded &&
       maxNights.trim() !== '' &&
       hostingDurationNights.trim() !== '' &&
       Number(maxNights) > Number(hostingDurationNights)
@@ -1288,7 +1323,7 @@ export const AddPropertyView: React.FC = () => {
       return;
     }
 
-    if (isBnB && (!availableFrom || !hostingEndDate)) {
+    if (isBnB && !usingUnitTypes && (!availableFrom || !hostingEndDate)) {
       setPhotoError('Select a hosting start date and duration (1â€“365 nights).');
       return;
     }
@@ -1296,7 +1331,8 @@ export const AddPropertyView: React.FC = () => {
     if (isBnB) {
       const min = Number(minimumNights);
       const max = maxNights.trim() === '' ? null : Number(maxNights);
-      const duration = Number(hostingDurationNights);
+      // "No end date" has no fixed length; room types check their own.
+      const duration = usingUnitTypes || openEnded ? Infinity : Number(hostingDurationNights);
 
       if (!Number.isInteger(min) || min < 1 || min > duration) {
         setPhotoError('Minimum nights must be within hosting duration.');
@@ -1366,7 +1402,10 @@ export const AddPropertyView: React.FC = () => {
       let unitTypesPayload: SavedBnbUnitType[] | undefined;
 
       if (usingUnitTypes) {
-        const built = buildUnitTypesPayload(bnbUnitTypes);
+        const built = buildUnitTypesPayload(bnbUnitTypes, {
+          today: kenyaTodayIso(),
+          minNights: toNumber(minimumNights),
+        });
 
         if ('error' in built) {
           setPhotoError(built.error);
@@ -1388,7 +1427,16 @@ export const AddPropertyView: React.FC = () => {
       const bedroomCount = summary ? summary.bedrooms : toNumber(bedrooms);
       const bedCount = summary ? summary.beds : toNumber(beds);
       const bathroomCount = summary ? summary.bathrooms : toNumber(bathrooms);
-      const duration = Number(hostingDurationNights);
+
+      // Hosting period sent for the whole BnB. With room types it covers
+      // every room type (the server works it out the same way).
+      const periodStart = summary?.availableFrom ?? availableFrom;
+      const periodOpenEnded = summary ? summary.openEnded : openEnded;
+      const duration = summary?.hostingDurationNights !== undefined
+        ? summary.hostingDurationNights
+        : openEnded
+          ? Math.max(1, daysBetween(availableFrom, hostingEndDate))
+          : Number(hostingDurationNights);
 
       if (!Number.isFinite(pricePerNight) || pricePerNight <= 0) {
         setPhotoError('Enter the nightly rate for your BnB.');
@@ -1432,7 +1480,7 @@ export const AddPropertyView: React.FC = () => {
       // When editing, an unchanged start date may already be in the past.
       const startChanged = !isEditMode || availableFrom !== editingProperty?.bnb?.availableFrom;
 
-      if (startChanged && (availableFrom < today || availableFrom > latestStart)) {
+      if (!usingUnitTypes && startChanged && (availableFrom < today || availableFrom > latestStart)) {
         setPhotoError('Choose an available-from date between today and one year from now.');
         return;
       }
@@ -1477,7 +1525,14 @@ export const AddPropertyView: React.FC = () => {
           ? { unitTypes: [] }
           : {};
 
-      if (startChanged && blockedInPeriod.length >= duration) {
+      // With room types (or when removing them), the switch in section 6
+      // is the whole-BnB switch. Sending it keeps each room type's own
+      // switch unchanged, and makes it the BnB's switch again when room
+      // types are removed. Single-price BnBs send exactly what they did.
+      const buildingAcceptingField: { buildingAccepting?: boolean } =
+        unitTypesPayload || hadUnitTypes ? { buildingAccepting: accepting } : {};
+
+      if (!usingUnitTypes && startChanged && blockedInPeriod.length >= duration) {
         setPhotoError('Every night in your hosting period is blocked. Unblock at least one night.');
         return;
       }
@@ -1563,8 +1618,10 @@ export const AddPropertyView: React.FC = () => {
               checkOutTime: checkOutTime || undefined,
               houseRules: houseRules.trim() || undefined,
               accepting,
-              availableFrom,
+              ...buildingAcceptingField,
+              availableFrom: periodStart,
               hostingDurationNights: duration,
+              ...(periodOpenEnded ? { openEnded: true } : {}),
               blockedDates: blockedInPeriod,
               ...(unitTypesField as { unitTypes?: any }),
             },
@@ -1713,8 +1770,10 @@ export const AddPropertyView: React.FC = () => {
             checkOutTime: checkOutTime || undefined,
             houseRules: houseRules.trim() || undefined,
             accepting,
-            availableFrom,
+            ...buildingAcceptingField,
+            availableFrom: periodStart,
             hostingDurationNights: duration,
+            ...(periodOpenEnded ? { openEnded: true } : {}),
             blockedDates: blockedInPeriod,
             ...(unitTypesField as { unitTypes?: any }),
           },
@@ -2928,9 +2987,9 @@ export const AddPropertyView: React.FC = () => {
                 <BnbUnitTypesEditor
                   value={bnbUnitTypes}
                   onChange={handleUnitTypesChange}
-                  availableFrom={availableFrom}
-                  hostingEndDate={hostingEndDate}
+                  buildingPeriod={{ availableFrom, hostingDurationNights, openEnded }}
                   buildingBlocked={blockedDates}
+                  today={todayKenya}
                 />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2995,7 +3054,9 @@ export const AddPropertyView: React.FC = () => {
 
                       className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020]"
                     />
-                    {maxNights.trim() !== '' &&
+                    {!usingUnitTypes &&
+                      !openEnded &&
+                      maxNights.trim() !== '' &&
                       hostingDurationNights.trim() !== '' &&
                       Number(maxNights) > Number(hostingDurationNights) && (
                         <p className="mt-1 text-xs text-red-600">
@@ -3324,119 +3385,123 @@ export const AddPropertyView: React.FC = () => {
                 <div className="flex flex-col gap-4">
 
                   <div className="space-y-4 border-t border-[#E2D3C2] dark:border-[#38322D] pt-4">
-                    <h4 className="text-sm font-bold text-[#242424] dark:text-[#F5F1E8]">
-                      Set your hosting period
-                    </h4>
+                    {!usingUnitTypes && (<>
+                      <h4 className="text-sm font-bold text-[#242424] dark:text-[#F5F1E8]">
+                        Set your hosting period
+                      </h4>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold mb-2">
-                          Available From *
-                        </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold mb-2">
+                            Available From *
+                          </label>
 
-                        <details className="relative rounded-xl border border-[#E2D3C2] dark:border-[#38322D]">
+                          <details className="relative rounded-xl border border-[#E2D3C2] dark:border-[#38322D]">
 
-                          <summary className="flex items-center justify-between gap-3 cursor-pointer px-3 py-3 text-sm list-none [&::-webkit-details-marker]:hidden">
-                            <span className="flex items-center gap-2">
-                              <CalendarDays className="w-4 h-4 shrink-0 text-[#B48353]" />
-                              {availableFrom ? formatKenyanDate(availableFrom) : 'Select date'}
-                            </span>
-                            <ChevronDown className="w-4 h-4 text-[#B48353]" />
-                          </summary>
+                            <summary className="flex items-center justify-between gap-3 cursor-pointer px-3 py-3 text-sm list-none [&::-webkit-details-marker]:hidden">
+                              <span className="flex items-center gap-2">
+                                <CalendarDays className="w-4 h-4 shrink-0 text-[#B48353]" />
+                                {availableFrom ? formatKenyanDate(availableFrom) : 'Select date'}
+                              </span>
+                              <ChevronDown className="w-4 h-4 text-[#B48353]" />
+                            </summary>
 
 
 
-                          <div className="absolute top-full left-0 z-50 mt-2 w-max max-w-[calc(100vw-2rem)] rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-[#F8F5EF] dark:bg-[#202020] p-2 shadow-2xl overflow-x-auto">
+                            <div className="absolute top-full left-0 z-50 mt-2 w-max max-w-[calc(100vw-2rem)] rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-[#F8F5EF] dark:bg-[#202020] p-2 shadow-2xl overflow-x-auto">
 
-                            <DayPicker
+                              <DayPicker
 
-                              style={{
-                                '--rdp-day-width': '34px',
-                                '--rdp-day-height': '34px',
-                                '--rdp-day_button-width': '30px',
-                                '--rdp-day_button-height': '30px',
-                                '--rdp-nav_button-width': '28px',
-                                '--rdp-nav_button-height': '28px',
-                                '--rdp-accent-color': '#B48353',
-                                '--rdp-accent-background-color': '#B48353',
-                                '--rdp-day_button-border-radius': '50%',
-                                '--rdp-selected-border': 'none',
-                              } as React.CSSProperties}
+                                style={{
+                                  '--rdp-day-width': '34px',
+                                  '--rdp-day-height': '34px',
+                                  '--rdp-day_button-width': '30px',
+                                  '--rdp-day_button-height': '30px',
+                                  '--rdp-nav_button-width': '28px',
+                                  '--rdp-nav_button-height': '28px',
+                                  '--rdp-accent-color': '#B48353',
+                                  '--rdp-accent-background-color': '#B48353',
+                                  '--rdp-day_button-border-radius': '50%',
+                                  '--rdp-selected-border': 'none',
+                                } as React.CSSProperties}
 
-                              mode="single"
-                              weekStartsOn={0}
-                              selected={
-                                availableFrom
-                                  ? new Date(`${availableFrom}T12:00:00`)
-                                  : undefined
-                              }
-                              onSelect={(date) => {
-                                if (!date) return;
+                                mode="single"
+                                weekStartsOn={0}
+                                selected={
+                                  availableFrom
+                                    ? new Date(`${availableFrom}T12:00:00`)
+                                    : undefined
+                                }
+                                onSelect={(date) => {
+                                  if (!date) return;
 
-                                const year = date.getFullYear();
-                                const month = String(date.getMonth() + 1).padStart(2, '0');
-                                const day = String(date.getDate()).padStart(2, '0');
+                                  const year = date.getFullYear();
+                                  const month = String(date.getMonth() + 1).padStart(2, '0');
+                                  const day = String(date.getDate()).padStart(2, '0');
 
-                                setAvailableFrom(`${year}-${month}-${day}`);
-                              }}
-                              disabled={{
-                                before: new Date(new Date().setHours(0, 0, 0, 0)),
-                              }}
-                              modifiersStyles={{
-                                selected: {
-                                  backgroundColor: '#B48353',
-                                  color: '#FFFFFF',
-                                  borderRadius: '9999px',
-                                },
-                              }}
-                            />
+                                  setAvailableFrom(`${year}-${month}-${day}`);
+                                }}
+                                disabled={{
+                                  before: new Date(new Date().setHours(0, 0, 0, 0)),
+                                }}
+                                modifiersStyles={{
+                                  selected: {
+                                    backgroundColor: '#B48353',
+                                    color: '#FFFFFF',
+                                    borderRadius: '9999px',
+                                  },
+                                }}
+                              />
 
-                            <button
-                              type="button"
-                              disabled={!availableFrom}
-                              onClick={(e) => {
-                                e.currentTarget.closest('details')?.removeAttribute('open');
-                              }}
-                              className="mt-2 mx-auto block w-16 rounded-lg bg-[#B48353] px-3 py-1.5 text-xs font-bold text-white shadow-md disabled:bg-[#9B9086] disabled:text-white disabled:opacity-80 disabled:cursor-not-allowed"
-                            >
-                              OK
-                            </button>
+                              <button
+                                type="button"
+                                disabled={!availableFrom}
+                                onClick={(e) => {
+                                  e.currentTarget.closest('details')?.removeAttribute('open');
+                                }}
+                                className="mt-2 mx-auto block w-16 rounded-lg bg-[#B48353] px-3 py-1.5 text-xs font-bold text-white shadow-md disabled:bg-[#9B9086] disabled:text-white disabled:opacity-80 disabled:cursor-not-allowed"
+                              >
+                                OK
+                              </button>
 
-                          </div>
-                        </details>
+                            </div>
+                          </details>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold mb-2">
+                            Hosting Duration (Nights) *
+                          </label>
+
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={openEnded ? '' : hostingDurationNights}
+                            disabled={openEnded}
+                            onChange={handleNumericChange(setHostingDurationNights)}
+                            placeholder={openEnded ? 'No end date' : 'e.g. 18'}
+                            className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020] disabled:opacity-60"
+                          />
+                        </div>
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-bold mb-2">
-                          Hosting Duration (Nights) *
-                        </label>
+                      <NoEndDateSwitch value={openEnded} onChange={setOpenEnded} />
 
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          value={hostingDurationNights}
-                          onChange={handleNumericChange(setHostingDurationNights)}
-                          placeholder="e.g. 18"
-                          className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020]"
-                        />
-                      </div>
-                    </div>
-
-                    {hostingEndDate && (
-                      <div className="flex justify-between gap-3 rounded-xl p-3 bg-[#F0EBE4] dark:bg-[#292521]">
-                        <span className="text-sm font-semibold">
-                          Hosting period ends
-                        </span>
-                        <span className="text-sm font-bold text-green-600">
-                          {formatKenyanDate(hostingEndDate)}
-                        </span>
-                      </div>
-                    )}
+                      {hostingEndDate && (
+                        <div className="flex justify-between gap-3 rounded-xl p-3 bg-[#F0EBE4] dark:bg-[#292521]">
+                          <span className="text-sm font-semibold">
+                            Hosting period ends
+                          </span>
+                          <span className="text-sm font-bold text-green-600">
+                            {openEnded ? 'No end date' : formatKenyanDate(hostingEndDate)}
+                          </span>
+                        </div>
+                      )}
+                    </>)}
 
                     {usingUnitTypes && (
                       <p className="text-xs rounded-xl p-3 bg-[#F0EBE4] dark:bg-[#292521] text-[#77716C] dark:text-[#A3A3A3]">
-                        Each room type has its own calendar. Block nights in each room type's
-                        Calendar in section 5 above.
+                        Each room type has its own dates and calendar in section 5 above.
                       </p>
                     )}
 
@@ -3688,6 +3753,11 @@ export const AddPropertyView: React.FC = () => {
                       <p className={`text-xs mt-1 ${accepting ? 'text-green-600' : 'text-red-500'}`}>
                         {accepting ? '\u{1F7E2} Active' : '\u{1F534} Paused'}
                       </p>
+                      {usingUnitTypes && (
+                        <p className="text-xs mt-1 text-[#77716C] dark:text-[#A3A3A3]">
+                          Pauses or resumes the whole BnB. Each room type also has its own switch.
+                        </p>
+                      )}
                     </div>
 
                     <button

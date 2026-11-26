@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { DayPicker } from 'react-day-picker';
 import { Plus, Trash2, BedDouble, CalendarDays, ChevronDown } from 'lucide-react';
 
 // ---------------------------------------------------------------
@@ -21,6 +22,10 @@ export type SavedBnbUnitType = {
     imageStorageIds?: string[];
     blockedDates?: string[];
     accepting?: boolean;
+    // This unit type's own availability.
+    availableFrom?: string;
+    hostingDurationNights?: number;
+    openEnded?: boolean;
 };
 
 // A unit type while the host is typing (numbers kept as text).
@@ -34,6 +39,11 @@ export type BnbUnitTypeDraft = {
     beds: string;
     bathrooms: string;
     unitCount: string;
+    // This room type's own availability ("" until chosen).
+    availableFrom: string;
+    hostingDurationNights: string;
+    // "No end date": guests can book up to 12 months ahead, rolling.
+    openEnded: boolean;
     // This room type's own calendar (blocked nights, "YYYY-MM-DD").
     blockedDates?: string[];
     // Carried over unchanged from an existing listing.
@@ -41,16 +51,134 @@ export type BnbUnitTypeDraft = {
     accepting?: boolean;
     // Form-only: true for room types already saved on the listing.
     isSaved?: boolean;
+    // Form-only: the start date saved on the listing. An unchanged older
+    // start date may be in the past; a new or changed one may not.
+    savedAvailableFrom?: string;
+};
+
+// A hosting period as the form keeps it (duration as text).
+export type HostingPeriod = {
+    availableFrom: string;
+    hostingDurationNights: string;
+    openEnded: boolean;
 };
 
 export const MAX_BNB_UNIT_TYPES = 30;
+
+// "No end date": guests can book up to this many nights ahead of today.
+export const ROLLING_WINDOW_NIGHTS = 365;
+
+// ---------------------------------------------------------------
+// Dates ("YYYY-MM-DD")
+// ---------------------------------------------------------------
+
+export function addDays(date: string, days: number): string {
+    const current = new Date(`${date}T00:00:00Z`);
+    current.setUTCDate(current.getUTCDate() + days);
+    return current.toISOString().slice(0, 10);
+}
+
+// Whole days from one date to another.
+export function daysBetween(from: string, to: string): number {
+    return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000);
+}
+
+// Today in Kenya (UTC+3): the same "today" the server uses.
+export function kenyaTodayIso(now: number = Date.now()): string {
+    return new Date(now + 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+// The first night AFTER a hosting period, or "" if it isn't complete.
+// "No end date" ends 12 months from today (the server works it out the
+// same way, and moves it forward every day).
+export function periodEndDate(
+    availableFrom: string,
+    hostingDurationNights: string,
+    openEnded: boolean,
+    today: string
+): string {
+    if (!availableFrom) return '';
+
+    if (openEnded) {
+        const end = addDays(today, ROLLING_WINDOW_NIGHTS);
+        return end > availableFrom ? end : addDays(availableFrom, 1);
+    }
+
+    const nights = hostingDurationNights.trim() === '' ? NaN : Number(hostingDurationNights);
+    if (!Number.isInteger(nights) || nights < 1 || nights > 365) return '';
+
+    return addDays(availableFrom, nights);
+}
+
+// The period a NEW room type starts with: a copy of `source`, but never
+// starting before today (an older listing's start date may have passed).
+export function startingPeriod(source: HostingPeriod | undefined, today: string): HostingPeriod {
+    if (!source || !source.availableFrom) {
+        return { availableFrom: '', hostingDurationNights: '', openEnded: source?.openEnded ?? false };
+    }
+
+    // Copy only the dates (`source` may be a whole room type).
+    if (source.availableFrom >= today) {
+        return {
+            availableFrom: source.availableFrom,
+            hostingDurationNights: source.hostingDurationNights,
+            openEnded: source.openEnded,
+        };
+    }
+
+    if (source.openEnded) {
+        return { availableFrom: today, hostingDurationNights: '', openEnded: true };
+    }
+
+    // Started in the past: start today and keep the same last night.
+    const end = periodEndDate(source.availableFrom, source.hostingDurationNights, false, today);
+    const nightsLeft = end ? daysBetween(today, end) : 0;
+
+    return nightsLeft >= 1
+        ? { availableFrom: today, hostingDurationNights: String(nightsLeft), openEnded: false }
+        : { availableFrom: '', hostingDurationNights: '', openEnded: false };
+}
+
+// One period covering every room type (earliest start to latest end).
+// Used when the host turns room types off. Null if no room type has dates.
+export function combinedPeriod(drafts: BnbUnitTypeDraft[], today: string): HostingPeriod | null {
+    const withDates = drafts.filter((draft) =>
+        periodEndDate(draft.availableFrom, draft.hostingDurationNights, draft.openEnded, today)
+    );
+
+    if (withDates.length === 0) return null;
+
+    const start = withDates.map((draft) => draft.availableFrom).sort()[0];
+
+    if (withDates.some((draft) => draft.openEnded)) {
+        return { availableFrom: start, hostingDurationNights: '', openEnded: true };
+    }
+
+    const end = withDates
+        .map((draft) => periodEndDate(draft.availableFrom, draft.hostingDurationNights, false, today))
+        .sort()
+        .slice(-1)[0];
+    const nights = daysBetween(start, end);
+
+    return {
+        availableFrom: start,
+        hostingDurationNights: nights >= 1 && nights <= 365 ? String(nights) : '',
+        openEnded: false,
+    };
+}
 
 const newUnitTypeId = () =>
     `ut_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
 // A new room type starts with the building's blocked nights, so turning
-// room types on never reopens nights the host had already blocked.
-export const emptyUnitTypeDraft = (startingBlocked: string[] = []): BnbUnitTypeDraft => ({
+// room types on never reopens nights the host had already blocked. Its
+// dates start as a copy of `period` (the building's, or the room type
+// above it).
+export const emptyUnitTypeDraft = (
+    startingBlocked: string[] = [],
+    period?: HostingPeriod,
+    today: string = kenyaTodayIso()
+): BnbUnitTypeDraft => ({
     id: newUnitTypeId(),
     blockedDates: [...startingBlocked],
     name: '',
@@ -61,27 +189,48 @@ export const emptyUnitTypeDraft = (startingBlocked: string[] = []): BnbUnitTypeD
     beds: '1',
     bathrooms: '1',
     unitCount: '1',
+    accepting: true,
+    ...startingPeriod(period, today),
 });
 
-export const draftFromSaved = (type: SavedBnbUnitType): BnbUnitTypeDraft => ({
-    id: type.id,
-    name: type.name,
-    pricePerNight: String(type.pricePerNight),
-    cleaningFee: type.cleaningFee !== undefined ? String(type.cleaningFee) : '',
-    maxGuests: String(type.maxGuests),
-    bedrooms: String(type.bedrooms),
-    beds: String(type.beds),
-    bathrooms: String(type.bathrooms),
-    unitCount: String(type.unitCount ?? 1),
-    imageStorageIds: type.imageStorageIds,
-    blockedDates: type.blockedDates ?? [],
-    accepting: type.accepting,
-    isSaved: true,
-});
+// `fallback` is the building's period, for room types saved before they
+// had their own dates.
+export const draftFromSaved = (
+    type: SavedBnbUnitType,
+    fallback: { availableFrom?: string; hostingDurationNights?: number; openEnded?: boolean } = {}
+): BnbUnitTypeDraft => {
+    const ownPeriod = type.availableFrom !== undefined;
+    const availableFrom = (ownPeriod ? type.availableFrom : fallback.availableFrom) ?? '';
+    const openEnded = (ownPeriod ? type.openEnded : fallback.openEnded) === true;
+    const duration = ownPeriod ? type.hostingDurationNights : fallback.hostingDurationNights;
+
+    return {
+        id: type.id,
+        name: type.name,
+        pricePerNight: String(type.pricePerNight),
+        cleaningFee: type.cleaningFee !== undefined ? String(type.cleaningFee) : '',
+        maxGuests: String(type.maxGuests),
+        bedrooms: String(type.bedrooms),
+        beds: String(type.beds),
+        bathrooms: String(type.bathrooms),
+        unitCount: String(type.unitCount ?? 1),
+        availableFrom,
+        // With "No end date" the stored number is only the rolling window.
+        hostingDurationNights: !openEnded && duration !== undefined ? String(duration) : '',
+        openEnded,
+        imageStorageIds: type.imageStorageIds,
+        blockedDates: type.blockedDates ?? [],
+        accepting: type.accepting,
+        isSaved: true,
+        savedAvailableFrom: availableFrom || undefined,
+    };
+};
 
 // Same checks as the server (prepareBnbUnitTypes), with friendly messages.
+// `minNights` is the BnB's minimum stay (it applies to every room type).
 export function buildUnitTypesPayload(
-    drafts: BnbUnitTypeDraft[]
+    drafts: BnbUnitTypeDraft[],
+    options: { today?: string; minNights?: number } = {}
 ): { ok: true; unitTypes: SavedBnbUnitType[] } | { ok: false; error: string } {
     if (drafts.length === 0) {
         return { ok: false, error: 'Add at least one room type.' };
@@ -90,6 +239,9 @@ export function buildUnitTypesPayload(
     if (drafts.length > MAX_BNB_UNIT_TYPES) {
         return { ok: false, error: `A BnB can have up to ${MAX_BNB_UNIT_TYPES} room types.` };
     }
+
+    const today = options.today ?? kenyaTodayIso();
+    const latestStart = addDays(today, 365);
 
     const names = new Set<string>();
     const unitTypes: SavedBnbUnitType[] = [];
@@ -138,6 +290,41 @@ export function buildUnitTypesPayload(
             return { ok: false, error: `"How many of this type" for "${label}" must be between 1 and 500.` };
         }
 
+        // This room type's own availability.
+        if (!draft.availableFrom) {
+            return { ok: false, error: `Choose the "Available From" date for "${label}".` };
+        }
+
+        if (
+            draft.availableFrom !== draft.savedAvailableFrom &&
+            (draft.availableFrom < today || draft.availableFrom > latestStart)
+        ) {
+            return {
+                ok: false,
+                error: `Choose an available-from date for "${label}" between today and one year from now.`,
+            };
+        }
+
+        let duration: number;
+
+        if (draft.openEnded) {
+            // Stored as "today + 12 months"; the server keeps it rolling.
+            duration = daysBetween(draft.availableFrom, periodEndDate(draft.availableFrom, '', true, today));
+        } else {
+            duration = whole(draft.hostingDurationNights);
+
+            if (!Number.isInteger(duration) || duration < 1 || duration > 365) {
+                return {
+                    ok: false,
+                    error: `Enter the hosting duration for "${label}" (1-365 nights) or turn on "No end date".`,
+                };
+            }
+
+            if (options.minNights !== undefined && options.minNights > duration) {
+                return { ok: false, error: `Minimum nights must be within the hosting duration of "${label}".` };
+            }
+        }
+
         unitTypes.push({
             id: draft.id,
             name,
@@ -148,6 +335,9 @@ export function buildUnitTypesPayload(
             beds,
             bathrooms,
             unitCount,
+            availableFrom: draft.availableFrom,
+            hostingDurationNights: duration,
+            ...(draft.openEnded ? { openEnded: true } : {}),
             ...(draft.imageStorageIds ? { imageStorageIds: draft.imageStorageIds } : {}),
             ...(draft.blockedDates ? { blockedDates: draft.blockedDates } : {}),
             ...(draft.accepting !== undefined ? { accepting: draft.accepting } : {}),
@@ -162,9 +352,11 @@ export function buildUnitTypesPayload(
 //   currently blocked nights, so converting a single-price BnB into
 //   unit types never reopens nights the host had blocked.
 // - Blocked nights are kept only inside the hosting period (the server
-//   requires that). Upcoming blocked nights that fall OUTSIDE a changed
-//   period are returned in `droppedDates`, so the form can warn the host
-//   before saving instead of removing them silently.
+//   requires that): the building's period for the building, and each
+//   unit type's own period for that unit type. Upcoming blocked nights
+//   that fall OUTSIDE a changed period are returned in `droppedDates`,
+//   so the form can warn the host before saving instead of removing
+//   them silently.
 export function prepareBlockedNights(options: {
     buildingBlocked: string[];
     unitTypes?: SavedBnbUnitType[];
@@ -188,23 +380,45 @@ export function prepareBlockedNights(options: {
     const dropped = new Set<string>();
 
     const unitTypes = options.unitTypes.map((type) => {
+        // This unit type's own period (or the building's, if it has none).
+        const ownPeriod = type.availableFrom !== undefined && type.hostingDurationNights !== undefined;
+        const from = ownPeriod ? (type.availableFrom as string) : availableFrom;
+        const end = ownPeriod
+            ? addDays(type.availableFrom as string, type.hostingDurationNights as number)
+            : hostingEndDate;
+        const inTypePeriod = (date: string) => date >= from && date < end;
+
         // New unit type: inherit the building's blocked nights.
         const source = type.blockedDates ?? options.buildingBlocked;
 
-        for (const date of droppedUpcoming(source)) dropped.add(date);
+        for (const date of source) {
+            if (date >= today && !inTypePeriod(date)) dropped.add(date);
+        }
 
-        return { ...type, blockedDates: [...new Set(source.filter(inPeriod))].sort() };
+        return { ...type, blockedDates: [...new Set(source.filter(inTypePeriod))].sort() };
     });
 
     return { buildingBlocked, unitTypes, droppedDates: [...dropped].sort() };
 }
 
 // Building-level summary the server also computes: the "from" price is
-// the cheapest type; capacity is the largest type.
+// the cheapest type; capacity is the largest type; the hosting period
+// runs from the earliest start to the latest end ("No end date" if any
+// type has no end date).
 export function summarizeUnitTypes(unitTypes: SavedBnbUnitType[]) {
     const cheapest = unitTypes.reduce((low, type) =>
         type.pricePerNight < low.pricePerNight ? type : low
     );
+
+    const periods = unitTypes
+        .filter((type) => type.availableFrom !== undefined && type.hostingDurationNights !== undefined)
+        .map((type) => ({
+            start: type.availableFrom as string,
+            end: addDays(type.availableFrom as string, type.hostingDurationNights as number),
+        }));
+
+    const start = periods.length > 0 ? periods.map((period) => period.start).sort()[0] : undefined;
+    const end = periods.length > 0 ? periods.map((period) => period.end).sort().slice(-1)[0] : undefined;
 
     return {
         pricePerNight: cheapest.pricePerNight,
@@ -213,6 +427,9 @@ export function summarizeUnitTypes(unitTypes: SavedBnbUnitType[]) {
         bedrooms: Math.max(...unitTypes.map((type) => type.bedrooms)),
         beds: Math.max(...unitTypes.map((type) => type.beds)),
         bathrooms: Math.max(...unitTypes.map((type) => type.bathrooms)),
+        availableFrom: start,
+        hostingDurationNights: start !== undefined && end !== undefined ? daysBetween(start, end) : undefined,
+        openEnded: unitTypes.some((type) => type.openEnded === true),
     };
 }
 
@@ -224,11 +441,12 @@ const digitsOnly = (value: string) => value.replace(/[^0-9]/g, '').replace(/^0+(
 interface BnbUnitTypesEditorProps {
     value: BnbUnitTypeDraft[];
     onChange: (next: BnbUnitTypeDraft[]) => void;
-    // Hosting period ("YYYY-MM-DD"; end = first night AFTER the period).
-    availableFrom?: string;
-    hostingEndDate?: string;
-    // The building's blocked nights: new room types start with these.
+    // The building's hosting period and blocked nights: room types created
+    // when the switch is turned on start with these.
+    buildingPeriod?: HostingPeriod;
     buildingBlocked?: string[];
+    // "YYYY-MM-DD" in Kenya (defaults to now; tests pass a fixed day).
+    today?: string;
 }
 
 // Room types already saved on the listing. Only removing these asks
@@ -238,6 +456,193 @@ const hasContent = (draft: BnbUnitTypeDraft) =>
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// Nights from check-in up to (not including) check-out, kept inside the
+// hosting period, added to a room type's blocked nights.
+export function blockNightRange(
+    blocked: string[],
+    from: string,
+    to: string,
+    availableFrom: string,
+    hostingEndDate: string
+): string[] {
+    if (!from || !to || to <= from) return blocked;
+
+    const added: string[] = [];
+    const current = new Date(`${from}T00:00:00Z`);
+
+    while (current.toISOString().slice(0, 10) < to && added.length < 400) {
+        const date = current.toISOString().slice(0, 10);
+        if (date >= availableFrom && date < hostingEndDate) added.push(date);
+        current.setUTCDate(current.getUTCDate() + 1);
+    }
+
+    return [...new Set([...blocked, ...added])].sort();
+}
+
+const toIsoDay = (date: Date) =>
+    [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+
+const shortDate = (date: string) => {
+    const [year, month, day] = date.split('-');
+    return `${day}/${month}/${year.slice(-2)}`;
+};
+
+const pickerStyle = {
+    '--rdp-accent-color': '#B48353',
+    '--rdp-day-width': '34px',
+    '--rdp-day-height': '34px',
+    '--rdp-day_button-width': '30px',
+    '--rdp-day_button-height': '30px',
+} as React.CSSProperties;
+
+// On/off switch, same look as the form's other switches.
+const Switch: React.FC<{
+    on: boolean;
+    onToggle: () => void;
+    label: string;
+    onColor?: string;
+}> = ({ on, onToggle, label, onColor = 'bg-green-600' }) => (
+    <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={label}
+        onClick={onToggle}
+        className={`relative shrink-0 w-12 h-7 rounded-full transition-colors ${on ? onColor : 'bg-gray-500'}`}
+    >
+        <span className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${on ? 'left-6' : 'left-1'}`} />
+    </button>
+);
+
+// "No end date" switch, used for each room type and for a single-price BnB.
+export const NoEndDateSwitch: React.FC<{
+    value: boolean;
+    onChange: (next: boolean) => void;
+}> = ({ value, onChange }) => (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] p-3">
+        <div className="min-w-0">
+            <p className="text-sm font-semibold text-[#242424] dark:text-[#F5F1E8]">No end date</p>
+            <p className="text-xs text-[#77716C] dark:text-[#A3A3A3] mt-1">
+                Guests can always book up to 12 months ahead.
+            </p>
+        </div>
+        <Switch on={value} onToggle={() => onChange(!value)} label="No end date" />
+    </div>
+);
+
+// "From" / "To (Check-out)" date field, same look as the building's
+// Block Specific Dates in the BnB form.
+const DateField: React.FC<{
+    label: string;
+    value: string;
+    onPick: (date: string) => void;
+    isDisabled: (date: string) => boolean;
+    // Month the calendar opens on (e.g. the start of the hosting period).
+    openMonth?: string;
+    strongLabel?: boolean;
+}> = ({ label, value, onPick, isDisabled, openMonth, strongLabel }) => (
+    <div>
+        <label className={`block text-xs mb-2 ${strongLabel ? 'font-bold' : 'font-semibold'}`}>{label}</label>
+        <details className="relative">
+            <summary className="flex items-center justify-between cursor-pointer rounded-lg border border-[#B48353]/40 p-3 text-sm list-none [&::-webkit-details-marker]:hidden">
+                <span className="flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4 text-[#B48353]" />
+                    {value ? shortDate(value) : 'Select date'}
+                </span>
+                <ChevronDown className="w-4 h-4 text-[#B48353]" />
+            </summary>
+
+            <div className="absolute left-0 top-full z-50 mt-2 max-w-[calc(100vw-3rem)] rounded-xl border border-[#B48353]/40 bg-[#F8F5EF] dark:bg-[#202020] p-2 shadow-2xl">
+                <DayPicker
+                    mode="single"
+                    weekStartsOn={0}
+                    selected={value ? new Date(`${value}T12:00:00`) : undefined}
+                    defaultMonth={
+                        value || openMonth ? new Date(`${value || openMonth}T12:00:00`) : undefined
+                    }
+                    onSelect={(date: Date | undefined) => {
+                        if (date) onPick(toIsoDay(date));
+                    }}
+                    disabled={(date: Date) => isDisabled(toIsoDay(date))}
+                    style={pickerStyle}
+                />
+
+                <button
+                    type="button"
+                    disabled={!value}
+                    onClick={(event) => {
+                        event.currentTarget.closest('details')?.removeAttribute('open');
+                    }}
+                    className="mt-2 mx-auto block w-16 rounded-lg bg-[#B48353] px-3 py-1.5 text-xs font-bold text-white shadow-md disabled:bg-[#9B9086] disabled:opacity-80 disabled:cursor-not-allowed"
+                >
+                    OK
+                </button>
+            </div>
+        </details>
+    </div>
+);
+
+// Block a range of nights for one room type: From -> To (Check-out).
+// Collapsed by default, like the building's Block Specific Dates.
+const BlockRange: React.FC<{
+    availableFrom: string;
+    hostingEndDate: string;
+    blockedCount: number;
+    onBlock: (from: string, to: string) => void;
+}> = ({ availableFrom, hostingEndDate, blockedCount, onBlock }) => {
+    const [from, setFrom] = useState('');
+    const [to, setTo] = useState('');
+
+    return (
+        <details className="rounded-xl border border-[#E2D3C2] dark:border-[#38322D]">
+            <summary className="flex items-center justify-between gap-3 cursor-pointer p-3 list-none [&::-webkit-details-marker]:hidden">
+                <div>
+                    <p className="text-sm font-semibold">Block Specific Dates</p>
+                    <p className="text-xs text-[#A3A3A3] mt-1">{blockedCount} blocked nights - Optional</p>
+                </div>
+                <ChevronDown className="w-4 h-4 text-[#B48353]" />
+            </summary>
+
+            <div className="p-3 space-y-3">
+                <p className="text-xs text-[#A3A3A3]">Choose dates within this room type's hosting period.</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <DateField
+                        label="From"
+                        value={from}
+                        onPick={(date) => {
+                            setFrom(date);
+                            setTo('');
+                        }}
+                        isDisabled={(date) => date < availableFrom || date >= hostingEndDate}
+                        openMonth={availableFrom}
+                    />
+                    <DateField
+                        label="To (Check-out)"
+                        value={to}
+                        onPick={setTo}
+                        isDisabled={(date) => !from || date <= from || date > hostingEndDate}
+                        openMonth={from || availableFrom}
+                    />
+                </div>
+
+                <button
+                    type="button"
+                    disabled={!from || !to}
+                    onClick={() => {
+                        onBlock(from, to);
+                        setFrom('');
+                        setTo('');
+                    }}
+                    className="w-full rounded-xl bg-[#B48353] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                    Block Dates
+                </button>
+            </div>
+        </details>
+    );
+};
 
 // Every night of the hosting period, with a heading at each new month.
 export function nightsInPeriod(availableFrom?: string, hostingEndDate?: string) {
@@ -268,27 +673,42 @@ export function nightsInPeriod(availableFrom?: string, hostingEndDate?: string) 
 export const BnbUnitTypesEditor: React.FC<BnbUnitTypesEditorProps> = ({
     value,
     onChange,
-    availableFrom,
-    hostingEndDate,
+    buildingPeriod,
     buildingBlocked = [],
+    today = kenyaTodayIso(),
 }) => {
     const enabled = value.length > 0;
-    const nights = nightsInPeriod(availableFrom, hostingEndDate);
+    const latestStart = addDays(today, 365);
 
-    const toggleNight = (id: string, date: string) => {
-        onChange(
-            value.map((draft) => {
-                if (draft.id !== id) return draft;
-                const blocked = new Set(draft.blockedDates ?? []);
-                if (blocked.has(date)) blocked.delete(date);
-                else blocked.add(date);
-                return { ...draft, blockedDates: [...blocked].sort() };
-            })
-        );
+    // The part of a room type's period guests can still book:
+    // from today (or its start date, if later) to its end.
+    const bookableWindow = (draft: BnbUnitTypeDraft) => {
+        const end = periodEndDate(draft.availableFrom, draft.hostingDurationNights, draft.openEnded, today);
+        const from = draft.availableFrom > today ? draft.availableFrom : today;
+        return { end, from: end ? from : '' };
+    };
+
+    const patch = (id: string, changes: Partial<BnbUnitTypeDraft>) => {
+        onChange(value.map((draft) => (draft.id === id ? { ...draft, ...changes } : draft)));
     };
 
     const update = (id: string, field: keyof BnbUnitTypeDraft, text: string) => {
-        onChange(value.map((draft) => (draft.id === id ? { ...draft, [field]: text } : draft)));
+        patch(id, { [field]: text } as Partial<BnbUnitTypeDraft>);
+    };
+
+    const blockRange = (draft: BnbUnitTypeDraft, from: string, to: string) => {
+        const bookable = bookableWindow(draft);
+        if (!bookable.end) return;
+        patch(draft.id, {
+            blockedDates: blockNightRange(draft.blockedDates ?? [], from, to, bookable.from, bookable.end),
+        });
+    };
+
+    const toggleNight = (draft: BnbUnitTypeDraft, date: string) => {
+        const blocked = new Set(draft.blockedDates ?? []);
+        if (blocked.has(date)) blocked.delete(date);
+        else blocked.add(date);
+        patch(draft.id, { blockedDates: [...blocked].sort() });
     };
 
     const remove = (id: string) => {
@@ -321,8 +741,18 @@ export const BnbUnitTypesEditor: React.FC<BnbUnitTypesEditorProps> = ({
             }
             onChange([]);
         } else {
-            onChange([emptyUnitTypeDraft(buildingBlocked), emptyUnitTypeDraft(buildingBlocked)]);
+            onChange([
+                emptyUnitTypeDraft(buildingBlocked, buildingPeriod, today),
+                emptyUnitTypeDraft(buildingBlocked, buildingPeriod, today),
+            ]);
         }
+    };
+
+    // A new room type starts with the same dates as the one above it.
+    const addRoomType = () => {
+        const above = value[value.length - 1];
+        const period = above && above.availableFrom ? above : buildingPeriod;
+        onChange([...value, emptyUnitTypeDraft(buildingBlocked, period, today)]);
     };
 
     const numberField = (draft: BnbUnitTypeDraft, field: keyof BnbUnitTypeDraft, label: string, placeholder?: string) => (
@@ -339,6 +769,140 @@ export const BnbUnitTypesEditor: React.FC<BnbUnitTypesEditorProps> = ({
         </div>
     );
 
+    // Availability & Booking for one room type, inside its card.
+    const availabilitySection = (draft: BnbUnitTypeDraft) => {
+        const accepting = draft.accepting !== false;
+        const bookable = bookableWindow(draft);
+        const end = bookable.end;
+        const nights = nightsInPeriod(bookable.from, end);
+        const blocked = new Set(draft.blockedDates ?? []);
+        const openCount = nights.filter((night) => !blocked.has(night.date)).length;
+        const blockedCount = nights.length - openCount;
+
+        return (
+            <div className="mt-5 space-y-4 border-t border-[#E2D3C2] dark:border-[#38322D] pt-4">
+                <p className="flex items-center gap-2 text-sm font-bold text-[#242424] dark:text-[#F5F1E8]">
+                    <CalendarDays className="w-4 h-4 text-[#B48353]" />
+                    Availability & Booking
+                </p>
+
+                <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                        <p className="text-sm font-semibold text-[#242424] dark:text-[#F5F1E8]">
+                            Accepting Enquiries
+                        </p>
+                        <p className={`text-xs mt-1 ${accepting ? 'text-green-600' : 'text-red-500'}`}>
+                            {accepting ? '\u{1F7E2} Active' : '\u{1F534} Paused'}
+                        </p>
+                    </div>
+                    <Switch
+                        on={accepting}
+                        onToggle={() => patch(draft.id, { accepting: !accepting })}
+                        label={`Accepting Enquiries for ${draft.name.trim() || 'this room type'}`}
+                    />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <DateField
+                        label="Available From *"
+                        strongLabel
+                        value={draft.availableFrom}
+                        onPick={(date) => patch(draft.id, { availableFrom: date })}
+                        isDisabled={(date) => date < today || date > latestStart}
+                        openMonth={today}
+                    />
+
+                    <div>
+                        <label className="block text-xs font-bold mb-2">Hosting Duration (Nights) *</label>
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            value={draft.openEnded ? '' : draft.hostingDurationNights}
+                            disabled={draft.openEnded}
+                            onChange={(event) => update(draft.id, 'hostingDurationNights', digitsOnly(event.target.value))}
+                            placeholder={draft.openEnded ? 'No end date' : 'e.g. 30'}
+                            className={`${inputClass} disabled:opacity-60`}
+                        />
+                    </div>
+                </div>
+
+                <NoEndDateSwitch
+                    value={draft.openEnded}
+                    onChange={(next) => patch(draft.id, { openEnded: next })}
+                />
+
+                {end && (
+                    <div className="flex justify-between gap-3 rounded-xl p-3 bg-[#F0EBE4] dark:bg-[#292521]">
+                        <span className="text-sm font-semibold">Hosting period ends</span>
+                        <span className="text-sm font-bold text-green-600">
+                            {draft.openEnded ? 'No end date' : shortDate(end)}
+                        </span>
+                    </div>
+                )}
+
+                {nights.length === 0 ? (
+                    <p className="text-xs text-[#77716C] dark:text-[#A3A3A3]">
+                        {end
+                            ? 'This hosting period has ended. Choose a new "Available From" date.'
+                            : 'Choose "Available From" and the number of nights (or turn on No end date) to see this room type\'s calendar.'}
+                    </p>
+                ) : (
+                    <>
+                        <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-semibold">Availability Preview</p>
+                                <span className="text-xs text-green-600">
+                                    {openCount} of {nights.length} nights available
+                                </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 max-h-72 overflow-y-auto pb-2 pr-1">
+                                {nights.map((night) => {
+                                    const isBlocked = blocked.has(night.date);
+
+                                    return (
+                                        <React.Fragment key={night.date}>
+                                            {night.monthHeading && (
+                                                <p className="basis-full pt-1 text-xs font-semibold text-[#77716C] dark:text-[#A3A3A3]">
+                                                    {night.monthHeading}
+                                                </p>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleNight(draft, night.date)}
+                                                aria-pressed={isBlocked}
+                                                aria-label={`${night.day} ${night.month}: ${isBlocked ? 'blocked' : 'available'}`}
+                                                className={`flex min-w-[42px] h-[48px] shrink-0 flex-col items-center justify-center rounded-lg text-white ${isBlocked ? 'bg-gray-500' : 'bg-emerald-700'}`}
+                                            >
+                                                <span className="text-sm font-bold">{night.day}</span>
+                                                <span className="text-[10px]">{night.month}</span>
+                                            </button>
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="flex items-center gap-4 text-xs text-[#A3A3A3]">
+                                <span>{'\u{1F7E2}'} Available</span>
+                                <span>{'⚪'} Blocked</span>
+                            </div>
+                            <p className="text-xs text-[#77716C] dark:text-[#A3A3A3]">
+                                Tap a night to block or unblock it for this room type.
+                            </p>
+                        </div>
+
+                        <BlockRange
+                            availableFrom={bookable.from}
+                            hostingEndDate={end}
+                            blockedCount={blockedCount}
+                            onBlock={(from, to) => blockRange(draft, from, to)}
+                        />
+                    </>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="mb-5 space-y-4">
             <div className="flex items-start justify-between gap-4">
@@ -351,18 +915,12 @@ export const BnbUnitTypesEditor: React.FC<BnbUnitTypesEditorProps> = ({
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    role="switch"
-                    aria-checked={enabled}
-                    aria-label="Rooms with different prices"
-                    onClick={toggle}
-                    className={`relative shrink-0 w-12 h-7 rounded-full transition-colors ${enabled ? 'bg-[#2563EB]' : 'bg-gray-500'}`}
-                >
-                    <span
-                        className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${enabled ? 'left-6' : 'left-1'}`}
-                    />
-                </button>
+                <Switch
+                    on={enabled}
+                    onToggle={toggle}
+                    label="Rooms with different prices"
+                    onColor="bg-[#2563EB]"
+                />
             </div>
 
             {enabled && (
@@ -410,73 +968,14 @@ export const BnbUnitTypesEditor: React.FC<BnbUnitTypesEditorProps> = ({
                                 {numberField(draft, 'unitCount', 'How many of this type? *', '1')}
                             </div>
 
-                            {(() => {
-                                const blocked = new Set(draft.blockedDates ?? []);
-                                const openCount = nights.filter((night) => !blocked.has(night.date)).length;
-
-                                return (
-                                    <details className="mt-4 rounded-xl border border-[#E2D3C2] dark:border-[#38322D]">
-                                        <summary className="flex items-center justify-between gap-3 cursor-pointer p-3 list-none [&::-webkit-details-marker]:hidden">
-                                            <span className="flex items-center gap-2 text-sm font-semibold">
-                                                <CalendarDays className="w-4 h-4 text-[#B48353]" />
-                                                Calendar
-                                            </span>
-                                            <span className="flex items-center gap-2 text-xs text-[#77716C] dark:text-[#A3A3A3]">
-                                                {nights.length > 0
-                                                    ? `${openCount} of ${nights.length} nights available`
-                                                    : 'Set your hosting period first'}
-                                                <ChevronDown className="w-4 h-4 text-[#B48353]" />
-                                            </span>
-                                        </summary>
-
-                                        <div className="p-3 pt-0 space-y-3">
-                                            {nights.length === 0 ? (
-                                                <p className="text-xs text-[#77716C] dark:text-[#A3A3A3]">
-                                                    Choose "Available From" and the number of nights below, then come back here.
-                                                </p>
-                                            ) : (
-                                                <>
-                                                    <div className="flex flex-wrap gap-2 max-h-72 overflow-y-auto pb-2 pr-1">
-                                                        {nights.map((night) => {
-                                                            const isBlocked = blocked.has(night.date);
-
-                                                            return (
-                                                                <React.Fragment key={night.date}>
-                                                                    {night.monthHeading && (
-                                                                        <p className="basis-full pt-1 text-xs font-semibold text-[#77716C] dark:text-[#A3A3A3]">
-                                                                            {night.monthHeading}
-                                                                        </p>
-                                                                    )}
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => toggleNight(draft.id, night.date)}
-                                                                        aria-pressed={isBlocked}
-                                                                        aria-label={`${night.day} ${night.month}: ${isBlocked ? 'blocked' : 'available'}`}
-                                                                        className={`flex min-w-[42px] h-[48px] shrink-0 flex-col items-center justify-center rounded-lg text-white ${isBlocked ? 'bg-gray-500' : 'bg-emerald-700'}`}
-                                                                    >
-                                                                        <span className="text-sm font-bold">{night.day}</span>
-                                                                        <span className="text-[10px]">{night.month}</span>
-                                                                    </button>
-                                                                </React.Fragment>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                    <p className="text-xs text-[#77716C] dark:text-[#A3A3A3]">
-                                                        Tap a night to block or unblock it for this room type.
-                                                    </p>
-                                                </>
-                                            )}
-                                        </div>
-                                    </details>
-                                );
-                            })()}
+                            {availabilitySection(draft)}
                         </div>
                     ))}
 
                     {value.length < MAX_BNB_UNIT_TYPES && (
                         <button
                             type="button"
-                            onClick={() => onChange([...value, emptyUnitTypeDraft(buildingBlocked)])}
+                            onClick={addRoomType}
                             className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-dashed border-[#2563EB] px-4 py-3 text-sm font-semibold text-[#2563EB]"
                         >
                             <Plus className="w-4 h-4" />
