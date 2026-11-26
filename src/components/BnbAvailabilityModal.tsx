@@ -5,17 +5,35 @@ import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { PropertyListing } from '../types';
 import { formatDay, kenyaToday, readSchedule, toDayNumber } from './BnbBookingCard';
+import { bnbRoomTypes, roomAsBnb } from './BnbRoomChooser';
 
 // ---------------------------------------------------------------------------
 // BnB "Update Availability" for the host: pause/resume bookings and block or
 // unblock nights. Saves through convex/properties.ts -> updateBnbAvailability.
 // Each date stands for the NIGHT that starts on it (same as the guest calendar).
+// BnBs with room types: the top switch pauses/resumes the whole BnB, and each
+// room type has its own switch and calendar (pick the room with the tabs).
 // ---------------------------------------------------------------------------
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const dayDate = (day: number) => new Date(day * DAY_MS);
 const toDateString = (day: number) => dayDate(day).toISOString().slice(0, 10);
+
+// Upcoming blocked nights as day numbers (past nights no longer matter).
+const upcomingBlocked = (dates: string[] | undefined, today: number) => {
+    const set = new Set<number>();
+    for (const date of dates ?? []) {
+        const day = toDayNumber(date);
+        if (day !== null && day >= today) set.add(day);
+    }
+    return set;
+};
+
+const sameNights = (a: Set<number>, b: Set<number>) =>
+    a.size === b.size && [...a].every((day) => b.has(day));
+
+type RoomEdit = { accepting: boolean; blocked: Set<number> };
 
 interface BnbAvailabilityModalProps {
     property: PropertyListing;
@@ -26,23 +44,53 @@ export const BnbAvailabilityModal: React.FC<BnbAvailabilityModalProps> = ({ prop
     const updateBnbAvailability = useMutation(api.properties.updateBnbAvailability);
     const bnb = property.bnb;
     const today = kenyaToday();
+    const rooms = bnbRoomTypes(bnb);
+    const hasRooms = rooms.length > 0;
 
-    const schedule = useMemo(
-        () => (bnb ? readSchedule({ ...bnb, blockedDates: [] }, today) : null),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [bnb?.availableFrom, bnb?.hostingDurationNights, today]
+    // With room types this is the whole-BnB switch (stored separately from
+    // each room type's own switch).
+    const startAccepting =
+        (bnb as { buildingAccepting?: boolean } | undefined)?.buildingAccepting ?? bnb?.accepting ?? true;
+    const [accepting, setAccepting] = useState<boolean>(startAccepting);
+
+    // Single-price BnB: its calendar. Only nights from today onwards.
+    const [buildingBlocked, setBuildingBlocked] = useState<Set<number>>(() =>
+        upcomingBlocked(bnb?.blockedDates, today)
     );
 
-    const [accepting, setAccepting] = useState<boolean>(bnb?.accepting ?? true);
-    // Only nights from today onwards: past nights no longer matter.
-    const [blocked, setBlocked] = useState<Set<number>>(() => {
-        const set = new Set<number>();
-        for (const date of bnb?.blockedDates ?? []) {
-            const day = toDayNumber(date);
-            if (day !== null && day >= today) set.add(day);
+    // Room types: each one's own switch and calendar, kept while switching tabs.
+    const [roomId, setRoomId] = useState<string | null>(rooms[0]?.id ?? null);
+    const [roomEdits, setRoomEdits] = useState<Record<string, RoomEdit>>(() =>
+        Object.fromEntries(
+            rooms.map((room) => [
+                room.id,
+                { accepting: room.accepting !== false, blocked: upcomingBlocked(room.blockedDates, today) },
+            ])
+        )
+    );
+    const room = rooms.find((item) => item.id === roomId) ?? rooms[0];
+
+    const schedule = useMemo(
+        () =>
+            bnb
+                ? readSchedule({ ...(room ? roomAsBnb(bnb, room) : bnb), blockedDates: [] }, today)
+                : null,
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [bnb?.availableFrom, bnb?.hostingDurationNights, room?.id, today]
+    );
+
+    const blocked = room ? roomEdits[room.id].blocked : buildingBlocked;
+    const setBlocked = (update: (prev: Set<number>) => Set<number>) => {
+        if (room) {
+            setRoomEdits((prev) => ({
+                ...prev,
+                [room.id]: { ...prev[room.id], blocked: update(prev[room.id].blocked) },
+            }));
+        } else {
+            setBuildingBlocked(update);
         }
-        return set;
-    });
+    };
+
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +103,17 @@ export const BnbAvailabilityModal: React.FC<BnbAvailabilityModalProps> = ({ prop
         return { year: d.getUTCFullYear(), month: d.getUTCMonth() };
     })();
     const [viewMonth, setViewMonth] = useState(startMonth);
+
+    // Switching room tabs: show that room's first month.
+    const chooseRoom = (id: string) => {
+        const next = rooms.find((item) => item.id === id);
+        if (!bnb || !next) return;
+        setRoomId(id);
+        setError(null);
+        const nextSchedule = readSchedule({ ...roomAsBnb(bnb, next), blockedDates: [] }, today);
+        const d = dayDate(nextSchedule ? nextSchedule.firstBookable : today);
+        setViewMonth({ year: d.getUTCFullYear(), month: d.getUTCMonth() });
+    };
 
     const periodEnded = !schedule || today > schedule.lastNight;
     const canEditNight = (day: number) =>
@@ -80,6 +139,44 @@ export const BnbAvailabilityModal: React.FC<BnbAvailabilityModalProps> = ({ prop
         setSaving(true);
         setError(null);
         try {
+            if (hasRooms) {
+                // Save each room type the host changed, then the whole-BnB switch.
+                for (const item of rooms) {
+                    const edit = roomEdits[item.id];
+                    const original = {
+                        accepting: item.accepting !== false,
+                        blocked: upcomingBlocked(item.blockedDates, today),
+                    };
+                    const itemSchedule = readSchedule({ ...roomAsBnb(bnb, item), blockedDates: [] }, today);
+                    const inPeriod = (day: number) =>
+                        !!itemSchedule && day >= itemSchedule.firstBookable && day <= itemSchedule.lastNight;
+                    const nightsChanged = !sameNights(edit.blocked, original.blocked);
+
+                    if (edit.accepting === original.accepting && !nightsChanged) continue;
+
+                    await updateBnbAvailability({
+                        id: property.id as Id<'properties'>,
+                        unitTypeId: item.id,
+                        accepting: edit.accepting,
+                        ...(nightsChanged && itemSchedule
+                            ? {
+                                blockedDates: [...edit.blocked]
+                                    .filter(inPeriod)
+                                    .sort((a, b) => a - b)
+                                    .map(toDateString),
+                            }
+                            : {}),
+                    });
+                }
+
+                if (accepting !== startAccepting) {
+                    await updateBnbAvailability({ id: property.id as Id<'properties'>, accepting });
+                }
+
+                onClose();
+                return;
+            }
+
             const blockedDates = [...blocked]
                 .filter(canEditNight)
                 .sort((a, b) => a - b)
@@ -148,10 +245,14 @@ export const BnbAvailabilityModal: React.FC<BnbAvailabilityModalProps> = ({ prop
                 {/* Accepting toggle */}
                 <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 bg-[#FBF8F2] dark:bg-[#1B1B1B] p-4">
                     <div>
-                        <p className="text-sm font-semibold text-neutral-900 dark:text-[#F5F5F5]">Accepting bookings</p>
+                        <p className="text-sm font-semibold text-neutral-900 dark:text-[#F5F5F5]">
+                            {hasRooms ? 'Accepting bookings (whole BnB)' : 'Accepting bookings'}
+                        </p>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400">
                             {accepting
-                                ? 'Guests can find your BnB and send booking requests.'
+                                ? hasRooms
+                                    ? 'Each room type below also has its own switch.'
+                                    : 'Guests can find your BnB and send booking requests.'
                                 : 'Paused: your BnB is hidden from guests.'}
                         </p>
                     </div>
@@ -169,6 +270,57 @@ export const BnbAvailabilityModal: React.FC<BnbAvailabilityModalProps> = ({ prop
                     </button>
                 </div>
 
+                {/* Room types: pick a room, then its own switch and calendar */}
+                {hasRooms && room && (
+                    <div className="space-y-3">
+                        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Room types">
+                            {rooms.map((item) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={item.id === room.id}
+                                    onClick={() => chooseRoom(item.id)}
+                                    className={`px-3 py-2 rounded-xl text-xs font-semibold border cursor-pointer ${item.id === room.id
+                                        ? 'bg-[var(--rentike-bronze)] border-[var(--rentike-bronze)] text-white'
+                                        : 'border-[#E7DED2] dark:border-neutral-700 text-neutral-700 dark:text-neutral-200 hover:bg-[#F2E7D8] dark:hover:bg-[#24201C]'
+                                        }`}
+                                >
+                                    {item.name}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 rounded-2xl border border-[#E7DED2] dark:border-neutral-800 bg-[#FBF8F2] dark:bg-[#1B1B1B] p-4">
+                            <div>
+                                <p className="text-sm font-semibold text-neutral-900 dark:text-[#F5F5F5]">
+                                    {room.name} accepting bookings
+                                </p>
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                                    {roomEdits[room.id].accepting ? 'Guests can request this room.' : 'Paused: guests see this room as not taking bookings.'}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={roomEdits[room.id].accepting}
+                                aria-label={`${room.name} accepting bookings`}
+                                onClick={() =>
+                                    setRoomEdits((prev) => ({
+                                        ...prev,
+                                        [room.id]: { ...prev[room.id], accepting: !prev[room.id].accepting },
+                                    }))
+                                }
+                                className={`relative h-7 w-12 shrink-0 rounded-full transition-colors cursor-pointer ${roomEdits[room.id].accepting ? 'bg-emerald-500' : 'bg-neutral-300 dark:bg-neutral-700'}`}
+                            >
+                                <span
+                                    className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${roomEdits[room.id].accepting ? 'left-6' : 'left-1'}`}
+                                />
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Nights */}
                 {periodEnded ? (
                     <p className="rounded-2xl border border-[#E7DED2] dark:border-neutral-800 p-4 text-sm text-neutral-600 dark:text-neutral-300">
@@ -179,7 +331,9 @@ export const BnbAvailabilityModal: React.FC<BnbAvailabilityModalProps> = ({ prop
                 ) : (
                     <div className="space-y-3">
                         <div>
-                            <p className="text-sm font-semibold text-neutral-900 dark:text-[#F5F5F5]">Block or unblock nights</p>
+                            <p className="text-sm font-semibold text-neutral-900 dark:text-[#F5F5F5]">
+                                {room ? `Block or unblock nights: ${room.name}` : 'Block or unblock nights'}
+                            </p>
                             <p className="text-xs text-neutral-500 dark:text-neutral-400">
                                 Tap a night when it's booked or you're not hosting. Tap again to open it.
                             </p>
