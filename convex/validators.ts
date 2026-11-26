@@ -27,6 +27,12 @@ export const bnbUnitTypeValidator = v.object({
 
     // Host can pause one unit type without pausing the whole building.
     accepting: v.optional(v.boolean()),
+
+    // Optional: this unit type's own availability. When availableFrom is
+    // missing, the unit type uses the building's hosting period.
+    availableFrom: v.optional(v.string()),
+    hostingDurationNights: v.optional(v.number()),
+    openEnded: v.optional(v.boolean()),
 });
 
 // Details that only BnB listings have. Rental listings never use this.
@@ -38,6 +44,10 @@ export const bnbDetailsValidator = v.object({
     maxNights: v.optional(v.number()),
     availableFrom: v.optional(v.string()),
     hostingDurationNights: v.optional(v.number()),
+    // "No end date": guests can book up to 12 months ahead, rolling.
+    // hostingDurationNights is still stored (up to today + 12 months) so
+    // screens that only understand a fixed period keep working.
+    openEnded: v.optional(v.boolean()),
 
     maxGuests: v.number(),
     bedrooms: v.number(),
@@ -49,7 +59,14 @@ export const bnbDetailsValidator = v.object({
 
     blockedDates: v.optional(v.array(v.string())),
 
+    // For BnBs with unit types this is worked out by the server:
+    // the building switch is on AND at least one unit type is accepting.
     accepting: v.boolean(),
+
+    // BnBs with unit types: the host's whole-BnB pause switch, kept
+    // separate so pausing/resuming the building never changes the
+    // individual unit types' own accepting settings.
+    buildingAccepting: v.optional(v.boolean()),
 
     // Optional: several unit types with different prices in one building.
     // BnBs without this keep working exactly as before (one price, one calendar).

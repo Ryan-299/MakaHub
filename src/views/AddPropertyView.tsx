@@ -36,6 +36,15 @@ import { uploadFileToConvex } from '../lib/convexStorage';
 import { isConvexConfigured, convexClient } from '../lib/convex';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
+import {
+  BnbUnitTypesEditor,
+  buildUnitTypesPayload,
+  draftFromSaved,
+  prepareBlockedNights,
+  summarizeUnitTypes,
+  type BnbUnitTypeDraft,
+  type SavedBnbUnitType,
+} from '../components/BnbUnitTypesEditor';
 
 const PROPERTY_TYPES: PropertyType[] = [
   'BnB',
@@ -355,6 +364,21 @@ export const AddPropertyView: React.FC = () => {
   const [blockTo, setBlockTo] = useState<string>('');
 
   const [accepting, setAccepting] = useState<boolean>(true);
+
+  // Optional: several unit types (rooms/apartments) with different prices.
+  const [bnbUnitTypes, setBnbUnitTypes] = useState<BnbUnitTypeDraft[]>([]);
+  const usingUnitTypes = isBnB && bnbUnitTypes.length > 0;
+
+  // Turning unit types off brings back the single building calendar.
+  // Keep every night that any unit type had blocked, so nothing reopens.
+  const handleUnitTypesChange = (next: BnbUnitTypeDraft[]) => {
+    if (next.length === 0 && bnbUnitTypes.length > 0) {
+      const blockedInTypes = bnbUnitTypes.flatMap((type) => type.blockedDates ?? []);
+      setBlockedDates((previous) => [...new Set([...previous, ...blockedInTypes])].sort());
+    }
+
+    setBnbUnitTypes(next);
+  };
 
 
   const toggleBlockedDate = (day: Date) => {
@@ -741,6 +765,9 @@ export const AddPropertyView: React.FC = () => {
         setHouseRules(bnbDetails.houseRules || '');
         setBlockedDates([...(bnbDetails.blockedDates ?? [])].sort());
         setAccepting(bnbDetails.accepting);
+        setBnbUnitTypes(
+          ((bnbDetails as { unitTypes?: SavedBnbUnitType[] }).unitTypes ?? []).map(draftFromSaved)
+        );
       }
     }
   }, [editingProperty]);
@@ -1334,14 +1361,33 @@ export const AddPropertyView: React.FC = () => {
       const toNumber = (value: string): number =>
         value.trim() === '' ? NaN : Number(value);
 
-      const pricePerNight = toNumber(nightlyRate);
-      const cleaning = cleaningFee.trim() === '' ? undefined : Number(cleaningFee);
+      // With unit types, price and capacity come from the unit types
+      // (cheapest price, largest capacity), the same way the server does it.
+      let unitTypesPayload: SavedBnbUnitType[] | undefined;
+
+      if (usingUnitTypes) {
+        const built = buildUnitTypesPayload(bnbUnitTypes);
+
+        if ('error' in built) {
+          setPhotoError(built.error);
+          return;
+        }
+
+        unitTypesPayload = built.unitTypes;
+      }
+
+      const summary = unitTypesPayload ? summarizeUnitTypes(unitTypesPayload) : null;
+
+      const pricePerNight = summary ? summary.pricePerNight : toNumber(nightlyRate);
+      const cleaning = summary
+        ? summary.cleaningFee
+        : cleaningFee.trim() === '' ? undefined : Number(cleaningFee);
       const min = toNumber(minimumNights);
       const max = maxNights.trim() === '' ? undefined : Number(maxNights);
-      const guests = toNumber(maxGuests);
-      const bedroomCount = toNumber(bedrooms);
-      const bedCount = toNumber(beds);
-      const bathroomCount = toNumber(bathrooms);
+      const guests = summary ? summary.maxGuests : toNumber(maxGuests);
+      const bedroomCount = summary ? summary.bedrooms : toNumber(bedrooms);
+      const bedCount = summary ? summary.beds : toNumber(beds);
+      const bathroomCount = summary ? summary.bathrooms : toNumber(bathrooms);
       const duration = Number(hostingDurationNights);
 
       if (!Number.isFinite(pricePerNight) || pricePerNight <= 0) {
@@ -1393,9 +1439,43 @@ export const AddPropertyView: React.FC = () => {
 
       // Only send blocked nights that are inside the current hosting period
       // (the host may have changed the dates after blocking some nights).
-      const blockedInPeriod = blockedDates.filter(
-        (date) => date >= availableFrom && date < hostingEndDate
-      );
+      // New unit types start with the building's blocked nights, and the
+      // host is warned before any upcoming blocked night is dropped.
+      const nights = prepareBlockedNights({
+        buildingBlocked: blockedDates,
+        unitTypes: unitTypesPayload,
+        availableFrom,
+        hostingEndDate,
+        today,
+      });
+
+      if (nights.droppedDates.length > 0) {
+        const shown = nights.droppedDates.slice(0, 10).map(formatKenyanDate).join(', ');
+        const more = nights.droppedDates.length > 10 ? ` and ${nights.droppedDates.length - 10} more` : '';
+
+        if (
+          !window.confirm(
+            `${nights.droppedDates.length} blocked night(s) are outside your new hosting period and will be removed: ${shown}${more}.\n\n` +
+            'If you extend the period again later, those nights will be open unless you block them again. Save anyway?'
+          )
+        ) {
+          return;
+        }
+      }
+
+      const blockedInPeriod = nights.buildingBlocked;
+      unitTypesPayload = nights.unitTypes;
+
+      // The listing had unit types and the host removed them all: tell the
+      // server explicitly (an omitted field keeps the existing unit types).
+      const hadUnitTypes =
+        ((editingProperty?.bnb as { unitTypes?: SavedBnbUnitType[] } | undefined)?.unitTypes?.length ?? 0) > 0;
+
+      const unitTypesField: { unitTypes?: SavedBnbUnitType[] } = unitTypesPayload
+        ? { unitTypes: unitTypesPayload }
+        : hadUnitTypes
+          ? { unitTypes: [] }
+          : {};
 
       if (startChanged && blockedInPeriod.length >= duration) {
         setPhotoError('Every night in your hosting period is blocked. Unblock at least one night.');
@@ -1486,6 +1566,7 @@ export const AddPropertyView: React.FC = () => {
               availableFrom,
               hostingDurationNights: duration,
               blockedDates: blockedInPeriod,
+              ...(unitTypesField as { unitTypes?: any }),
             },
             imageStorageIds: imageIds,
             videoStorageId: tourId,
@@ -1635,6 +1716,7 @@ export const AddPropertyView: React.FC = () => {
             availableFrom,
             hostingDurationNights: duration,
             blockedDates: blockedInPeriod,
+            ...(unitTypesField as { unitTypes?: any }),
           },
         });
 
@@ -2843,35 +2925,45 @@ export const AddPropertyView: React.FC = () => {
 
             {isBnB && (
               <div className="rounded-2xl border border-[#E2D3C2] dark:border-[#38322D] bg-[#F8F5EF] dark:bg-[#151515] p-5 sm:p-6 mb-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold mb-2">
-                      Nightly Rate (KSh) *
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={nightlyRate}
-                      onChange={handleNumericChange(setNightlyRate)}
-                      placeholder="e.g. 3500"
-                      required
-                      className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020]"
-                    />
-                  </div>
+                <BnbUnitTypesEditor
+                  value={bnbUnitTypes}
+                  onChange={handleUnitTypesChange}
+                  availableFrom={availableFrom}
+                  hostingEndDate={hostingEndDate}
+                  buildingBlocked={blockedDates}
+                />
 
-                  <div>
-                    <label className="block text-xs font-bold mb-2">
-                      Cleaning Fee (KSh) - Optional
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={cleaningFee}
-                      onChange={handleNumericChange(setCleaningFee)}
-                      placeholder="e.g. 1000"
-                      className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020]"
-                    />
-                  </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {!usingUnitTypes && (<>
+                    <div>
+                      <label className="block text-xs font-bold mb-2">
+                        Nightly Rate (KSh) *
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={nightlyRate}
+                        onChange={handleNumericChange(setNightlyRate)}
+                        placeholder="e.g. 3500"
+                        required
+                        className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold mb-2">
+                        Cleaning Fee (KSh) - Optional
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={cleaningFee}
+                        onChange={handleNumericChange(setCleaningFee)}
+                        placeholder="e.g. 1000"
+                        className="w-full px-4 py-3 rounded-xl border border-[#E2D3C2] dark:border-[#38322D] bg-white dark:bg-[#202020]"
+                      />
+                    </div>
+                  </>)}
 
                   <div>
                     <label className="block text-xs font-bold mb-2">
@@ -3133,7 +3225,7 @@ export const AddPropertyView: React.FC = () => {
 
 
 
-            {isBnB && (
+            {isBnB && !usingUnitTypes && (
               <div className="space-y-4">
                 <h2 className="text-lg font-bold">
                   6. BnB Guest Capacity
@@ -3341,7 +3433,14 @@ export const AddPropertyView: React.FC = () => {
                       </div>
                     )}
 
-                    {availabilityPreview.length > 0 && (
+                    {usingUnitTypes && (
+                      <p className="text-xs rounded-xl p-3 bg-[#F0EBE4] dark:bg-[#292521] text-[#77716C] dark:text-[#A3A3A3]">
+                        Each room type has its own calendar. Block nights in each room type's
+                        Calendar in section 5 above.
+                      </p>
+                    )}
+
+                    {!usingUnitTypes && availabilityPreview.length > 0 && (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between gap-2">
                           <h4 className="text-sm font-semibold">
@@ -3391,191 +3490,193 @@ export const AddPropertyView: React.FC = () => {
                       </div>
                     )}
 
-                    <details className="rounded-xl border border-[#E2D3C2] dark:border-[#38322D]">
-                      <summary className="flex items-center justify-between gap-3 cursor-pointer p-3 list-none [&::-webkit-details-marker]:hidden">
-                        <div>
-                          <p className="text-sm font-semibold">
-                            Block Specific Dates
+                    {!usingUnitTypes && (
+                      <details className="rounded-xl border border-[#E2D3C2] dark:border-[#38322D]">
+                        <summary className="flex items-center justify-between gap-3 cursor-pointer p-3 list-none [&::-webkit-details-marker]:hidden">
+                          <div>
+                            <p className="text-sm font-semibold">
+                              Block Specific Dates
 
 
 
+                            </p>
+                            <p className="text-xs text-[#A3A3A3] mt-1">
+                              {availableFrom && hostingEndDate
+                                ? blockedDates.filter(date =>
+                                  date >= availableFrom && date < hostingEndDate
+                                ).length
+                                : 0} blocked nights - Optional
+                            </p>
+                          </div>
+                          <ChevronDown className="w-4 h-4 text-[#B48353]" />
+                        </summary>
+                        <div className="p-3 space-y-3">
+                          <p className="text-xs text-[#A3A3A3]">
+                            Choose dates within your hosting period.
                           </p>
-                          <p className="text-xs text-[#A3A3A3] mt-1">
-                            {availableFrom && hostingEndDate
-                              ? blockedDates.filter(date =>
-                                date >= availableFrom && date < hostingEndDate
-                              ).length
-                              : 0} blocked nights - Optional
-                          </p>
-                        </div>
-                        <ChevronDown className="w-4 h-4 text-[#B48353]" />
-                      </summary>
-                      <div className="p-3 space-y-3">
-                        <p className="text-xs text-[#A3A3A3]">
-                          Choose dates within your hosting period.
-                        </p>
 
-                        <div>
-                          <label className="block text-xs font-semibold mb-2">
-                            From
-                          </label>
+                          <div>
+                            <label className="block text-xs font-semibold mb-2">
+                              From
+                            </label>
 
-                          <details className="relative">
-                            <summary className="flex items-center justify-between cursor-pointer rounded-lg border border-[#B48353]/40 p-3 text-sm list-none [&::-webkit-details-marker]:hidden">
-                              <span className="flex items-center gap-2">
-                                <CalendarDays className="w-4 h-4 text-[#B48353]" />
-                                {blockFrom ? formatKenyanDate(blockFrom) : 'Select date'}
-                              </span>
-                              <ChevronDown className="w-4 h-4 text-[#B48353]" />
-                            </summary>
+                            <details className="relative">
+                              <summary className="flex items-center justify-between cursor-pointer rounded-lg border border-[#B48353]/40 p-3 text-sm list-none [&::-webkit-details-marker]:hidden">
+                                <span className="flex items-center gap-2">
+                                  <CalendarDays className="w-4 h-4 text-[#B48353]" />
+                                  {blockFrom ? formatKenyanDate(blockFrom) : 'Select date'}
+                                </span>
+                                <ChevronDown className="w-4 h-4 text-[#B48353]" />
+                              </summary>
 
-                            <div className="absolute left-0 top-full z-50 mt-2 rounded-xl border border-[#B48353]/40 bg-[#F8F5EF] dark:bg-[#202020] p-2 shadow-2xl">
-                              <DayPicker
-                                mode="single"
-                                weekStartsOn={0}
-                                selected={blockFrom ? new Date(`${blockFrom}T12:00:00`) : undefined}
-                                onSelect={(date) => {
-                                  if (!date) return;
-                                  const year = date.getFullYear();
-                                  const month = String(date.getMonth() + 1).padStart(2, '0');
-                                  const day = String(date.getDate()).padStart(2, '0');
-                                  setBlockFrom(`${year}-${month}-${day}`);
-                                  setBlockTo('');
-                                }}
-                                disabled={(date) => {
-                                  const value = [
-                                    date.getFullYear(),
-                                    String(date.getMonth() + 1).padStart(2, '0'),
-                                    String(date.getDate()).padStart(2, '0')
-                                  ].join('-');
+                              <div className="absolute left-0 top-full z-50 mt-2 rounded-xl border border-[#B48353]/40 bg-[#F8F5EF] dark:bg-[#202020] p-2 shadow-2xl">
+                                <DayPicker
+                                  mode="single"
+                                  weekStartsOn={0}
+                                  selected={blockFrom ? new Date(`${blockFrom}T12:00:00`) : undefined}
+                                  onSelect={(date) => {
+                                    if (!date) return;
+                                    const year = date.getFullYear();
+                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                    const day = String(date.getDate()).padStart(2, '0');
+                                    setBlockFrom(`${year}-${month}-${day}`);
+                                    setBlockTo('');
+                                  }}
+                                  disabled={(date) => {
+                                    const value = [
+                                      date.getFullYear(),
+                                      String(date.getMonth() + 1).padStart(2, '0'),
+                                      String(date.getDate()).padStart(2, '0')
+                                    ].join('-');
 
-                                  return !availableFrom || !hostingEndDate ||
-                                    value < availableFrom || value >= hostingEndDate;
-                                }}
-                                styles={{
-                                  root: {
+                                    return !availableFrom || !hostingEndDate ||
+                                      value < availableFrom || value >= hostingEndDate;
+                                  }}
+                                  styles={{
+                                    root: {
+                                      '--rdp-accent-color': '#B48353',
+                                      '--rdp-day-width': '34px',
+                                      '--rdp-day-height': '34px',
+                                      '--rdp-day_button-width': '30px',
+                                      '--rdp-day_button-height': '30px',
+                                    } as React.CSSProperties
+                                  }}
+                                />
+
+                                <button
+                                  type="button"
+                                  disabled={!blockFrom}
+                                  onClick={(e) => {
+                                    e.currentTarget.closest('details')?.removeAttribute('open');
+                                  }}
+                                  className="mt-2 mx-auto block w-16 rounded-lg bg-[#B48353] px-3 py-1.5 text-xs font-bold text-white shadow-md disabled:bg-[#9B9086] disabled:text-white disabled:opacity-80 disabled:cursor-not-allowed"
+                                >
+                                  OK
+                                </button>
+
+                              </div>
+                            </details>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold mb-2">
+                              To (Check-out)
+                            </label>
+
+                            <details className="relative">
+                              <summary className="flex items-center justify-between cursor-pointer rounded-lg border border-[#B48353]/40 p-3 text-sm list-none [&::-webkit-details-marker]:hidden">
+                                <span className="flex items-center gap-2">
+                                  <CalendarDays className="w-4 h-4 text-[#B48353]" />
+                                  {blockTo ? formatKenyanDate(blockTo) : 'Select date'}
+                                </span>
+                                <ChevronDown className="w-4 h-4 text-[#B48353]" />
+                              </summary>
+
+                              <div className="absolute left-0 top-full z-50 mt-2 max-w-[calc(100vw-3rem)] rounded-xl border border-[#B48353]/40 bg-[#F8F5EF] dark:bg-[#202020] p-2 shadow-2xl">
+                                <DayPicker
+                                  mode="single"
+                                  weekStartsOn={0}
+                                  selected={blockTo ? new Date(`${blockTo}T12:00:00`) : undefined}
+                                  onSelect={(date) => {
+                                    if (!date) return;
+
+                                    const year = date.getFullYear();
+                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                    const day = String(date.getDate()).padStart(2, '0');
+
+                                    setBlockTo(`${year}-${month}-${day}`);
+                                  }}
+                                  disabled={(date) => {
+                                    const value = [
+                                      date.getFullYear(),
+                                      String(date.getMonth() + 1).padStart(2, '0'),
+                                      String(date.getDate()).padStart(2, '0')
+                                    ].join('-');
+
+                                    return !blockFrom || !hostingEndDate ||
+                                      value <= blockFrom || value > hostingEndDate;
+                                  }}
+                                  style={{
                                     '--rdp-accent-color': '#B48353',
                                     '--rdp-day-width': '34px',
                                     '--rdp-day-height': '34px',
                                     '--rdp-day_button-width': '30px',
                                     '--rdp-day_button-height': '30px',
-                                  } as React.CSSProperties
-                                }}
-                              />
+                                  } as React.CSSProperties}
+                                />
 
-                              <button
-                                type="button"
-                                disabled={!blockFrom}
-                                onClick={(e) => {
-                                  e.currentTarget.closest('details')?.removeAttribute('open');
-                                }}
-                                className="mt-2 mx-auto block w-16 rounded-lg bg-[#B48353] px-3 py-1.5 text-xs font-bold text-white shadow-md disabled:bg-[#9B9086] disabled:text-white disabled:opacity-80 disabled:cursor-not-allowed"
-                              >
-                                OK
-                              </button>
+                                <button
+                                  type="button"
+                                  disabled={!blockFrom}
+                                  onClick={(e) => {
+                                    e.currentTarget.closest('details')?.removeAttribute('open');
+                                  }}
 
-                            </div>
-                          </details>
+                                  className="mt-2 mx-auto block w-16 rounded-lg bg-[#B48353] px-3 py-1.5 text-xs font-bold text-white shadow-md disabled:bg-[#9B9086] disabled:text-white disabled:opacity-80 disabled:cursor-not-allowed"
+
+                                >
+                                  OK
+                                </button>
+
+                              </div>
+                            </details>
+                          </div>
+
+                          <button
+                            type="button"
+                            disabled={!blockFrom || !blockTo}
+                            onClick={() => {
+                              if (
+                                !availableFrom ||
+                                !hostingEndDate ||
+                                blockFrom < availableFrom ||
+                                blockFrom >= blockTo ||
+                                blockTo > hostingEndDate
+                              ) return;
+
+                              const dates: string[] = [];
+                              const current = new Date(`${blockFrom}T00:00:00Z`);
+
+                              while (current.toISOString().slice(0, 10) < blockTo) {
+                                dates.push(current.toISOString().slice(0, 10));
+                                current.setUTCDate(current.getUTCDate() + 1);
+                              }
+
+                              setBlockedDates(previous =>
+                                [...new Set([...previous, ...dates])].sort()
+                              );
+
+                              setBlockFrom('');
+                              setBlockTo('');
+                            }}
+                            className="w-full rounded-xl bg-[#B48353] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            Block Dates
+                          </button>
+
                         </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold mb-2">
-                            To (Check-out)
-                          </label>
-
-                          <details className="relative">
-                            <summary className="flex items-center justify-between cursor-pointer rounded-lg border border-[#B48353]/40 p-3 text-sm list-none [&::-webkit-details-marker]:hidden">
-                              <span className="flex items-center gap-2">
-                                <CalendarDays className="w-4 h-4 text-[#B48353]" />
-                                {blockTo ? formatKenyanDate(blockTo) : 'Select date'}
-                              </span>
-                              <ChevronDown className="w-4 h-4 text-[#B48353]" />
-                            </summary>
-
-                            <div className="absolute left-0 top-full z-50 mt-2 max-w-[calc(100vw-3rem)] rounded-xl border border-[#B48353]/40 bg-[#F8F5EF] dark:bg-[#202020] p-2 shadow-2xl">
-                              <DayPicker
-                                mode="single"
-                                weekStartsOn={0}
-                                selected={blockTo ? new Date(`${blockTo}T12:00:00`) : undefined}
-                                onSelect={(date) => {
-                                  if (!date) return;
-
-                                  const year = date.getFullYear();
-                                  const month = String(date.getMonth() + 1).padStart(2, '0');
-                                  const day = String(date.getDate()).padStart(2, '0');
-
-                                  setBlockTo(`${year}-${month}-${day}`);
-                                }}
-                                disabled={(date) => {
-                                  const value = [
-                                    date.getFullYear(),
-                                    String(date.getMonth() + 1).padStart(2, '0'),
-                                    String(date.getDate()).padStart(2, '0')
-                                  ].join('-');
-
-                                  return !blockFrom || !hostingEndDate ||
-                                    value <= blockFrom || value > hostingEndDate;
-                                }}
-                                style={{
-                                  '--rdp-accent-color': '#B48353',
-                                  '--rdp-day-width': '34px',
-                                  '--rdp-day-height': '34px',
-                                  '--rdp-day_button-width': '30px',
-                                  '--rdp-day_button-height': '30px',
-                                } as React.CSSProperties}
-                              />
-
-                              <button
-                                type="button"
-                                disabled={!blockFrom}
-                                onClick={(e) => {
-                                  e.currentTarget.closest('details')?.removeAttribute('open');
-                                }}
-
-                                className="mt-2 mx-auto block w-16 rounded-lg bg-[#B48353] px-3 py-1.5 text-xs font-bold text-white shadow-md disabled:bg-[#9B9086] disabled:text-white disabled:opacity-80 disabled:cursor-not-allowed"
-
-                              >
-                                OK
-                              </button>
-
-                            </div>
-                          </details>
-                        </div>
-
-                        <button
-                          type="button"
-                          disabled={!blockFrom || !blockTo}
-                          onClick={() => {
-                            if (
-                              !availableFrom ||
-                              !hostingEndDate ||
-                              blockFrom < availableFrom ||
-                              blockFrom >= blockTo ||
-                              blockTo > hostingEndDate
-                            ) return;
-
-                            const dates: string[] = [];
-                            const current = new Date(`${blockFrom}T00:00:00Z`);
-
-                            while (current.toISOString().slice(0, 10) < blockTo) {
-                              dates.push(current.toISOString().slice(0, 10));
-                              current.setUTCDate(current.getUTCDate() + 1);
-                            }
-
-                            setBlockedDates(previous =>
-                              [...new Set([...previous, ...dates])].sort()
-                            );
-
-                            setBlockFrom('');
-                            setBlockTo('');
-                          }}
-                          className="w-full rounded-xl bg-[#B48353] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          Block Dates
-                        </button>
-
-                      </div>
-                    </details>
+                      </details>
+                    )}
 
                   </div>
 

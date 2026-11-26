@@ -1,4 +1,4 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation } from "./_generated/server";
 import { v, type Infer } from "convex/values";
 
 import { internal } from "./_generated/api";
@@ -33,8 +33,32 @@ type BnbSchedule = {
   maxNights?: number;
   availableFrom?: string;
   hostingDurationNights?: number;
+  openEnded?: boolean;
   blockedDates?: string[];
 };
+
+// "No end date" BnBs: guests can book up to 12 months ahead, rolling.
+const ROLLING_WINDOW_NIGHTS = 365;
+
+function dayToDate(day: number): string {
+  return new Date(day * DAY_MS).toISOString().slice(0, 10);
+}
+
+// For "No end date", store a fallback period that ends 12 months from
+// today. Screens that only understand a fixed period keep showing
+// sensible dates. It is refreshed whenever the BnB is saved AND once a
+// day by refreshOpenEndedBnbs (convex/crons.ts), so the 12-month window
+// keeps rolling forward without the host editing anything. All checks
+// use today's window, never an old stored one.
+function applyRollingWindow<T extends BnbSchedule>(schedule: T): T {
+  if (schedule.openEnded !== true) return schedule;
+
+  const startDay = schedule.availableFrom ? toDayNumber(schedule.availableFrom) : null;
+  if (startDay === null) return schedule; // validateBnbSchedule explains the problem
+
+  const windowEnd = kenyaToday() + ROLLING_WINDOW_NIGHTS;
+  return { ...schedule, hostingDurationNights: Math.max(1, windowEnd - startDay) };
+}
 
 // Throws a clear error if the BnB schedule doesn't make sense.
 // For a NEW listing it also checks that the start date is within the
@@ -43,6 +67,7 @@ type BnbSchedule = {
 // a fully booked host may block every remaining night.
 function validateBnbSchedule(bnb: BnbSchedule, isNewListing: boolean) {
   const minNights = bnb.minNights ?? 1;
+  const openEnded = bnb.openEnded === true;
   const duration = bnb.hostingDurationNights;
   const startDay = bnb.availableFrom ? toDayNumber(bnb.availableFrom) : null;
 
@@ -58,7 +83,13 @@ function validateBnbSchedule(bnb: BnbSchedule, isNewListing: boolean) {
     }
   }
 
-  if (!Number.isSafeInteger(duration) || duration < 1 || duration > 365) {
+  // "No end date" has no 365-night limit: its stored period always ends
+  // 12 months from the day it was saved (see applyRollingWindow).
+  if (
+    !Number.isSafeInteger(duration) ||
+    duration < 1 ||
+    (!openEnded && duration > 365)
+  ) {
     throw new Error("Hosting duration must be between 1 and 365 nights.");
   }
 
@@ -71,7 +102,7 @@ function validateBnbSchedule(bnb: BnbSchedule, isNewListing: boolean) {
     throw new Error("Maximum nights must be at least the minimum nights.");
   }
 
-  if (minNights > duration) {
+  if (!openEnded && minNights > duration) {
     throw new Error("The minimum stay is longer than your hosting period.");
   }
 
@@ -114,13 +145,27 @@ const MAX_BNB_UNIT_TYPES = 30;
 // so cards, map pins and filters keep working:
 // - pricePerNight / cleaningFee = the cheapest unit type ("from" price)
 // - guests, bedrooms, beds, bathrooms = the largest unit type
-// - blockedDates = nights when every open unit type is unavailable
-function prepareBnbUnitTypes(bnb: BnbDetails): BnbDetails {
+// - hosting period = from the earliest unit type start to the latest end
+//   ("No end date" if any unit type has no end date)
+// - accepting = at least one unit type is accepting
+// - blockedDates = nights when no open unit type can be booked
+//
+// A unit type may have its own availability (availableFrom, duration or
+// "No end date"); without it, it uses the building's hosting period.
+// checkStartFor(type) says whether that unit type's start date must be
+// within the next year (new listings, or a start date the host changed).
+function prepareBnbUnitTypes(
+  input: BnbDetails,
+  checkStartFor: (type: NonNullable<BnbDetails["unitTypes"]>[number]) => boolean = () => false
+): BnbDetails {
+  const bnb = applyRollingWindow(input);
   const types = bnb.unitTypes;
 
   if (!types || types.length === 0) {
-    const { unitTypes: _unused, ...single } = bnb;
-    return single;
+    // No unit types: one accepting switch. (If unit types were just
+    // removed, the building switch becomes the BnB's switch again.)
+    const { unitTypes: _unused, buildingAccepting, ...single } = bnb;
+    return { ...single, accepting: buildingAccepting ?? single.accepting };
   }
 
   if (types.length > MAX_BNB_UNIT_TYPES) {
@@ -177,27 +222,92 @@ function prepareBnbUnitTypes(bnb: BnbDetails): BnbDetails {
       return day === null || day >= today;
     });
 
+    // This unit type's own availability, or (for unit types saved before
+    // they had their own dates) the building's.
+    const ownPeriod = type.availableFrom !== undefined;
+    const period = applyRollingWindow({
+      availableFrom: ownPeriod ? type.availableFrom : bnb.availableFrom,
+      hostingDurationNights: ownPeriod ? type.hostingDurationNights : bnb.hostingDurationNights,
+      openEnded: ownPeriod ? type.openEnded : bnb.openEnded,
+    });
+
+    if (checkStartFor(type)) {
+      const startDay = period.availableFrom ? toDayNumber(period.availableFrom) : null;
+
+      if (startDay === null || startDay < today || startDay > today + 365) {
+        throw new Error(`The available-from date for "${name}" must be within the next year.`);
+      }
+    }
+
     // Same calendar rules as the building: real dates, inside the
     // hosting period, no duplicates.
-    validateBnbSchedule({ ...bnb, blockedDates }, false);
+    try {
+      validateBnbSchedule({ ...bnb, ...period, blockedDates }, false);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "Invalid availability.";
+      throw new Error(`${name}: ${reason}`);
+    }
 
-    return { ...type, id, name, unitCount, blockedDates };
+    // Every unit type stores its own resolved period. The building-level
+    // period below is only a summary of these, so it never feeds back
+    // into a unit type on the next save.
+    return {
+      ...type,
+      id,
+      name,
+      unitCount,
+      blockedDates,
+      availableFrom: period.availableFrom,
+      hostingDurationNights: period.hostingDurationNights,
+      openEnded: period.openEnded === true ? true : undefined,
+    };
+  });
+
+  // Each unit type's period as day numbers: [start, end).
+  const periods = cleaned.map((type) => {
+    const start = toDayNumber(type.availableFrom as string) as number;
+    const duration = type.hostingDurationNights as number;
+
+    return { type, start, end: start + duration, openEnded: type.openEnded === true };
   });
 
   const cheapest = cleaned.reduce((low, type) =>
     type.pricePerNight < low.pricePerNight ? type : low
   );
 
-  const open = cleaned.filter((type) => type.accepting !== false);
-  const calendars = (open.length > 0 ? open : cleaned).map(
-    (type) => new Set(type.blockedDates)
-  );
-  const blockedEverywhere = [...calendars[0]]
-    .filter((date) => calendars.every((set) => set.has(date)))
-    .sort();
+  // First time unit types are added, the BnB's existing switch becomes
+  // the building switch.
+  const buildingAccepting = bnb.buildingAccepting ?? bnb.accepting;
+
+  const buildingStart = Math.min(...periods.map((item) => item.start));
+  const buildingEnd = Math.max(...periods.map((item) => item.end));
+  const anyOpenEnded = periods.some((item) => item.openEnded);
+
+  // Nights (from today on) when no open unit type can be booked: blocked,
+  // or outside that unit type's own period.
+  const open = periods.filter((item) => item.type.accepting !== false);
+  const considered = open.length > 0 ? open : periods;
+  const blockedSets = considered.map((item) => new Set(item.type.blockedDates));
+  const blockedEverywhere: string[] = [];
+
+  for (let day = Math.max(buildingStart, today); day < buildingEnd; day++) {
+    const date = dayToDate(day);
+    const bookable = considered.some(
+      (item, index) => day >= item.start && day < item.end && !blockedSets[index].has(date)
+    );
+
+    if (!bookable) blockedEverywhere.push(date);
+  }
 
   return {
     ...bnb,
+    availableFrom: dayToDate(buildingStart),
+    hostingDurationNights: buildingEnd - buildingStart,
+    openEnded: anyOpenEnded ? true : undefined,
+    // The host's whole-BnB switch is stored on its own; guests see the BnB
+    // as accepting only when it is on AND some unit type is accepting.
+    buildingAccepting,
+    accepting: buildingAccepting && cleaned.some((type) => type.accepting !== false),
     pricePerNight: cheapest.pricePerNight,
     cleaningFee: cheapest.cleaningFee,
     maxGuests: Math.max(...cleaned.map((type) => type.maxGuests)),
@@ -666,7 +776,7 @@ export const addWithUnits = mutation({
 
       // Unit types (if any) are checked here and the building-level
       // price/size fields are filled in from them.
-      const bnb = prepareBnbUnitTypes(args.bnb);
+      const bnb = prepareBnbUnitTypes(args.bnb, (type) => type.availableFrom !== undefined);
       bnbToSave = bnb;
 
       if (args.unitTypes.length !== 0) {
@@ -694,8 +804,11 @@ export const addWithUnits = mutation({
         throw new Error("Invalid BnB price or details.");
       }
 
-      // Hosting period, stay rules and blocked nights.
-      validateBnbSchedule(bnb, true);
+      // Hosting period, stay rules and blocked nights. With unit types,
+      // each unit type's period was already checked above.
+      if (!bnb.unitTypes) {
+        validateBnbSchedule(bnb, true);
+      }
 
       if (
         (bnb.checkInTime?.length ?? 0) > 20 ||
@@ -1442,8 +1555,11 @@ export const updateBnbAvailability = mutation({
       });
 
       // Same checks as new listings: real dates, inside the hosting
-      // period, no duplicates.
-      validateBnbSchedule({ ...property.bnb, blockedDates }, false);
+      // period, no duplicates. ("No end date" BnBs check against today's
+      // 12-month window.) Unit types are checked one by one below.
+      if (args.unitTypeId === undefined) {
+        validateBnbSchedule(applyRollingWindow({ ...property.bnb, blockedDates }), false);
+      }
     }
 
     const unitTypes = property.bnb.unitTypes ?? [];
@@ -1475,9 +1591,22 @@ export const updateBnbAvailability = mutation({
       throw new Error("Choose which unit type's calendar to update.");
     }
 
+    // With unit types, pausing or resuming the whole BnB only flips the
+    // building switch: each unit type keeps its own accepting setting.
+    if (unitTypes.length > 0) {
+      await ctx.db.patch(args.id, {
+        bnb: prepareBnbUnitTypes({
+          ...property.bnb,
+          buildingAccepting: args.accepting,
+        }),
+      });
+
+      return { success: true };
+    }
+
     await ctx.db.patch(args.id, {
       bnb: {
-        ...property.bnb,
+        ...applyRollingWindow(property.bnb),
         ...(blockedDates !== undefined
           ? { blockedDates }
           : {}),
@@ -1490,6 +1619,52 @@ export const updateBnbAvailability = mutation({
     return { success: true };
   },
 });
+// ---------------------------------------------------------------
+// Runs once a day (convex/crons.ts): keeps every "No end date" BnB's
+// stored 12-month window rolling forward, so guests always see the next
+// 12 months even if the host never edits the listing. Only listings
+// whose window actually moved are written.
+// ---------------------------------------------------------------
+export const refreshOpenEndedBnbs = internalMutation({
+  args: {},
+
+  handler: async (ctx) => {
+    const bnbs = (await ctx.db.query("properties").collect()).filter(
+      (doc) => doc.type === "BnB"
+    );
+
+    let refreshed = 0;
+
+    for (const doc of bnbs) {
+      const bnb = doc.bnb;
+      if (!bnb) continue;
+
+      const usesNoEndDate =
+        bnb.openEnded === true || (bnb.unitTypes ?? []).some((type) => type.openEnded === true);
+      if (!usesNoEndDate) continue;
+
+      try {
+        const next = prepareBnbUnitTypes(bnb);
+
+        const changed =
+          next.hostingDurationNights !== bnb.hostingDurationNights ||
+          (next.unitTypes ?? []).some(
+            (type, index) => type.hostingDurationNights !== bnb.unitTypes?.[index]?.hostingDurationNights
+          );
+
+        if (changed) {
+          await ctx.db.patch(doc._id, { bnb: next });
+          refreshed++;
+        }
+      } catch (error) {
+        console.warn("Could not refresh no-end-date BnB:", doc._id, error);
+      }
+    }
+
+    return { refreshed };
+  },
+});
+
 // ---------------------------------------------------------------
 // Edit a BnB the host owns. Edits go live straight away (only the
 // first post needs approval). A rejected BnB is resubmitted for review.
@@ -1576,10 +1751,21 @@ export const updateBnb = mutation({
     // If the form didn't send unitTypes at all (e.g. an older edit form),
     // keep the building's existing unit types. An explicit empty list
     // still removes them on purpose.
-    const bnb = prepareBnbUnitTypes({
-      ...args.bnb,
-      unitTypes: args.bnb.unitTypes ?? doc.bnb.unitTypes,
-    });
+    // A unit type's start date must be within the next year when it is
+    // new or the host changed it (an unchanged start may be in the past).
+    const previousTypes = new Map((doc.bnb.unitTypes ?? []).map((type) => [type.id, type]));
+    const bnb = prepareBnbUnitTypes(
+      {
+        ...args.bnb,
+        unitTypes: args.bnb.unitTypes ?? doc.bnb.unitTypes,
+        buildingAccepting: args.bnb.buildingAccepting ?? doc.bnb.buildingAccepting,
+      },
+      (type) => {
+        if (type.availableFrom === undefined) return false;
+        const before = previousTypes.get(type.id);
+        return (before?.availableFrom ?? doc.bnb!.availableFrom) !== type.availableFrom;
+      }
+    );
     const wholeNumbers = [
       bnb.maxGuests,
       bnb.bedrooms,
@@ -1617,8 +1803,11 @@ export const updateBnb = mutation({
 
     // A new start date must be within the next year (same rule as new
     // listings). An unchanged start date may already be in the past.
+    // With unit types, each unit type's period was already checked.
     const startChanged = bnb.availableFrom !== doc.bnb.availableFrom;
-    validateBnbSchedule({ ...bnb, blockedDates }, startChanged);
+    if (!bnb.unitTypes) {
+      validateBnbSchedule({ ...bnb, blockedDates }, startChanged);
+    }
 
     // Media no longer used by this BnB, to clean up after saving.
     const keptIds = new Set<string>(args.imageStorageIds);
